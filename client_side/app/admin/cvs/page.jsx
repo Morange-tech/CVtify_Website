@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -35,7 +35,6 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import DeleteIcon from '@mui/icons-material/Delete';
 import DescriptionIcon from '@mui/icons-material/Description';
 import PersonIcon from '@mui/icons-material/Person';
-import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import SortIcon from '@mui/icons-material/Sort';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
@@ -43,16 +42,12 @@ import CloseIcon from '@mui/icons-material/Close';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import BrushIcon from '@mui/icons-material/Brush';
 import DownloadIcon from '@mui/icons-material/Download';
-import FilterListIcon from '@mui/icons-material/FilterList';
 import KeyboardArrowLeftIcon from '@mui/icons-material/KeyboardArrowLeft';
 import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 import WorkspacePremiumIcon from '@mui/icons-material/WorkspacePremium';
-import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import GridViewIcon from '@mui/icons-material/GridView';
 import ViewListIcon from '@mui/icons-material/ViewList';
-import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import StarIcon from '@mui/icons-material/Star';
-import PeopleIcon from '@mui/icons-material/People';
+import { adminApi } from '../../services/api';
 
 export default function AdminCVsPage() {
   // ─── State ───
@@ -73,187 +68,12 @@ export default function AdminCVsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // ─── Mock Templates ───
-  const templates = [
-    { id: 1, name: 'Professional', color: '#667eea', uses: 3245 },
-    { id: 2, name: 'Executive', color: '#8b5cf6', uses: 1890 },
-    { id: 3, name: 'Tech Pro', color: '#06b6d4', uses: 1650 },
-    { id: 4, name: 'Modern Creative', color: '#ec4899', uses: 2180 },
-    { id: 5, name: 'Minimal Clean', color: '#10b981', uses: 1520 },
-    { id: 6, name: 'Fresh Graduate', color: '#f59e0b', uses: 947 },
-  ];
+  const [cvs, setCvs] = useState([]);
+  const [templates, setTemplates] = useState([]);
+  const [usersList, setUsersList] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  // ─── Mock Users List ───
-  const usersList = [
-    { id: 1, name: 'John Doe', email: 'john@mail.com' },
-    { id: 2, name: 'Jane Smith', email: 'jane@mail.com' },
-    { id: 3, name: 'Alex Johnson', email: 'alex@mail.com' },
-    { id: 4, name: 'Sarah Williams', email: 'sarah@mail.com' },
-    { id: 5, name: 'Robert Chen', email: 'robert@mail.com' },
-    { id: 6, name: 'Emma Wilson', email: 'emma@mail.com' },
-    { id: 7, name: 'Mike Brown', email: 'mike@mail.com' },
-    { id: 8, name: 'Lisa Park', email: 'lisa@mail.com' },
-  ];
-
-  // ─── Mock CVs Data ───
-  const [cvs, setCvs] = useState([
-    {
-      id: 1,
-      title: 'Software Developer CV',
-      user: { id: 1, name: 'John Doe', email: 'john@mail.com', plan: 'premium' },
-      template: 'Professional',
-      templateId: 1,
-      status: 'complete',
-      createdAt: '2025-06-18T14:30:00',
-      lastEdited: '2 hours ago',
-      downloads: 5,
-      pages: 2,
-      sections: ['Personal Info', 'Experience', 'Education', 'Skills', 'Projects'],
-    },
-    {
-      id: 2,
-      title: 'UX Designer Resume',
-      user: { id: 2, name: 'Jane Smith', email: 'jane@mail.com', plan: 'premium' },
-      template: 'Modern Creative',
-      templateId: 4,
-      status: 'complete',
-      createdAt: '2025-06-17T10:15:00',
-      lastEdited: '1 day ago',
-      downloads: 8,
-      pages: 1,
-      sections: ['Personal Info', 'Experience', 'Skills', 'Portfolio'],
-    },
-    {
-      id: 3,
-      title: 'Project Manager CV',
-      user: { id: 3, name: 'Alex Johnson', email: 'alex@mail.com', plan: 'free' },
-      template: 'Executive',
-      templateId: 2,
-      status: 'draft',
-      createdAt: '2025-06-16T16:45:00',
-      lastEdited: '2 days ago',
-      downloads: 0,
-      pages: 1,
-      sections: ['Personal Info', 'Experience'],
-    },
-    {
-      id: 4,
-      title: 'Data Analyst Resume',
-      user: { id: 4, name: 'Sarah Williams', email: 'sarah@mail.com', plan: 'free' },
-      template: 'Minimal Clean',
-      templateId: 5,
-      status: 'complete',
-      createdAt: '2025-06-15T09:20:00',
-      lastEdited: '3 days ago',
-      downloads: 3,
-      pages: 2,
-      sections: ['Personal Info', 'Experience', 'Education', 'Skills', 'Certifications'],
-    },
-    {
-      id: 5,
-      title: 'Frontend Developer CV',
-      user: { id: 5, name: 'Robert Chen', email: 'robert@mail.com', plan: 'premium' },
-      template: 'Tech Pro',
-      templateId: 3,
-      status: 'complete',
-      createdAt: '2025-06-14T08:30:00',
-      lastEdited: '4 days ago',
-      downloads: 12,
-      pages: 2,
-      sections: ['Personal Info', 'Experience', 'Education', 'Skills', 'Projects', 'Languages'],
-    },
-    {
-      id: 6,
-      title: 'Marketing Manager CV',
-      user: { id: 6, name: 'Emma Wilson', email: 'emma@mail.com', plan: 'free' },
-      template: 'Professional',
-      templateId: 1,
-      status: 'complete',
-      createdAt: '2025-06-13T14:10:00',
-      lastEdited: '5 days ago',
-      downloads: 2,
-      pages: 1,
-      sections: ['Personal Info', 'Experience', 'Education', 'Skills'],
-    },
-    {
-      id: 7,
-      title: 'Junior Developer Resume',
-      user: { id: 7, name: 'Mike Brown', email: 'mike@mail.com', plan: 'free' },
-      template: 'Fresh Graduate',
-      templateId: 6,
-      status: 'draft',
-      createdAt: '2025-06-12T17:25:00',
-      lastEdited: '6 days ago',
-      downloads: 0,
-      pages: 1,
-      sections: ['Personal Info', 'Education'],
-    },
-    {
-      id: 8,
-      title: 'DevOps Engineer CV',
-      user: { id: 5, name: 'Robert Chen', email: 'robert@mail.com', plan: 'premium' },
-      template: 'Tech Pro',
-      templateId: 3,
-      status: 'complete',
-      createdAt: '2025-06-11T12:00:00',
-      lastEdited: '1 week ago',
-      downloads: 6,
-      pages: 2,
-      sections: ['Personal Info', 'Experience', 'Education', 'Skills', 'Certifications'],
-    },
-    {
-      id: 9,
-      title: 'Product Designer CV',
-      user: { id: 2, name: 'Jane Smith', email: 'jane@mail.com', plan: 'premium' },
-      template: 'Modern Creative',
-      templateId: 4,
-      status: 'complete',
-      createdAt: '2025-06-10T15:30:00',
-      lastEdited: '1 week ago',
-      downloads: 4,
-      pages: 2,
-      sections: ['Personal Info', 'Experience', 'Skills', 'Portfolio', 'Awards'],
-    },
-    {
-      id: 10,
-      title: 'HR Manager Resume',
-      user: { id: 8, name: 'Lisa Park', email: 'lisa@mail.com', plan: 'free' },
-      template: 'Executive',
-      templateId: 2,
-      status: 'complete',
-      createdAt: '2025-06-09T09:00:00',
-      lastEdited: '1 week ago',
-      downloads: 1,
-      pages: 1,
-      sections: ['Personal Info', 'Experience', 'Education', 'Skills'],
-    },
-    {
-      id: 11,
-      title: 'Backend Developer CV',
-      user: { id: 1, name: 'John Doe', email: 'john@mail.com', plan: 'premium' },
-      template: 'Professional',
-      templateId: 1,
-      status: 'complete',
-      createdAt: '2025-06-08T11:20:00',
-      lastEdited: '10 days ago',
-      downloads: 7,
-      pages: 2,
-      sections: ['Personal Info', 'Experience', 'Education', 'Skills', 'Projects'],
-    },
-    {
-      id: 12,
-      title: 'Graphic Designer CV',
-      user: { id: 6, name: 'Emma Wilson', email: 'emma@mail.com', plan: 'free' },
-      template: 'Modern Creative',
-      templateId: 4,
-      status: 'draft',
-      createdAt: '2025-06-07T16:45:00',
-      lastEdited: '11 days ago',
-      downloads: 0,
-      pages: 1,
-      sections: ['Personal Info'],
-    },
-  ]);
 
   // ─── Computed Stats ───
   const totalCvs = cvs.length;
@@ -264,7 +84,7 @@ export default function AdminCVsPage() {
   const freeUserCvs = cvs.filter((c) => c.user.plan === 'free').length;
 
   // Template usage stats
-  const templateStats = templates
+  const templateStats = (Array.isArray(templates) ? templates : [])
     .map((t) => ({
       ...t,
       count: cvs.filter((c) => c.templateId === t.id).length,
@@ -274,25 +94,45 @@ export default function AdminCVsPage() {
   const maxTemplateCount = Math.max(...templateStats.map((t) => t.count), 1);
 
   // ─── Filter ───
-  const filteredCvs = cvs.filter((cv) => {
-    const matchesSearch =
-      cv.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      cv.user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      cv.user.email.toLowerCase().includes(searchQuery.toLowerCase());
+  const filteredCvs = useMemo(() => {
+    let result = cvs.filter((cv) => {
+      const matchesSearch =
+        cv.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        cv.user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        cv.user.email.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesTab =
-      activeTab === 'all' ||
-      (activeTab === 'complete' && cv.status === 'complete') ||
-      (activeTab === 'draft' && cv.status === 'draft');
+      const matchesTab =
+        activeTab === 'all' ||
+        (activeTab === 'complete' && cv.status === 'complete') ||
+        (activeTab === 'draft' && cv.status === 'draft');
 
-    const matchesTemplate =
-      templateFilter === 'all' || cv.templateId === parseInt(templateFilter);
+      const matchesTemplate =
+        templateFilter === 'all' || cv.templateId === parseInt(templateFilter);
 
-    const matchesUser =
-      userFilter === 'all' || cv.user.id === parseInt(userFilter);
+      const matchesUser =
+        userFilter === 'all' || cv.user.id === parseInt(userFilter);
 
-    return matchesSearch && matchesTab && matchesTemplate && matchesUser;
-  });
+      return matchesSearch && matchesTab && matchesTemplate && matchesUser;
+    });
+
+    switch (sortBy) {
+      case 'oldest':
+        result.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+        break;
+      case 'downloads':
+        result.sort((a, b) => b.downloads - a.downloads);
+        break;
+      case 'title':
+        result.sort((a, b) => a.title.localeCompare(b.title));
+        break;
+      case 'newest':
+      default:
+        result.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        break;
+    }
+
+    return result;
+  }, [cvs, searchQuery, activeTab, templateFilter, userFilter, sortBy]);
 
   // ─── Pagination ───
   const totalPages = Math.ceil(filteredCvs.length / itemsPerPage);
@@ -326,17 +166,49 @@ export default function AdminCVsPage() {
     handleMenuClose();
   };
 
-  const handleDeleteConfirm = () => {
-    setCvs((prev) => prev.filter((c) => c.id !== selectedCv.id));
-    setDeleteDialogOpen(false);
-    setSnackbar({ open: true, message: `"${selectedCv.title}" deleted.`, severity: 'warning' });
+  const handleDeleteConfirm = async () => {
+    try {
+      await adminApi.deleteCV(selectedCv.id);
+
+      setCvs((prev) => prev.filter((c) => c.id !== selectedCv.id));
+      setDeleteDialogOpen(false);
+
+      setSnackbar({
+        open: true,
+        message: `"${selectedCv.title}" deleted.`,
+        severity: 'warning',
+      });
+    } catch (error) {
+      console.error('Delete failed:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to delete CV',
+        severity: 'error',
+      });
+    }
   };
 
-  const handleBulkDelete = () => {
-    setCvs((prev) => prev.filter((c) => !selectedCvs.includes(c.id)));
-    setSelectedCvs([]);
-    setBulkDeleteDialogOpen(false);
-    setSnackbar({ open: true, message: `${selectedCvs.length} CVs deleted.`, severity: 'warning' });
+  const handleBulkDelete = async () => {
+    try {
+      await adminApi.bulkDeleteCVs(selectedCvs);
+
+      setCvs((prev) => prev.filter((c) => !selectedCvs.includes(c.id)));
+      setSelectedCvs([]);
+      setBulkDeleteDialogOpen(false);
+
+      setSnackbar({
+        open: true,
+        message: `${selectedCvs.length} CVs deleted.`,
+        severity: 'warning',
+      });
+    } catch (error) {
+      console.error('Bulk delete failed:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to delete selected CVs',
+        severity: 'error',
+      });
+    }
   };
 
   const handleToggleSelect = (cvId) => {
@@ -373,7 +245,58 @@ export default function AdminCVsPage() {
     setCurrentPage(1);
   };
 
+  const fetchAdminData = async (showRefresh = false) => {
+    try {
+      if (showRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+
+      const [cvsRes, templatesRes, usersRes] = await Promise.all([
+        adminApi.getCVs(),
+        adminApi.getTemplates(),
+        adminApi.getUsers(),
+      ]);
+
+      const extractArray = (res) => {
+        if (Array.isArray(res)) return res;
+        if (Array.isArray(res?.data)) return res.data;
+        if (Array.isArray(res?.data?.results)) return res.data.results;
+        return [];
+      };
+
+      setCvs(extractArray(cvsRes));
+      setTemplates(extractArray(templatesRes));
+      setUsersList(extractArray(usersRes));
+    } catch (error) {
+      console.error('Failed to fetch admin data:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to load admin data',
+        severity: 'error',
+      });
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAdminData();
+  }, []);
+
   const hasActiveFilters = templateFilter !== 'all' || userFilter !== 'all' || searchQuery;
+
+  if (loading) {
+    return (
+      <Box sx={{ p: 4 }}>
+        <Typography variant="h6" color="#64748b">
+          Loading CV data...
+        </Typography>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ p: { xs: 2, md: 4 } }}>
@@ -426,8 +349,17 @@ export default function AdminCVsPage() {
             Export
           </Button>
           <Tooltip title="Refresh">
-            <IconButton sx={{ bgcolor: '#ffffff', border: '1px solid #e2e8f0', '&:hover': { bgcolor: '#f8fafc' } }}>
-              <RefreshIcon sx={{ fontSize: 20, color: '#64748b' }} />
+            <IconButton
+              onClick={() => fetchAdminData(true)}
+              sx={{ bgcolor: '#ffffff', border: '1px solid #e2e8f0', '&:hover': { bgcolor: '#f8fafc' } }}
+            >
+              <RefreshIcon
+                sx={{
+                  fontSize: 20,
+                  color: '#64748b',
+                  animation: refreshing ? 'spin 1s linear infinite' : 'none',
+                }}
+              />
             </IconButton>
           </Tooltip>
         </Box>
@@ -972,14 +904,14 @@ export default function AdminCVsPage() {
 
                 {/* Created */}
                 <Typography variant="caption" color="#94a3b8" sx={{ display: { xs: 'none', md: 'block' } }}>
-                  {cv.lastEdited}
+                  {new Date(cv.createdAt).toLocaleDateString()}
                 </Typography>
 
                 {/* Actions */}
                 <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
                   <Tooltip title="View">
-                    <IconButton size="small" onClick={() => handleViewCv(cv)}>
-                      <VisibilityIcon sx={{ fontSize: 18, color: '#94a3b8' }} />
+                    <IconButton onClick={(e) => handleMenuOpen(e, cv)}>
+                      <MoreVertIcon fontSize="small" />
                     </IconButton>
                   </Tooltip>
                   <IconButton size="small" onClick={(e) => handleMenuOpen(e, cv)}>
@@ -1006,24 +938,20 @@ export default function AdminCVsPage() {
                 Showing {(currentPage - 1) * itemsPerPage + 1}–
                 {Math.min(currentPage * itemsPerPage, filteredCvs.length)} of {filteredCvs.length}
               </Typography>
-              <Box sx={{ display: 'flex', gap: 0.5 }}>
-                <IconButton size="small" disabled={currentPage === 1} onClick={() => setCurrentPage((p) => p - 1)}>
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2, gap: 1 }}>
+                <IconButton
+                  size="small"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((p) => p - 1)}
+                >
                   <KeyboardArrowLeftIcon />
                 </IconButton>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                  <Button
-                    key={page}
-                    size="small"
-                    onClick={() => setCurrentPage(page)}
-                    sx={{
-                      minWidth: 32, height: 32, borderRadius: 1, fontWeight: 600, fontSize: '0.8rem',
-                      ...(currentPage === page ? { bgcolor: '#667eea', color: '#ffffff' } : { color: '#64748b' }),
-                    }}
-                  >
-                    {page}
-                  </Button>
-                ))}
-                <IconButton size="small" disabled={currentPage === totalPages} onClick={() => setCurrentPage((p) => p + 1)}>
+                <Typography variant="body2">{currentPage} / {totalPages}</Typography>
+                <IconButton
+                  size="small"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage((p) => p + 1)}
+                >
                   <KeyboardArrowRightIcon />
                 </IconButton>
               </Box>
@@ -1149,28 +1077,18 @@ export default function AdminCVsPage() {
       )}
 
       {/* ═══════════ CONTEXT MENU ═══════════ */}
-      <Menu
+            <Menu
         anchorEl={menuAnchorEl}
         open={Boolean(menuAnchorEl)}
         onClose={handleMenuClose}
-        PaperProps={{ sx: { borderRadius: 2, boxShadow: '0 4px 20px rgba(0,0,0,0.12)', minWidth: 200 } }}
       >
-        <MenuItem onClick={() => handleViewCv()} sx={{ py: 1 }}>
-          <ListItemIcon><VisibilityIcon fontSize="small" sx={{ color: '#667eea' }} /></ListItemIcon>
-          <ListItemText primary="View CV" />
+        <MenuItem onClick={() => handleViewCv(selectedCv)}>
+          <ListItemIcon><VisibilityIcon fontSize="small" /></ListItemIcon>
+          <ListItemText>View</ListItemText>
         </MenuItem>
-        <MenuItem onClick={() => { handleMenuClose(); handleFilterByUser(selectedCv?.user.id); }} sx={{ py: 1 }}>
-          <ListItemIcon><PersonIcon fontSize="small" sx={{ color: '#8b5cf6' }} /></ListItemIcon>
-          <ListItemText primary={`Filter by ${selectedCv?.user.name}`} />
-        </MenuItem>
-        <MenuItem onClick={() => { handleMenuClose(); handleFilterByTemplate(selectedCv?.templateId); }} sx={{ py: 1 }}>
-          <ListItemIcon><BrushIcon fontSize="small" sx={{ color: '#10b981' }} /></ListItemIcon>
-          <ListItemText primary={`Filter by ${selectedCv?.template}`} />
-        </MenuItem>
-        <Divider sx={{ my: 0.5 }} />
-        <MenuItem onClick={() => handleDeleteOpen()} sx={{ py: 1, '&:hover': { bgcolor: '#ef444410' } }}>
-          <ListItemIcon><DeleteIcon fontSize="small" sx={{ color: '#ef4444' }} /></ListItemIcon>
-          <ListItemText primary="Delete CV" primaryTypographyProps={{ color: '#ef4444' }} />
+        <MenuItem onClick={() => handleDeleteOpen(selectedCv)}>
+          <ListItemIcon><DeleteIcon fontSize="small" /></ListItemIcon>
+          <ListItemText>Delete</ListItemText>
         </MenuItem>
       </Menu>
 
@@ -1385,13 +1303,14 @@ export default function AdminCVsPage() {
       <Snackbar
         open={snackbar.open}
         autoHideDuration={4000}
-        onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
         <Alert
-          onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
           severity={snackbar.severity}
-          sx={{ borderRadius: 2, fontWeight: 600 }}
+          variant="filled"
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          sx={{ width: '100%' }}
         >
           {snackbar.message}
         </Alert>

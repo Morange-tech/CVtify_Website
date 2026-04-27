@@ -1,7 +1,7 @@
 // app/(dashboard)/my-cvs/page.jsx
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Box,
   Typography,
@@ -18,9 +18,11 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Avatar,
   Tooltip,
   Divider,
+  Alert,
+  Snackbar,
+  CircularProgress,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
@@ -36,80 +38,52 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import SortIcon from '@mui/icons-material/Sort';
 import GridViewIcon from '@mui/icons-material/GridView';
 import ViewListIcon from '@mui/icons-material/ViewList';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '../../hooks/useAuth'; // adjust path as needed
 import HistoryIcon from '@mui/icons-material/History';
 import CreateNewFolderIcon from '@mui/icons-material/CreateNewFolder';
-
+import { useRouter } from 'next/navigation';
+import { useAuth } from '../../hooks/useAuth';
+import useMyCvs from '../../hooks/useMyCvs';
 
 export default function MyCvsPage() {
   const router = useRouter();
-
   const { user } = useAuth();
-  const isPremium = user?.plan === 'premium';
+  const isPremium = user?.plan === 'premium' || user?.subscription_plan === 'premium' || user?.is_premium;
 
-  // States
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
+  const [viewMode, setViewMode] = useState('grid');
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedCv, setSelectedCv] = useState(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [versionHistoryOpen, setVersionHistoryOpen] = useState(false);
   const [newName, setNewName] = useState('');
-  const [sortBy, setSortBy] = useState('lastEdited'); // 'lastEdited', 'name', 'created'
+  const [sortBy, setSortBy] = useState('lastEdited');
   const [sortAnchorEl, setSortAnchorEl] = useState(null);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
-  // Mock CV data — replace with API data later
-  const [cvs, setCvs] = useState([
-    {
-      id: 1,
-      title: 'Software Developer CV',
-      template: 'Professional',
-      lastEdited: '2 hours ago',
-      createdAt: '2 weeks ago',
-      status: 'complete',
-      downloads: 5,
-      thumbnail: null,
-    },
-    {
-      id: 2,
-      title: 'UX Designer Resume',
-      template: 'Modern',
-      lastEdited: '3 days ago',
-      createdAt: '1 month ago',
-      status: 'complete',
-      downloads: 4,
-      thumbnail: null,
-    },
-    {
-      id: 3,
-      title: 'Project Manager CV',
-      template: 'Classic',
-      lastEdited: '1 week ago',
-      createdAt: '3 weeks ago',
-      status: 'draft',
-      downloads: 0,
-      thumbnail: null,
-    },
-    {
-      id: 4,
-      title: 'Data Analyst Resume',
-      template: 'Minimal',
-      lastEdited: '5 days ago',
-      createdAt: '2 months ago',
-      status: 'complete',
-      downloads: 2,
-      thumbnail: null,
-    },
-  ]);
+  const {
+    cvs,
+    meta,
+    loading,
+    actionLoading,
+    error,
+    renameCv,
+    deleteCv,
+    duplicateCv,
+    shareCv,
+    downloadCv,
+  } = useMyCvs({
+    search: searchQuery,
+    sort: sortBy,
+  });
 
-  // Filter CVs based on search
-  const filteredCvs = cvs.filter((cv) =>
-    cv.title.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const showSnackbar = (message, severity = 'success') => {
+    setSnackbar({ open: true, message, severity });
+  };
 
-  // Menu handlers
+  const filteredCvs = useMemo(() => cvs, [cvs]);
+
   const handleMenuOpen = (event, cv) => {
     setAnchorEl(event.currentTarget);
     setSelectedCv(cv);
@@ -119,53 +93,77 @@ export default function MyCvsPage() {
     setAnchorEl(null);
   };
 
-  // Actions
   const handleView = () => {
     handleMenuClose();
-    // router.push(`/cv/${selectedCv.id}/view`);
+    if (!selectedCv) return;
+    router.push(`/dashboard/cvs/${selectedCv.id}`);
   };
 
   const handleEdit = () => {
     handleMenuClose();
-    // router.push(`/cv/${selectedCv.id}/edit`);
+    if (!selectedCv) return;
+    router.push(`/builder/${selectedCv.id}`);
   };
 
-  const handleDuplicate = () => {
-    const duplicate = {
-      ...selectedCv,
-      id: Date.now(),
-      title: `${selectedCv.title} (Copy)`,
-      lastEdited: 'Just now',
-      createdAt: 'Just now',
-      downloads: 0,
-    };
-    setCvs((prev) => [duplicate, ...prev]);
-    handleMenuClose();
+  const handleDuplicate = async () => {
+    if (!selectedCv) return;
+    try {
+      const res = await duplicateCv(selectedCv.id);
+      showSnackbar(res.message || 'CV duplicated successfully');
+    } catch (err) {
+      showSnackbar(err.message || 'Failed to duplicate CV', 'error');
+    } finally {
+      handleMenuClose();
+    }
   };
 
   const handleRenameOpen = () => {
-    setNewName(selectedCv.title);
+    setNewName(selectedCv?.title || '');
     setRenameDialogOpen(true);
     handleMenuClose();
   };
 
-  const handleRenameConfirm = () => {
-    setCvs((prev) =>
-      prev.map((cv) =>
-        cv.id === selectedCv.id ? { ...cv, title: newName, lastEdited: 'Just now' } : cv
-      )
-    );
-    setRenameDialogOpen(false);
+  const handleRenameConfirm = async () => {
+    if (!selectedCv) return;
+    try {
+      const res = await renameCv(selectedCv.id, newName);
+      showSnackbar(res.message || 'CV renamed successfully');
+      setRenameDialogOpen(false);
+    } catch (err) {
+      showSnackbar(err.message || 'Failed to rename CV', 'error');
+    }
   };
 
-  const handleShareOpen = () => {
-    setShareDialogOpen(true);
-    handleMenuClose();
+  const handleShareOpen = async () => {
+    if (!selectedCv) return;
+
+    try {
+      const res = await shareCv(selectedCv.id);
+      if (res.cv) setSelectedCv(res.cv);
+      showSnackbar(res.message || 'Share link generated');
+      setShareDialogOpen(true);
+    } catch (err) {
+      showSnackbar(err.message || 'Failed to generate share link', 'error');
+    } finally {
+      handleMenuClose();
+    }
   };
 
-  const handleDownload = () => {
-    handleMenuClose();
-    // API call to download PDF
+  const handleDownload = async () => {
+    if (!selectedCv) return;
+
+    try {
+      const res = await downloadCv(selectedCv.id);
+      showSnackbar(res.message || 'Download started');
+
+      if (res.downloadUrl) {
+        window.open(res.downloadUrl, '_blank');
+      }
+    } catch (err) {
+      showSnackbar(err.message || 'Failed to download CV', 'error');
+    } finally {
+      handleMenuClose();
+    }
   };
 
   const handleDeleteOpen = () => {
@@ -173,34 +171,37 @@ export default function MyCvsPage() {
     handleMenuClose();
   };
 
-  const handleDeleteConfirm = () => {
-    setCvs((prev) => prev.filter((cv) => cv.id !== selectedCv.id));
-    setDeleteDialogOpen(false);
-    setSelectedCv(null);
+  const handleDeleteConfirm = async () => {
+    if (!selectedCv) return;
+    try {
+      const res = await deleteCv(selectedCv.id);
+      showSnackbar(res.message || 'CV deleted successfully', 'warning');
+      setDeleteDialogOpen(false);
+      setSelectedCv(null);
+    } catch (err) {
+      showSnackbar(err.message || 'Failed to delete CV', 'error');
+    }
   };
 
   const handleCreateCv = () => {
     router.push('/templates');
   };
 
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(`https://cvtify.com/cv/${selectedCv?.id}/view`);
+  const handleCopyLink = async () => {
+    const link = selectedCv?.shareUrl || `${window.location.origin}/shared/cv/${selectedCv?.id}`;
+    await navigator.clipboard.writeText(link);
+    showSnackbar('Link copied to clipboard');
     setShareDialogOpen(false);
   };
 
-  // Add this handler with your other handlers
   const handleVersionHistory = () => {
     handleMenuClose();
     setVersionHistoryOpen(true);
-    // TODO: Open version history modal/page
-    console.log('Version history for:', selectedCv?.title);
   };
 
-  // Change the CV limit based on plan
   const CV_LIMIT = isPremium ? Infinity : 3;
-  const isLimitReached = !isPremium && cvs.length >= CV_LIMIT;
+  const isLimitReached = !isPremium && filteredCvs.length >= CV_LIMIT;
 
-  // Menu items for context menu
   const menuItems = [
     { label: 'View', icon: <VisibilityIcon fontSize="small" />, action: handleView, color: '#667eea' },
     { label: 'Edit', icon: <EditIcon fontSize="small" />, action: handleEdit, color: '#667eea' },
@@ -208,28 +209,44 @@ export default function MyCvsPage() {
     { label: 'Duplicate', icon: <ContentCopyIcon fontSize="small" />, action: handleDuplicate, color: '#64748b' },
     { label: 'Share', icon: <ShareIcon fontSize="small" />, action: handleShareOpen, color: '#64748b' },
     { label: 'Download', icon: <DownloadIcon fontSize="small" />, action: handleDownload, color: '#10b981' },
-    { divider: true },
-
-    // ✅ Premium-only: Version History
     ...(isPremium
       ? [
-        { divider: true },
-        {
-          label: 'Version History',
-          icon: <HistoryIcon fontSize="small" />,
-          action: handleVersionHistory,
-          color: '#667eea',
-        },
-      ]
+          { divider: true },
+          {
+            label: 'Version History',
+            icon: <HistoryIcon fontSize="small" />,
+            action: handleVersionHistory,
+            color: '#667eea',
+          },
+        ]
       : []),
-
     { divider: true },
     { label: 'Delete', icon: <DeleteIcon fontSize="small" />, action: handleDeleteOpen, color: '#ef4444' },
   ];
 
   return (
     <Box sx={{ p: { xs: 2, md: 4 }, maxWidth: 1200, mx: 'auto' }}>
-      {/* Header */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar((p) => ({ ...p, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setSnackbar((p) => ({ ...p, open: false }))}
+          severity={snackbar.severity}
+          sx={{ borderRadius: 2, fontWeight: 600 }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {error}
+        </Alert>
+      )}
+
       <Box
         sx={{
           display: 'flex',
@@ -246,19 +263,33 @@ export default function MyCvsPage() {
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mt: 0.5 }}>
             <Typography variant="body2" color="#64748b">
-              {cvs.length} {cvs.length === 1 ? 'CV' : 'CVs'} created
+              {meta.total} {meta.total === 1 ? 'CV' : 'CVs'} created
             </Typography>
-            <Chip
-              label={`${cvs.length}/3 used`}
-              size="small"
-              sx={{
-                fontWeight: 600,
-                fontSize: '0.75rem',
-                bgcolor: cvs.length >= 3 ? '#ef444420' : '#667eea15',
-                color: cvs.length >= 3 ? '#ef4444' : '#667eea',
-                border: `1px solid ${cvs.length >= 3 ? '#ef444440' : '#667eea30'}`,
-              }}
-            />
+            {!isPremium ? (
+              <Chip
+                label={`${meta.total}/3 used`}
+                size="small"
+                sx={{
+                  fontWeight: 600,
+                  fontSize: '0.75rem',
+                  bgcolor: meta.total >= 3 ? '#ef444420' : '#667eea15',
+                  color: meta.total >= 3 ? '#ef4444' : '#667eea',
+                  border: `1px solid ${meta.total >= 3 ? '#ef444440' : '#667eea30'}`,
+                }}
+              />
+            ) : (
+              <Chip
+                label="Unlimited"
+                size="small"
+                sx={{
+                  fontWeight: 600,
+                  fontSize: '0.75rem',
+                  bgcolor: '#667eea15',
+                  color: '#667eea',
+                  border: '1px solid #667eea30',
+                }}
+              />
+            )}
           </Box>
         </Box>
 
@@ -275,17 +306,12 @@ export default function MyCvsPage() {
             py: 1.2,
             background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
             boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
-            '&:hover': {
-              boxShadow: '0 6px 20px rgba(102, 126, 234, 0.5)',
-              transform: 'translateY(-1px)',
-            },
           }}
         >
           {isLimitReached ? 'Limit Reached' : 'Create New CV'}
         </Button>
       </Box>
 
-      {/* Search & Filters Bar */}
       <Box
         sx={{
           display: 'flex',
@@ -295,7 +321,6 @@ export default function MyCvsPage() {
           alignItems: { xs: 'stretch', sm: 'center' },
         }}
       >
-        {/* Search */}
         <TextField
           placeholder="Search CVs..."
           size="small"
@@ -306,9 +331,7 @@ export default function MyCvsPage() {
             '& .MuiOutlinedInput-root': {
               borderRadius: 2,
               bgcolor: '#ffffff',
-              '&.Mui-focused fieldset': {
-                borderColor: '#667eea',
-              },
+              '&.Mui-focused fieldset': { borderColor: '#667eea' },
             },
           }}
           InputProps={{
@@ -320,7 +343,6 @@ export default function MyCvsPage() {
           }}
         />
 
-        {/* Sort */}
         <Button
           size="small"
           startIcon={<SortIcon />}
@@ -332,18 +354,12 @@ export default function MyCvsPage() {
             border: '1px solid #e2e8f0',
             borderRadius: 2,
             px: 2,
-            '&:hover': { bgcolor: '#f8fafc' },
           }}
         >
           Sort
         </Button>
 
-        {/* Sort Menu */}
-        <Menu
-          anchorEl={sortAnchorEl}
-          open={Boolean(sortAnchorEl)}
-          onClose={() => setSortAnchorEl(null)}
-        >
+        <Menu anchorEl={sortAnchorEl} open={Boolean(sortAnchorEl)} onClose={() => setSortAnchorEl(null)}>
           {[
             { label: 'Last Edited', value: 'lastEdited' },
             { label: 'Name (A-Z)', value: 'name' },
@@ -362,7 +378,6 @@ export default function MyCvsPage() {
           ))}
         </Menu>
 
-        {/* View Toggle */}
         <Box sx={{ display: 'flex', bgcolor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 2 }}>
           <IconButton
             size="small"
@@ -389,7 +404,6 @@ export default function MyCvsPage() {
         </Box>
       </Box>
 
-      {/* ✅ Premium: Folders */}
       {isPremium && (
         <Box sx={{ mb: 3 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -403,7 +417,6 @@ export default function MyCvsPage() {
                 textTransform: 'none',
                 color: '#667eea',
                 fontWeight: 600,
-                '&:hover': { bgcolor: '#667eea10' },
               }}
             >
               New Folder
@@ -416,56 +429,35 @@ export default function MyCvsPage() {
               gap: 2,
               overflowX: 'auto',
               pb: 1,
-              '&::-webkit-scrollbar': { height: 4 },
-              '&::-webkit-scrollbar-thumb': { bgcolor: '#cbd5e1', borderRadius: 2 },
             }}
           >
-            {[
-              { name: 'All CVs', count: cvs.length, icon: '📄', active: true },
-              { name: 'Tech Roles', count: 2, icon: '💻', active: false },
-              { name: 'Management', count: 1, icon: '📊', active: false },
-              { name: 'Design', count: 1, icon: '🎨', active: false },
-            ].map((folder, index) => (
-              <Box
-                key={index}
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1.5,
-                  px: 2.5,
-                  py: 1.5,
-                  borderRadius: 2,
-                  bgcolor: folder.active ? '#667eea10' : '#ffffff',
-                  border: `1px solid ${folder.active ? '#667eea40' : '#e2e8f0'}`,
-                  cursor: 'pointer',
-                  whiteSpace: 'nowrap',
-                  transition: 'all 0.2s ease',
-                  '&:hover': {
-                    borderColor: '#667eea',
-                    bgcolor: '#667eea08',
-                  },
-                }}
-              >
-                <Typography fontSize="1.1rem">{folder.icon}</Typography>
-                <Box>
-                  <Typography
-                    variant="body2"
-                    fontWeight="600"
-                    color={folder.active ? '#667eea' : '#1e293b'}
-                  >
-                    {folder.name}
-                  </Typography>
-                  <Typography variant="caption" color="#94a3b8">
-                    {folder.count} {folder.count === 1 ? 'CV' : 'CVs'}
-                  </Typography>
-                </Box>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.5,
+                px: 2.5,
+                py: 1.5,
+                borderRadius: 2,
+                bgcolor: '#667eea10',
+                border: '1px solid #667eea40',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              <Typography fontSize="1.1rem">📄</Typography>
+              <Box>
+                <Typography variant="body2" fontWeight="600" color="#667eea">
+                  All CVs
+                </Typography>
+                <Typography variant="caption" color="#94a3b8">
+                  {meta.total} {meta.total === 1 ? 'CV' : 'CVs'}
+                </Typography>
               </Box>
-            ))}
+            </Box>
           </Box>
         </Box>
       )}
 
-      {/* In my-cvs: */}
       {isLimitReached && !isPremium && (
         <Box
           sx={{
@@ -491,7 +483,6 @@ export default function MyCvsPage() {
               color: '#92400e',
               bgcolor: '#fcd34d',
               borderRadius: 2,
-              '&:hover': { bgcolor: '#fbbf24' },
             }}
           >
             Upgrade
@@ -499,9 +490,11 @@ export default function MyCvsPage() {
         </Box>
       )}
 
-      {/* CV Grid/List */}
-      {filteredCvs.length === 0 ? (
-        /* Empty State */
+      {loading ? (
+        <Box sx={{ py: 8, textAlign: 'center' }}>
+          <CircularProgress />
+        </Box>
+      ) : filteredCvs.length === 0 ? (
         <Box
           sx={{
             textAlign: 'center',
@@ -530,9 +523,7 @@ export default function MyCvsPage() {
             {searchQuery ? 'No CVs found' : 'No CVs yet'}
           </Typography>
           <Typography variant="body2" color="#64748b" sx={{ mb: 3 }}>
-            {searchQuery
-              ? 'Try a different search term'
-              : "Create your first CV and start building your career"}
+            {searchQuery ? 'Try a different search term' : 'Create your first CV and start building your career'}
           </Typography>
           {!searchQuery && (
             <Button
@@ -553,15 +544,10 @@ export default function MyCvsPage() {
           )}
         </Box>
       ) : viewMode === 'grid' ? (
-        /* Grid View */
         <Box
           sx={{
             display: 'grid',
-            gridTemplateColumns: {
-              xs: '1fr',
-              sm: '1fr 1fr',
-              md: '1fr 1fr 1fr',
-            },
+            gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' },
             gap: 3,
           }}
         >
@@ -581,7 +567,6 @@ export default function MyCvsPage() {
                 },
               }}
             >
-              {/* CV Thumbnail */}
               <Box
                 sx={{
                   height: 200,
@@ -595,12 +580,11 @@ export default function MyCvsPage() {
                 }}
                 onClick={() => {
                   setSelectedCv(cv);
-                  handleView();
+                  router.push(`/dashboard/cvs/${cv.id}`);
                 }}
               >
                 <DescriptionIcon sx={{ fontSize: 60, color: '#cbd5e1' }} />
 
-                {/* Hover Actions Overlay */}
                 <Box
                   className="cv-actions"
                   sx={{
@@ -618,11 +602,11 @@ export default function MyCvsPage() {
                   <Tooltip title="View">
                     <IconButton
                       size="small"
-                      sx={{ bgcolor: '#ffffff', '&:hover': { bgcolor: '#f1f5f9' } }}
+                      sx={{ bgcolor: '#ffffff' }}
                       onClick={(e) => {
                         e.stopPropagation();
                         setSelectedCv(cv);
-                        handleView();
+                        router.push(`/dashboard/cvs/${cv.id}`);
                       }}
                     >
                       <VisibilityIcon fontSize="small" />
@@ -631,11 +615,10 @@ export default function MyCvsPage() {
                   <Tooltip title="Edit">
                     <IconButton
                       size="small"
-                      sx={{ bgcolor: '#ffffff', '&:hover': { bgcolor: '#f1f5f9' } }}
+                      sx={{ bgcolor: '#ffffff' }}
                       onClick={(e) => {
                         e.stopPropagation();
-                        setSelectedCv(cv);
-                        handleEdit();
+                        router.push(`/builder/${cv.id}`);
                       }}
                     >
                       <EditIcon fontSize="small" />
@@ -644,11 +627,17 @@ export default function MyCvsPage() {
                   <Tooltip title="Download">
                     <IconButton
                       size="small"
-                      sx={{ bgcolor: '#ffffff', '&:hover': { bgcolor: '#f1f5f9' } }}
-                      onClick={(e) => {
+                      sx={{ bgcolor: '#ffffff' }}
+                      onClick={async (e) => {
                         e.stopPropagation();
                         setSelectedCv(cv);
-                        handleDownload();
+                        try {
+                          const res = await downloadCv(cv.id);
+                          showSnackbar(res.message || 'Download started');
+                          if (res.downloadUrl) window.open(res.downloadUrl, '_blank');
+                        } catch (err) {
+                          showSnackbar(err.message || 'Failed to download CV', 'error');
+                        }
                       }}
                     >
                       <DownloadIcon fontSize="small" />
@@ -656,12 +645,14 @@ export default function MyCvsPage() {
                   </Tooltip>
                 </Box>
 
-                {/* Status Badge */}
                 {!isPremium ? (
                   <Chip
-                    label={`${cvs.length}/${CV_LIMIT} used`}
+                    label={`${meta.total}/${CV_LIMIT} used`}
                     size="small"
                     sx={{
+                      position: 'absolute',
+                      top: 12,
+                      right: 12,
                       fontWeight: 600,
                       fontSize: '0.75rem',
                       bgcolor: isLimitReached ? '#ef444420' : '#667eea15',
@@ -673,8 +664,10 @@ export default function MyCvsPage() {
                   <Chip
                     label="Unlimited"
                     size="small"
-                    icon={<span style={{ fontSize: '0.7rem' }}>⭐</span>}
                     sx={{
+                      position: 'absolute',
+                      top: 12,
+                      right: 12,
                       fontWeight: 600,
                       fontSize: '0.75rem',
                       bgcolor: '#667eea15',
@@ -685,16 +678,10 @@ export default function MyCvsPage() {
                 )}
               </Box>
 
-              {/* CV Info */}
               <Box sx={{ p: 2.5 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <Typography
-                      variant="body1"
-                      fontWeight="600"
-                      color="#1e293b"
-                      noWrap
-                    >
+                    <Typography variant="body1" fontWeight="600" color="#1e293b" noWrap>
                       {cv.title}
                     </Typography>
                     <Typography variant="caption" color="#94a3b8">
@@ -704,6 +691,7 @@ export default function MyCvsPage() {
                   <IconButton
                     size="small"
                     onClick={(e) => handleMenuOpen(e, cv)}
+                    disabled={actionLoading}
                   >
                     <MoreVertIcon fontSize="small" />
                   </IconButton>
@@ -726,9 +714,8 @@ export default function MyCvsPage() {
             </Box>
           ))}
 
-          {/* Create New CV Card */}
           <Box
-            onClick={cvs.length >= 3 ? null : handleCreateCv}
+            onClick={isLimitReached ? undefined : handleCreateCv}
             sx={{
               bgcolor: '#ffffff',
               borderRadius: 3,
@@ -738,14 +725,9 @@ export default function MyCvsPage() {
               alignItems: 'center',
               justifyContent: 'center',
               minHeight: 300,
-              cursor: isLimitReached >= 3 ? 'not-allowed' : 'pointer',
-              opacity: isLimitReached >= 3 ? 0.5 : 1,
+              cursor: isLimitReached ? 'not-allowed' : 'pointer',
+              opacity: isLimitReached ? 0.5 : 1,
               transition: 'all 0.3s ease',
-              '&:hover': {
-                borderColor: '#667eea',
-                bgcolor: '#667eea08',
-                transform: 'translateY(-4px)',
-              },
             }}
           >
             <Box
@@ -771,7 +753,6 @@ export default function MyCvsPage() {
           </Box>
         </Box>
       ) : (
-        /* List View */
         <Box
           sx={{
             bgcolor: '#ffffff',
@@ -780,7 +761,6 @@ export default function MyCvsPage() {
             overflow: 'hidden',
           }}
         >
-          {/* List Header */}
           <Box
             sx={{
               display: 'grid',
@@ -791,24 +771,13 @@ export default function MyCvsPage() {
               borderBottom: '1px solid #e2e8f0',
             }}
           >
-            <Typography variant="caption" fontWeight="700" color="#64748b">
-              NAME
-            </Typography>
-            <Typography variant="caption" fontWeight="700" color="#64748b">
-              TEMPLATE
-            </Typography>
-            <Typography variant="caption" fontWeight="700" color="#64748b">
-              STATUS
-            </Typography>
-            <Typography variant="caption" fontWeight="700" color="#64748b">
-              LAST EDITED
-            </Typography>
-            <Typography variant="caption" fontWeight="700" color="#64748b">
-              ACTIONS
-            </Typography>
+            <Typography variant="caption" fontWeight="700" color="#64748b">NAME</Typography>
+            <Typography variant="caption" fontWeight="700" color="#64748b">TEMPLATE</Typography>
+            <Typography variant="caption" fontWeight="700" color="#64748b">STATUS</Typography>
+            <Typography variant="caption" fontWeight="700" color="#64748b">LAST EDITED</Typography>
+            <Typography variant="caption" fontWeight="700" color="#64748b">ACTIONS</Typography>
           </Box>
 
-          {/* List Items */}
           {filteredCvs.map((cv, index) => (
             <Box
               key={cv.id}
@@ -819,14 +788,9 @@ export default function MyCvsPage() {
                 p: 2,
                 alignItems: 'center',
                 borderBottom: index < filteredCvs.length - 1 ? '1px solid #f1f5f9' : 'none',
-                transition: 'all 0.2s ease',
-                cursor: 'pointer',
-                '&:hover': {
-                  bgcolor: '#f8fafc',
-                },
+                '&:hover': { bgcolor: '#f8fafc' },
               }}
             >
-              {/* Name */}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 0 }}>
                 <Box
                   sx={{
@@ -853,15 +817,13 @@ export default function MyCvsPage() {
                 </Box>
               </Box>
 
-              {/* Template */}
               <Typography variant="body2" color="#64748b">
                 {cv.template}
               </Typography>
 
-              {/* Status */}
               {!isPremium ? (
                 <Chip
-                  label={`${cvs.length}/${CV_LIMIT} used`}
+                  label={`${meta.total}/${CV_LIMIT} used`}
                   size="small"
                   sx={{
                     fontWeight: 600,
@@ -875,7 +837,6 @@ export default function MyCvsPage() {
                 <Chip
                   label="Unlimited"
                   size="small"
-                  icon={<span style={{ fontSize: '0.7rem' }}>⭐</span>}
                   sx={{
                     fontWeight: 600,
                     fontSize: '0.75rem',
@@ -886,20 +847,15 @@ export default function MyCvsPage() {
                 />
               )}
 
-              {/* Last Edited */}
               <Typography variant="body2" color="#94a3b8">
                 {cv.lastEdited}
               </Typography>
 
-              {/* Actions */}
               <Box sx={{ display: 'flex', gap: 0.5 }}>
                 <Tooltip title="View">
                   <IconButton
                     size="small"
-                    onClick={() => {
-                      setSelectedCv(cv);
-                      handleView();
-                    }}
+                    onClick={() => router.push(`/dashboard/cvs/${cv.id}`)}
                   >
                     <VisibilityIcon fontSize="small" sx={{ color: '#94a3b8' }} />
                   </IconButton>
@@ -907,10 +863,7 @@ export default function MyCvsPage() {
                 <Tooltip title="Edit">
                   <IconButton
                     size="small"
-                    onClick={() => {
-                      setSelectedCv(cv);
-                      handleEdit();
-                    }}
+                    onClick={() => router.push(`/builder/${cv.id}`)}
                   >
                     <EditIcon fontSize="small" sx={{ color: '#94a3b8' }} />
                   </IconButton>
@@ -924,7 +877,6 @@ export default function MyCvsPage() {
         </Box>
       )}
 
-      {/* Bottom Create Button (Mobile) */}
       <Box
         sx={{
           position: 'fixed',
@@ -936,20 +888,19 @@ export default function MyCvsPage() {
         <Button
           variant="contained"
           onClick={handleCreateCv}
+          disabled={isLimitReached}
           sx={{
             width: 56,
             height: 56,
             borderRadius: '50%',
             minWidth: 0,
             background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
           }}
         >
           <AddIcon />
         </Button>
       </Box>
 
-      {/* ===== CONTEXT MENU ===== */}
       <Menu
         anchorEl={anchorEl}
         open={Boolean(anchorEl)}
@@ -989,43 +940,24 @@ export default function MyCvsPage() {
         )}
       </Menu>
 
-      {/* ===== DELETE DIALOG ===== */}
-      <Dialog
-        open={deleteDialogOpen}
-        onClose={() => setDeleteDialogOpen(false)}
-        PaperProps={{ sx: { borderRadius: 3, p: 1 } }}
-      >
+      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)} PaperProps={{ sx: { borderRadius: 3, p: 1 } }}>
         <DialogTitle sx={{ fontWeight: 700 }}>Delete CV</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="#64748b">
-            Are you sure you want to delete{' '}
-            <strong>{selectedCv?.title}</strong>? This action cannot be undone.
+            Are you sure you want to delete <strong>{selectedCv?.title}</strong>? This action cannot be undone.
           </Typography>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button
-            onClick={() => setDeleteDialogOpen(false)}
-            sx={{ textTransform: 'none', borderRadius: 2, color: '#64748b' }}
-          >
+          <Button onClick={() => setDeleteDialogOpen(false)} sx={{ textTransform: 'none', borderRadius: 2, color: '#64748b' }}>
             Cancel
           </Button>
-          <Button
-            onClick={handleDeleteConfirm}
-            variant="contained"
-            color="error"
-            sx={{ textTransform: 'none', borderRadius: 2 }}
-          >
+          <Button onClick={handleDeleteConfirm} variant="contained" color="error" sx={{ textTransform: 'none', borderRadius: 2 }}>
             Delete
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* ===== RENAME DIALOG ===== */}
-      <Dialog
-        open={renameDialogOpen}
-        onClose={() => setRenameDialogOpen(false)}
-        PaperProps={{ sx: { borderRadius: 3, p: 1 } }}
-      >
+      <Dialog open={renameDialogOpen} onClose={() => setRenameDialogOpen(false)} PaperProps={{ sx: { borderRadius: 3, p: 1 } }}>
         <DialogTitle sx={{ fontWeight: 700 }}>Rename CV</DialogTitle>
         <DialogContent>
           <TextField
@@ -1045,10 +977,7 @@ export default function MyCvsPage() {
           />
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button
-            onClick={() => setRenameDialogOpen(false)}
-            sx={{ textTransform: 'none', borderRadius: 2, color: '#64748b' }}
-          >
+          <Button onClick={() => setRenameDialogOpen(false)} sx={{ textTransform: 'none', borderRadius: 2, color: '#64748b' }}>
             Cancel
           </Button>
           <Button
@@ -1067,12 +996,7 @@ export default function MyCvsPage() {
         </DialogActions>
       </Dialog>
 
-      {/* ===== SHARE DIALOG ===== */}
-      <Dialog
-        open={shareDialogOpen}
-        onClose={() => setShareDialogOpen(false)}
-        PaperProps={{ sx: { borderRadius: 3, p: 1 } }}
-      >
+      <Dialog open={shareDialogOpen} onClose={() => setShareDialogOpen(false)} PaperProps={{ sx: { borderRadius: 3, p: 1 } }}>
         <DialogTitle sx={{ fontWeight: 700 }}>Share CV</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="#64748b" sx={{ mb: 2 }}>
@@ -1080,7 +1004,7 @@ export default function MyCvsPage() {
           </Typography>
           <TextField
             fullWidth
-            value={`https://cvtify.com/cv/${selectedCv?.id}/view`}
+            value={selectedCv?.shareUrl || ''}
             InputProps={{
               readOnly: true,
               sx: { borderRadius: 2, bgcolor: '#f8fafc' },
@@ -1088,10 +1012,7 @@ export default function MyCvsPage() {
           />
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button
-            onClick={() => setShareDialogOpen(false)}
-            sx={{ textTransform: 'none', borderRadius: 2, color: '#64748b' }}
-          >
+          <Button onClick={() => setShareDialogOpen(false)} sx={{ textTransform: 'none', borderRadius: 2, color: '#64748b' }}>
             Close
           </Button>
           <Button
@@ -1109,7 +1030,7 @@ export default function MyCvsPage() {
           </Button>
         </DialogActions>
       </Dialog>
-      {/* ===== VERSION HISTORY DIALOG (Premium) ===== */}
+
       {isPremium && (
         <Dialog
           open={versionHistoryOpen}
@@ -1125,57 +1046,12 @@ export default function MyCvsPage() {
             </Typography>
           </DialogTitle>
           <DialogContent>
-            {[
-              { version: 'v3 (Current)', date: '2 hours ago', change: 'Updated skills section' },
-              { version: 'v2', date: '3 days ago', change: 'Added work experience' },
-              { version: 'v1', date: '2 weeks ago', change: 'Initial creation' },
-            ].map((v, index) => (
-              <Box
-                key={index}
-                sx={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  py: 2,
-                  borderBottom: index < 2 ? '1px solid #f1f5f9' : 'none',
-                }}
-              >
-                <Box>
-                  <Typography variant="body2" fontWeight="600" color="#1e293b">
-                    {v.version}
-                  </Typography>
-                  <Typography variant="caption" color="#94a3b8">
-                    {v.change}
-                  </Typography>
-                </Box>
-                <Box sx={{ textAlign: 'right' }}>
-                  <Typography variant="caption" color="#94a3b8" display="block">
-                    {v.date}
-                  </Typography>
-                  {index > 0 && (
-                    <Button
-                      size="small"
-                      sx={{
-                        textTransform: 'none',
-                        fontSize: '0.75rem',
-                        color: '#667eea',
-                        fontWeight: 600,
-                        p: 0,
-                        minWidth: 0,
-                      }}
-                    >
-                      Restore
-                    </Button>
-                  )}
-                </Box>
-              </Box>
-            ))}
+            <Typography variant="body2" color="#94a3b8">
+              Version history backend is not added yet.
+            </Typography>
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button
-              onClick={() => setVersionHistoryOpen(false)}
-              sx={{ textTransform: 'none', borderRadius: 2, color: '#64748b' }}
-            >
+            <Button onClick={() => setVersionHistoryOpen(false)} sx={{ textTransform: 'none', borderRadius: 2, color: '#64748b' }}>
               Close
             </Button>
           </DialogActions>

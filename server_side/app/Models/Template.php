@@ -22,6 +22,10 @@ class Template extends Model
         'is_active',
         'template_id',
         'sort_order',
+        'description',
+        'uses_count',
+        'uses_count_raw',
+        'downloads_count',
     ];
 
     protected $casts = [
@@ -29,6 +33,9 @@ class Template extends Model
         'rating'    => 'decimal:1',
         'is_free'   => 'boolean',
         'is_active' => 'boolean',
+        'uses_count_raw'  => 'integer',
+        'downloads_count' => 'integer',
+
     ];
 
     protected $appends = ['image_url'];
@@ -44,7 +51,7 @@ class Template extends Model
     public function wishlistedBy()
     {
         return $this->belongsToMany(User::class, 'template_wishlists')
-                     ->withTimestamps();
+            ->withTimestamps();
     }
 
     public function scopeActive(Builder $query): Builder

@@ -1,3 +1,4 @@
+"use client";
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import {
@@ -366,13 +367,13 @@ const ProfileSection = ({ cvData, setCvData }) => {
                     </Typography>
                 </Stack>
 
-                <AIButton
+                {/* <AIButton
                     variant="contained"
                     startIcon={<AutoFixHighIcon />}
                     disabled={charCount === 0}
                 >
                     Suggestions de l'IA
-                </AIButton>
+                </AIButton> */}
             </Box>
         </QuillWrapper>
     );

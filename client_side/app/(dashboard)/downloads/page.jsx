@@ -1,7 +1,7 @@
 // app/(dashboard)/downloads/page.jsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -40,11 +40,13 @@ import LockIcon from '@mui/icons-material/Lock';
 import StarIcon from '@mui/icons-material/Star';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../hooks/useAuth'; // adjust path
+import useDownloads from '../../hooks/useDownloads';
+import { groupDownloadsByDate } from '../../helpers/downloadHelpers';
+
 
 
 export default function DownloadsPage() {
   const router = useRouter();
-
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
@@ -54,127 +56,52 @@ export default function DownloadsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [clearAllDialogOpen, setClearAllDialogOpen] = useState(false);
 
+  const [downloads, setDownloads] = useState([]);
+  const [stats, setStats] = useState({
+    totalDownloads: 0,
+    cvDownloads: 0,
+    letterDownloads: 0,
+    totalSize: '0 B',
+  });
+  const cvDownloads = stats.cvDownloads || 0;
+  const letterDownloads = stats.letterDownloads || 0;
+  const totalSize = stats.totalSize || '0 B';
+
+  const {
+    availableFormats: backendFormats,
+    loading,
+    mutating,
+    error,
+    removeDownload,
+    clearAllDownloads,
+    redownload,
+  } = useDownloads({
+    searchQuery,
+    activeTab,
+    sortBy,
+  });
+
+
+
   // Available formats for free vs premium
   const freeFormats = ['PDF'];
   const premiumFormats = ['PDF', 'DOCX', 'PNG', 'JPG'];
   const { user } = useAuth();
   const isPremium = user?.plan === 'premium';
-  const availableFormats = isPremium ? premiumFormats : freeFormats;
+  const availableFormats =
+    backendFormats?.length ? backendFormats : isPremium ? premiumFormats : freeFormats;
 
-  // Mock download history
-  const [downloads, setDownloads] = useState([
-    {
-      id: 1,
-      fileName: 'Software Developer CV',
-      type: 'cv',
-      format: 'PDF',
-      size: '245 KB',
-      downloadedAt: '2025-06-18T14:30:00',
-      timeAgo: '2 hours ago',
-      template: 'Professional',
-      quality: isPremium ? 'High Quality' : 'Standard',  // ✅ add
-      hasWatermark: !isPremium,                           // ✅ add
-    },
-    {
-      id: 2,
-      fileName: 'Google Application Letter',
-      type: 'letter',
-      format: 'PDF',
-      size: '128 KB',
-      downloadedAt: '2025-06-18T10:15:00',
-      timeAgo: '6 hours ago',
-      template: null,
-      quality: isPremium ? 'High Quality' : 'Standard',  // ✅ add
-      hasWatermark: !isPremium,                           // ✅ add
-    },
-    {
-      id: 3,
-      fileName: 'UX Designer Resume',
-      type: 'cv',
-      format: 'PDF',
-      size: '312 KB',
-      downloadedAt: '2025-06-17T16:45:00',
-      timeAgo: '1 day ago',
-      template: 'Modern',
-      quality: isPremium ? 'High Quality' : 'Standard',  // ✅ add
-      hasWatermark: !isPremium,                           // ✅ add
-    },
-    {
-      id: 4,
-      fileName: 'Meta Design Role',
-      type: 'letter',
-      format: 'PDF',
-      size: '115 KB',
-      downloadedAt: '2025-06-16T09:20:00',
-      timeAgo: '2 days ago',
-      template: null,
-      quality: isPremium ? 'High Quality' : 'Standard',  // ✅ add
-      hasWatermark: !isPremium,                           // ✅ add
-    },
-    {
-      id: 5,
-      fileName: 'Software Developer CV',
-      type: 'cv',
-      format: 'PDF',
-      size: '245 KB',
-      downloadedAt: '2025-06-15T11:00:00',
-      timeAgo: '3 days ago',
-      template: 'Professional',
-      quality: isPremium ? 'High Quality' : 'Standard',  // ✅ add
-      hasWatermark: !isPremium,                           // ✅ add
-    },
-    {
-      id: 6,
-      fileName: 'Project Manager CV',
-      type: 'cv',
-      format: 'PDF',
-      size: '198 KB',
-      downloadedAt: '2025-06-14T08:30:00',
-      timeAgo: '4 days ago',
-      template: 'Classic',
-      quality: isPremium ? 'High Quality' : 'Standard',  // ✅ add
-      hasWatermark: !isPremium,                           // ✅ add
-    },
-    {
-      id: 7,
-      fileName: 'Amazon PM Application',
-      type: 'letter',
-      format: 'PDF',
-      size: '102 KB',
-      downloadedAt: '2025-06-12T14:10:00',
-      timeAgo: '6 days ago',
-      template: null,
-      quality: isPremium ? 'High Quality' : 'Standard',  // ✅ add
-      hasWatermark: !isPremium,                           // ✅ add
-    },
-    {
-      id: 8,
-      fileName: 'UX Designer Resume',
-      type: 'cv',
-      format: 'PDF',
-      size: '312 KB',
-      downloadedAt: '2025-06-10T17:25:00',
-      timeAgo: '1 week ago',
-      template: 'Modern',
-      quality: isPremium ? 'High Quality' : 'Standard',  // ✅ add
-      hasWatermark: !isPremium,                           // ✅ add
-    },
-  ]);
 
+  const filteredDownloads = downloads;
   // Filter downloads
-  const filteredDownloads = downloads.filter((dl) => {
-    const matchesSearch = dl.fileName.toLowerCase().includes(searchQuery.toLowerCase());
-    if (activeTab === 'all') return matchesSearch;
-    if (activeTab === 'cvs') return matchesSearch && dl.type === 'cv';
-    if (activeTab === 'letters') return matchesSearch && dl.type === 'letter';
-    return matchesSearch;
-  });
+  // const filteredDownloads = downloads.filter((dl) => {
+  //   const matchesSearch = dl.fileName.toLowerCase().includes(searchQuery.toLowerCase());
+  //   if (activeTab === 'all') return matchesSearch;
+  //   if (activeTab === 'cvs') return matchesSearch && dl.type === 'cv';
+  //   if (activeTab === 'letters') return matchesSearch && dl.type === 'letter';
+  //   return matchesSearch;
+  // });
 
-  // Stats
-  const totalDownloads = downloads.length;
-  const cvDownloads = downloads.filter((d) => d.type === 'cv').length;
-  const letterDownloads = downloads.filter((d) => d.type === 'letter').length;
-  const totalSize = '1.65 MB';
 
   // Format icon helper
   const getFormatIcon = (format) => {
@@ -210,9 +137,11 @@ export default function DownloadsPage() {
     setMenuAnchorEl(null);
   };
 
-  const handleRedownload = () => {
+  const handleRedownload = async () => {
+    if (!selectedDownload) return;
+
+    await redownload(selectedDownload.id, selectedDownload.fileName);
     handleMenuClose();
-    // API call to re-download
   };
 
   const handleDeleteOne = () => {
@@ -220,16 +149,27 @@ export default function DownloadsPage() {
     handleMenuClose();
   };
 
-  const handleDeleteConfirm = () => {
-    setDownloads((prev) => prev.filter((d) => d.id !== selectedDownload.id));
-    setDeleteDialogOpen(false);
-    setSelectedDownload(null);
+  const handleDeleteConfirm = async () => {
+    if (!selectedDownload) return;
+
+    const result = await removeDownload(selectedDownload.id);
+
+    if (result.success) {
+      setDeleteDialogOpen(false);
+      setSelectedDownload(null);
+    }
   };
 
-  const handleClearAll = () => {
-    setDownloads([]);
-    setClearAllDialogOpen(false);
+  const handleClearAll = async () => {
+    const result = await clearAllDownloads();
+
+    if (result.success) {
+      setClearAllDialogOpen(false);
+    }
   };
+
+
+
 
   // Group downloads by date
   const groupByDate = (items) => {
@@ -246,7 +186,10 @@ export default function DownloadsPage() {
     return groups;
   };
 
-  const groupedDownloads = groupByDate(filteredDownloads);
+  const totalDownloads = stats.totalDownloads || 0;
+
+  const groupedDownloads = groupDownloadsByDate(filteredDownloads);
+
 
   return (
     <Box sx={{ p: { xs: 2, md: 4 }, maxWidth: 1200, mx: 'auto' }}>

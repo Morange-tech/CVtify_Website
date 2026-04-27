@@ -541,7 +541,7 @@ const ExperienceSection = ({ cvData, setCvData }) => {
 
                 {/* Action Buttons */}
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Button
+                    {/* <Button
                         variant="contained"
                         startIcon={<AutoFixHighIcon />}
                         sx={{
@@ -554,7 +554,7 @@ const ExperienceSection = ({ cvData, setCvData }) => {
                         }}
                     >
                         AI Suggestions
-                    </Button>
+                    </Button> */}
 
                     <Stack direction="row" spacing={2} alignItems="center">
                         <IconButton

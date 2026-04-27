@@ -12,7 +12,6 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->string('plan')->default('free');
             $table->enum('subscription_status', ['inactive', 'active'])->default('inactive');
             $table->timestamp('subscription_expires_at')->nullable();
         });

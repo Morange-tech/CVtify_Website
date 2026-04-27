@@ -1,7 +1,7 @@
 // Storage keys
 const KEYS = {
-    USER: 'cvtify_user',
-    TOKEN: 'cvtify_token'
+    USER: 'user',
+    TOKEN: 'token'
 };
 
 // Check if we're in browser

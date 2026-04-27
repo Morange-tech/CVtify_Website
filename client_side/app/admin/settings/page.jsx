@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
     Box,
     Typography,
@@ -79,6 +79,11 @@ import PublicIcon from '@mui/icons-material/Public';
 import GavelIcon from '@mui/icons-material/Gavel';
 import HistoryIcon from '@mui/icons-material/History';
 import BackupIcon from '@mui/icons-material/Backup';
+import {
+    fetchSettings as fetchSettingsApi,
+    updateSettings as updateSettingsApi,
+    resetSettings as resetSettingsApi,
+} from '../../hooks/useSettings';
 
 // ─── Section Card Component ───
 const SettingsSection = ({ icon, title, description, children, color = '#667eea' }) => (
@@ -213,81 +218,44 @@ export default function AdminSettingsPage() {
     const [resetDialogOpen, setResetDialogOpen] = useState(false);
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
-    // ─── Settings State ───
-    const [settings, setSettings] = useState({
-        // General
-        platformName: 'CVBuilder Pro',
-        tagline: 'Build professional CVs in minutes',
-        contactEmail: 'support@cvbuilder.pro',
-        contactPhone: '+1 (555) 123-4567',
-        address: '123 Innovation Street, Tech City, TC 10001',
-        website: 'https://cvbuilder.pro',
-        language: 'en',
-        timezone: 'UTC',
-        dateFormat: 'MM/DD/YYYY',
+    const [settings, setSettings] = useState(null);
+    const [initialSettings, setInitialSettings] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [resetting, setResetting] = useState(false);
+    const [error, setError] = useState(null);
 
-        // CV / Template
-        defaultFreeCVLimit: 3,
-        maxFreeCVLimit: 5,
-        defaultTemplate: 'professional',
-        allowCustomColors: true,
-        allowCustomFonts: true,
-        availableFormats: ['pdf'],
-        maxCVPages: 3,
-        autoSaveInterval: 30,
-
-        // Premium / Pricing
-        premiumMonthlyPrice: 9.99,
-        premiumAnnualPrice: 79.99,
-        currency: 'USD',
-        trialDays: 7,
-        enableFreeTrial: true,
-        paymentMethods: ['credit_card', 'paypal'],
-        autoRenew: true,
-        refundPeriodDays: 14,
-
-        // Features
-        enableAIAssistant: true,
-        enableCVSharing: true,
-        enableAnalytics: true,
-        enablePublicProfile: false,
-        enableMultiLanguageCV: true,
-        enableCoverLetter: true,
-        enableExportWord: false,
-        enableExportPNG: true,
-        enableWatermark: false,
-        enableTemplateCustomization: true,
-        maintenanceMode: false,
-        enableRegistration: true,
-
-        // Security
-        maxLoginAttempts: 5,
-        sessionTimeout: 60,
-        requireEmailVerification: true,
-        require2FA: false,
-        passwordMinLength: 8,
-        allowSocialLogin: true,
-        allowGoogleLogin: true,
-        allowLinkedInLogin: true,
-
-        // Storage / Limits
-        maxFileUploadSize: 5,
-        maxStoragePerUser: 100,
-        enableCloudBackup: true,
-        backupFrequency: 'daily',
-    });
-
-    // Track initial state for reset
-    const [initialSettings] = useState({ ...settings });
 
     const updateSetting = (key, value) => {
         setSettings((prev) => ({ ...prev, [key]: value }));
         setHasChanges(true);
     };
 
-    const handleSave = () => {
-        setHasChanges(false);
-        setSnackbar({ open: true, message: 'Settings saved successfully! ✅', severity: 'success' });
+    const handleSave = async () => {
+        try {
+            setSaving(true);
+            const data = await updateSettingsApi(settings);
+            const saved = data.settings || settings;
+
+            setSettings(saved);
+            setInitialSettings(saved);
+            setHasChanges(false);
+
+            setSnackbar({
+                open: true,
+                message: 'Settings saved successfully! ✅',
+                severity: 'success',
+            });
+        } catch (err) {
+            console.error('Failed to save settings:', err);
+            setSnackbar({
+                open: true,
+                message: `Failed to save settings: ${err.message}`,
+                severity: 'error',
+            });
+        } finally {
+            setSaving(false);
+        }
     };
 
     const handleReset = () => {
@@ -297,6 +265,44 @@ export default function AdminSettingsPage() {
         setSnackbar({ open: true, message: 'Settings reset to defaults.', severity: 'info' });
     };
 
+    const loadSettings = useCallback(async () => {
+        try {
+            setLoading(true);
+            setError(null);
+
+            const data = await fetchSettingsApi();
+            const loaded = data.settings || data.data || data;
+
+            setSettings(loaded);
+            setInitialSettings(loaded);
+            setHasChanges(false);
+        } catch (err) {
+            console.error('Failed to load settings:', err);
+            setError(err.message);
+            setSnackbar({
+                open: true,
+                message: `Failed to load settings: ${err.message}`,
+                severity: 'error',
+            });
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        loadSettings();
+    }, [loadSettings]);
+
+    if (loading || !settings) {
+        return (
+            <Box sx={{ p: { xs: 2, md: 4 } }}>
+                <Typography variant="body2" color="#94a3b8">
+                    Loading settings...
+                </Typography>
+            </Box>
+        );
+    }
+
     // ─── Tabs Config ───
     const TABS = [
         { value: 'general', label: 'General', icon: <BusinessIcon sx={{ fontSize: 18 }} /> },
@@ -304,7 +310,6 @@ export default function AdminSettingsPage() {
         { value: 'pricing', label: 'Premium & Pricing', icon: <WorkspacePremiumIcon sx={{ fontSize: 18 }} /> },
         { value: 'features', label: 'Features', icon: <ExtensionIcon sx={{ fontSize: 18 }} /> },
         { value: 'security', label: 'Security', icon: <SecurityIcon sx={{ fontSize: 18 }} /> },
-        { value: 'storage', label: 'Storage & Limits', icon: <StorageIcon sx={{ fontSize: 18 }} /> },
     ];
 
     // common text field sx
@@ -546,27 +551,8 @@ export default function AdminSettingsPage() {
                                     onChange={(e) => updateSetting('language', e.target.value)}
                                     sx={{ borderRadius: 2, '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#667eea' } }}
                                 >
-                                    <MenuItem value="en">🇺🇸 English</MenuItem>
-                                    <MenuItem value="fr">🇫🇷 French</MenuItem>
-                                    <MenuItem value="es">🇪🇸 Spanish</MenuItem>
-                                    <MenuItem value="de">🇩🇪 German</MenuItem>
-                                    <MenuItem value="ar">🇸🇦 Arabic</MenuItem>
-                                </Select>
-                            </FormControl>
-                        </SettingRow>
-
-                        <SettingRow label="Timezone" description="Default timezone">
-                            <FormControl fullWidth size="small">
-                                <Select
-                                    value={settings.timezone}
-                                    onChange={(e) => updateSetting('timezone', e.target.value)}
-                                    sx={{ borderRadius: 2, '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#667eea' } }}
-                                >
-                                    <MenuItem value="UTC">UTC (Coordinated Universal Time)</MenuItem>
-                                    <MenuItem value="EST">EST (Eastern Standard Time)</MenuItem>
-                                    <MenuItem value="PST">PST (Pacific Standard Time)</MenuItem>
-                                    <MenuItem value="CET">CET (Central European Time)</MenuItem>
-                                    <MenuItem value="AST">AST (Arabian Standard Time)</MenuItem>
+                                    <MenuItem value="en"> English</MenuItem>
+                                    <MenuItem value="fr"> French</MenuItem>
                                 </Select>
                             </FormControl>
                         </SettingRow>
@@ -771,7 +757,7 @@ export default function AdminSettingsPage() {
                                 value={settings.premiumMonthlyPrice}
                                 onChange={(e) => updateSetting('premiumMonthlyPrice', parseFloat(e.target.value) || 0)}
                                 InputProps={{
-                                    startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                                    startAdornment: <InputAdornment position="start">FCFA</InputAdornment>,
                                 }}
                                 sx={tfSx}
                             />
@@ -785,7 +771,7 @@ export default function AdminSettingsPage() {
                                 value={settings.premiumAnnualPrice}
                                 onChange={(e) => updateSetting('premiumAnnualPrice', parseFloat(e.target.value) || 0)}
                                 InputProps={{
-                                    startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                                    startAdornment: <InputAdornment position="start">FCFA</InputAdornment>,
                                 }}
                                 sx={tfSx}
                             />
@@ -798,10 +784,9 @@ export default function AdminSettingsPage() {
                                     onChange={(e) => updateSetting('currency', e.target.value)}
                                     sx={{ borderRadius: 2, '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#667eea' } }}
                                 >
+                                    <MenuItem value="FCFA">FCFA (fcfa)</MenuItem>
                                     <MenuItem value="USD">🇺🇸 USD ($)</MenuItem>
                                     <MenuItem value="EUR">🇪🇺 EUR (€)</MenuItem>
-                                    <MenuItem value="GBP">🇬🇧 GBP (£)</MenuItem>
-                                    <MenuItem value="SAR">🇸🇦 SAR (﷼)</MenuItem>
                                 </Select>
                             </FormControl>
                         </SettingRow>
@@ -821,7 +806,7 @@ export default function AdminSettingsPage() {
                             <Typography variant="body2" color="#1e293b">
                                 Users save{' '}
                                 <strong>
-                                    ${((settings.premiumMonthlyPrice * 12 - settings.premiumAnnualPrice)).toFixed(2)}
+                                    FCFA{((settings.premiumMonthlyPrice * 12 - settings.premiumAnnualPrice)).toFixed(2)}
                                 </strong>{' '}
                                 per year ({((1 - settings.premiumAnnualPrice / (settings.premiumMonthlyPrice * 12)) * 100).toFixed(0)}% off)
                                 with annual billing.
@@ -904,7 +889,7 @@ export default function AdminSettingsPage() {
                     >
                         <FeatureToggle
                             label="Credit / Debit Card"
-                            description="Accept Visa, Mastercard, AMEX"
+                            description="Accept Orange Money, Mobile Money"
                             enabled={settings.paymentMethods.includes('credit_card')}
                             onChange={(e) => {
                                 const methods = e.target.checked
@@ -962,39 +947,6 @@ export default function AdminSettingsPage() {
                         />
                     </SettingsSection>
 
-                    {/* AI & Smart Features */}
-                    <SettingsSection
-                        icon={<AutoAwesomeIcon />}
-                        title="AI & Smart Features"
-                        description="AI-powered tools and intelligent features"
-                        color="#8b5cf6"
-                    >
-                        <FeatureToggle
-                            label="AI Writing Assistant"
-                            description="Help users write better CV content with AI"
-                            enabled={settings.enableAIAssistant}
-                            onChange={(e) => updateSetting('enableAIAssistant', e.target.checked)}
-                            icon={<SmartToyIcon />}
-                            color="#8b5cf6"
-                        />
-                        <FeatureToggle
-                            label="Cover Letter Generator"
-                            description="AI-powered cover letter creation"
-                            enabled={settings.enableCoverLetter}
-                            onChange={(e) => updateSetting('enableCoverLetter', e.target.checked)}
-                            icon={<DescriptionIcon />}
-                            color="#ec4899"
-                        />
-                        <FeatureToggle
-                            label="Multi-Language CV"
-                            description="Allow CVs in multiple languages"
-                            enabled={settings.enableMultiLanguageCV}
-                            onChange={(e) => updateSetting('enableMultiLanguageCV', e.target.checked)}
-                            icon={<PublicIcon />}
-                            color="#06b6d4"
-                        />
-                    </SettingsSection>
-
                     {/* Sharing & Analytics */}
                     <SettingsSection
                         icon={<ShareIcon />}
@@ -1010,14 +962,7 @@ export default function AdminSettingsPage() {
                             icon={<ShareIcon />}
                             color="#06b6d4"
                         />
-                        <FeatureToggle
-                            label="Public Profile"
-                            description="Allow users to create a public portfolio page"
-                            enabled={settings.enablePublicProfile}
-                            onChange={(e) => updateSetting('enablePublicProfile', e.target.checked)}
-                            icon={<PersonIcon />}
-                            color="#667eea"
-                        />
+
                         <FeatureToggle
                             label="Analytics Dashboard"
                             description="Show CV view and download analytics to users"
@@ -1042,14 +987,6 @@ export default function AdminSettingsPage() {
                             onChange={(e) => updateSetting('enableTemplateCustomization', e.target.checked)}
                             icon={<TuneIcon />}
                             color="#ec4899"
-                        />
-                        <FeatureToggle
-                            label="Watermark on Free CVs"
-                            description="Add a small watermark to free-tier CV exports"
-                            enabled={settings.enableWatermark}
-                            onChange={(e) => updateSetting('enableWatermark', e.target.checked)}
-                            icon={<BrushIcon />}
-                            color="#94a3b8"
                         />
                     </SettingsSection>
                 </Box>
@@ -1139,7 +1076,7 @@ export default function AdminSettingsPage() {
                         </SettingRow>
                     </SettingsSection>
 
-                    <SettingsSection
+                    {/* <SettingsSection
                         icon={<VpnKeyIcon />}
                         title="Verification & 2FA"
                         description="Account verification and two-factor authentication"
@@ -1161,139 +1098,11 @@ export default function AdminSettingsPage() {
                             icon={<SecurityIcon />}
                             color="#ef4444"
                         />
-                    </SettingsSection>
+                    </SettingsSection> */}
 
-                    <SettingsSection
-                        icon={<GroupIcon />}
-                        title="Social Login"
-                        description="Third-party authentication providers"
-                        color="#667eea"
-                    >
-                        <FeatureToggle
-                            label="Social Login"
-                            description="Allow login via third-party providers"
-                            enabled={settings.allowSocialLogin}
-                            onChange={(e) => updateSetting('allowSocialLogin', e.target.checked)}
-                            icon={<PersonIcon />}
-                            color="#667eea"
-                        />
-                        {settings.allowSocialLogin && (
-                            <>
-                                <FeatureToggle
-                                    label="Google Login"
-                                    description="Sign in with Google"
-                                    enabled={settings.allowGoogleLogin}
-                                    onChange={(e) => updateSetting('allowGoogleLogin', e.target.checked)}
-                                    icon={<LanguageIcon />}
-                                    color="#ea4335"
-                                />
-                                <FeatureToggle
-                                    label="LinkedIn Login"
-                                    description="Sign in with LinkedIn"
-                                    enabled={settings.allowLinkedInLogin}
-                                    onChange={(e) => updateSetting('allowLinkedInLogin', e.target.checked)}
-                                    icon={<PersonIcon />}
-                                    color="#0077b5"
-                                />
-                            </>
-                        )}
-                    </SettingsSection>
                 </Box>
             )}
 
-            {/* ═══════════════════════════════════ */}
-            {/* ─── STORAGE & LIMITS TAB ─── */}
-            {/* ═══════════════════════════════════ */}
-            {activeTab === 'storage' && (
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                    <SettingsSection
-                        icon={<CloudUploadIcon />}
-                        title="File Upload"
-                        description="Upload size and storage limits"
-                        color="#06b6d4"
-                    >
-                        <SettingRow
-                            label="Max File Upload Size"
-                            description="Maximum size per uploaded file (MB)"
-                        >
-                            <Box sx={{ px: 1 }}>
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                                    <Typography variant="caption" color="#94a3b8">1 MB</Typography>
-                                    <Typography variant="body2" fontWeight="700" color="#06b6d4">
-                                        {settings.maxFileUploadSize} MB
-                                    </Typography>
-                                    <Typography variant="caption" color="#94a3b8">25 MB</Typography>
-                                </Box>
-                                <Slider
-                                    value={settings.maxFileUploadSize}
-                                    onChange={(e, v) => updateSetting('maxFileUploadSize', v)}
-                                    min={1}
-                                    max={25}
-                                    step={1}
-                                    sx={{ color: '#06b6d4' }}
-                                />
-                            </Box>
-                        </SettingRow>
-
-                        <SettingRow
-                            label="Storage Per User"
-                            description="Maximum storage allocated per user (MB)"
-                            noBorder
-                        >
-                            <Box sx={{ px: 1 }}>
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                                    <Typography variant="caption" color="#94a3b8">25 MB</Typography>
-                                    <Typography variant="body2" fontWeight="700" color="#06b6d4">
-                                        {settings.maxStoragePerUser} MB
-                                    </Typography>
-                                    <Typography variant="caption" color="#94a3b8">500 MB</Typography>
-                                </Box>
-                                <Slider
-                                    value={settings.maxStoragePerUser}
-                                    onChange={(e, v) => updateSetting('maxStoragePerUser', v)}
-                                    min={25}
-                                    max={500}
-                                    step={25}
-                                    sx={{ color: '#06b6d4' }}
-                                />
-                            </Box>
-                        </SettingRow>
-                    </SettingsSection>
-
-                    <SettingsSection
-                        icon={<BackupIcon />}
-                        title="Backup"
-                        description="Automatic backup settings"
-                        color="#10b981"
-                    >
-                        <FeatureToggle
-                            label="Cloud Backup"
-                            description="Automatically backup user data to cloud"
-                            enabled={settings.enableCloudBackup}
-                            onChange={(e) => updateSetting('enableCloudBackup', e.target.checked)}
-                            icon={<BackupIcon />}
-                            color="#10b981"
-                        />
-
-                        {settings.enableCloudBackup && (
-                            <SettingRow label="Backup Frequency" description="How often backups run" noBorder>
-                                <FormControl fullWidth size="small">
-                                    <Select
-                                        value={settings.backupFrequency}
-                                        onChange={(e) => updateSetting('backupFrequency', e.target.value)}
-                                        sx={{ borderRadius: 2, '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#667eea' } }}
-                                    >
-                                        <MenuItem value="hourly">Every Hour</MenuItem>
-                                        <MenuItem value="daily">Daily</MenuItem>
-                                        <MenuItem value="weekly">Weekly</MenuItem>
-                                        <MenuItem value="monthly">Monthly</MenuItem>
-                                    </Select>
-                                </FormControl>
-                            </SettingRow>
-                        )}
-                    </SettingsSection>
-                </Box>
-            )}
 
             {/* ═══════════ RESET DIALOG ═══════════ */}
             <Dialog

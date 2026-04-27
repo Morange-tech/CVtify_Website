@@ -27,6 +27,7 @@ import MenuOpenIcon from '@mui/icons-material/MenuOpen';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { useAdminSidebar } from './AdminSidebarContext';
 import { useAuth } from '../hooks/useAuth'; // adjust path
+import Link from 'next/link';
 
 const SIDEBAR_WIDTH_OPEN = 260;
 const SIDEBAR_WIDTH_CLOSED = 72;
@@ -35,19 +36,20 @@ const menuItems = [
   { section: 'Main' },
   { label: 'Dashboard', icon: <DashboardIcon />, path: '/admin' },
   { label: 'Users', icon: <PeopleIcon />, path: '/admin/users' },
-  { label: 'Premium Requests', icon: <WorkspacePremiumIcon />, path: '/admin/premium-requests', badge: 3 },
+  { label: 'Premium Requests', icon: <WorkspacePremiumIcon />, path: '/admin/premium-requests', badge: 0 },
   { label: 'Payments', icon: <PaymentIcon />, path: '/admin/payments' },
 
   { section: 'Content' },
   { label: 'CVs', icon: <DescriptionIcon />, path: '/admin/cvs' },
   { label: 'Motivational Letters', icon: <DescriptionIcon />, path: '/admin/motivational-letters' },
-  { label: 'Templates', icon: <BrushIcon />, path: '/admin/templates' },
+  { label: 'CV Templates', icon: <BrushIcon />, path: '/admin/templates' },
+  { label: 'Letters Templates', icon: <BrushIcon />, path: '/admin/motivation-letters' },
   { label: 'Downloads', icon: <DownloadIcon />, path: '/admin/downloads' },
 
   { section: 'Insights' },
   { label: 'Analytics', icon: <InsightsIcon />, path: '/admin/analytics' },
-  { label: 'Messages', icon: <ChatIcon />, path: '/admin/messages', badge: 5 },
-  { label: 'Notifications', icon: <NotificationsIcon />, path: '/admin/notifications' },
+  { label: 'Messages', icon: <ChatIcon />, path: '/admin/messages', badge: 0 },
+  { label: 'Notifications', icon: <NotificationsIcon />, path: '/admin/notifications', badge: 0 },
 
   { section: 'System' },
   { label: 'Settings', icon: <SettingsIcon />, path: '/admin/settings' },
@@ -95,25 +97,45 @@ export default function AdminSidebar() {
         {isOpen && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <Box
+              component={Link}
+              href="/"
               sx={{
-                width: 32,
-                height: 32,
-                borderRadius: 1.5,
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
+                gap: 1.5,
+                textDecoration: 'none',
               }}
             >
-              <AdminPanelSettingsIcon sx={{ color: '#ffffff', fontSize: 18 }} />
-            </Box>
-            <Box>
-              <Typography variant="body2" fontWeight="800" color="#ffffff" sx={{ lineHeight: 1.2 }}>
-                CVtify
-              </Typography>
-              <Typography variant="caption" sx={{ color: '#667eea', fontSize: '0.65rem', fontWeight: 600 }}>
-                Admin Panel
-              </Typography>
+              <Box
+                sx={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 1.5,
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <AdminPanelSettingsIcon sx={{ color: '#ffffff', fontSize: 18 }} />
+              </Box>
+
+              <Box>
+                <Typography
+                  variant="body2"
+                  fontWeight="800"
+                  color="#ffffff"
+                  sx={{ lineHeight: 1.2 }}
+                >
+                  CVtify
+                </Typography>
+                <Typography
+                  variant="caption"
+                  sx={{ color: '#667eea', fontSize: '0.65rem', fontWeight: 600 }}
+                >
+                  Admin Panel
+                </Typography>
+              </Box>
             </Box>
           </Box>
         )}
@@ -184,8 +206,10 @@ export default function AdminSidebar() {
           const menuButton = (
             <Box
               key={index}
-              onClick={() => router.push(item.path)}
+              component={Link}
+              href={item.path}
               sx={{
+                textDecoration: 'none',
                 display: 'flex',
                 alignItems: 'center',
                 gap: 1.5,
@@ -200,23 +224,23 @@ export default function AdminSidebar() {
                 transition: 'all 0.2s ease',
                 ...(active
                   ? {
-                      bgcolor: '#667eea15',
-                      '&::before': {
-                        content: '""',
-                        position: 'absolute',
-                        left: 0,
-                        top: '20%',
-                        bottom: '20%',
-                        width: 3,
-                        borderRadius: '0 4px 4px 0',
-                        bgcolor: '#667eea',
-                      },
-                    }
+                    bgcolor: '#667eea15',
+                    '&::before': {
+                      content: '""',
+                      position: 'absolute',
+                      left: 0,
+                      top: '20%',
+                      bottom: '20%',
+                      width: 3,
+                      borderRadius: '0 4px 4px 0',
+                      bgcolor: '#667eea',
+                    },
+                  }
                   : {
-                      '&:hover': {
-                        bgcolor: '#1e293b',
-                      },
-                    }),
+                    '&:hover': {
+                      bgcolor: '#1e293b',
+                    },
+                  }),
               }}
             >
               {/* Icon */}
@@ -252,7 +276,7 @@ export default function AdminSidebar() {
               )}
 
               {/* Badge */}
-              {item.badge && isOpen && (
+              {item.badge > 0 && isOpen && (
                 <Box
                   sx={{
                     minWidth: 20,
@@ -274,7 +298,23 @@ export default function AdminSidebar() {
               )}
 
               {/* Badge dot when closed */}
-              {item.badge && !isOpen && (
+              {item.badge > 0 && !isOpen && (
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: 8,
+                    right: isOpen ? 12 : 14,
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
+                    bgcolor: '#ef4444',
+                    border: '2px solid #0f172a',
+                  }}
+                />
+              )}
+
+              {/* Badge dot when closed */}
+              {item.badge > 0 && !isOpen && (
                 <Box
                   sx={{
                     position: 'absolute',
@@ -298,7 +338,7 @@ export default function AdminSidebar() {
               title={
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   {item.label}
-                  {item.badge && (
+                  {item.badge > 0 && (
                     <Box
                       sx={{
                         minWidth: 16,
@@ -405,7 +445,7 @@ export default function AdminSidebar() {
         ) : (
           <Tooltip title="Logout" placement="right" arrow>
             <IconButton
-              onClick={() => logoutMutation.mutate()}
+              onClick={() => !logoutMutation.isPending && logoutMutation.mutate()}
               sx={{
                 color: '#94a3b8',
                 mx: 'auto',

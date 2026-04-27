@@ -6,7 +6,7 @@ import {
     registerUser,
     logoutUser,
     getUser
-} from '../api/auth';
+} from '../lib/auth';
 import { signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 

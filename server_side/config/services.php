@@ -18,6 +18,14 @@ return [
         'key' => env('POSTMARK_API_KEY'),
     ],
 
+    'pdftotext_binary' => env('PDFTOTEXT_BINARY'),
+
+    'linkedin' => [
+    'client_id' => env('LINKEDIN_CLIENT_ID'),
+    'client_secret' => env('LINKEDIN_CLIENT_SECRET'),
+    'redirect' => env('LINKEDIN_REDIRECT_URI'),
+],
+
     'resend' => [
         'key' => env('RESEND_API_KEY'),
     ],

@@ -94,7 +94,7 @@
             <ul>
                 <li>✅ Create professional, ATS-friendly CVs</li>
                 <li>✅ Choose from 50+ beautiful templates</li>
-                <li>✅ Get AI-powered content suggestions</li>
+                <!-- <li>✅ Get AI-powered content suggestions</li> -->
                 <li>✅ Download in PDF & Word formats</li>
             </ul>
             <p>Ready to build your perfect CV?</p>

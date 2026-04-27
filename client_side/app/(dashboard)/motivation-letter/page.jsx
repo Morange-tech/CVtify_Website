@@ -1,7 +1,7 @@
 // app/(dashboard)/motivation-letters/page.jsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -22,6 +22,7 @@ import {
   Divider,
   Tabs,
   Tab,
+  Link,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
@@ -47,11 +48,9 @@ import { useAuth } from '../../hooks/useAuth'; // adjust path
 
 export default function MotivationLettersPage() {
   const router = useRouter();
-
+  const [letters, setLetters] = useState([]);
   const { user } = useAuth();
   const isPremium = user?.plan === 'premium';
-
-
 
   // States
   const [searchQuery, setSearchQuery] = useState('');
@@ -66,6 +65,9 @@ export default function MotivationLettersPage() {
   const [sortBy, setSortBy] = useState('lastEdited');
   const [sortAnchorEl, setSortAnchorEl] = useState(null);
   const [activeTab, setActiveTab] = useState('all');
+  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+  const [loading, setLoading] = useState(false);
+  const [letter, setLetter] = useState(false);
 
 
   // New letter form
@@ -76,64 +78,6 @@ export default function MotivationLettersPage() {
     linkedCv: '',
   });
 
-  // Mock data — replace with API data later
-  const [letters, setLetters] = useState([
-    {
-      id: 1,
-      title: 'Google Application Letter',
-      company: 'Google',
-      position: 'Software Engineer',
-      linkedCv: 'Software Developer CV',
-      lastEdited: '1 hour ago',
-      createdAt: '1 week ago',
-      status: 'complete',
-      downloads: 3,
-    },
-    {
-      id: 2,
-      title: 'Meta Design Role',
-      company: 'Meta',
-      position: 'UX Designer',
-      linkedCv: 'UX Designer Resume',
-      lastEdited: '2 days ago',
-      createdAt: '2 weeks ago',
-      status: 'complete',
-      downloads: 2,
-    },
-    {
-      id: 3,
-      title: 'Amazon PM Application',
-      company: 'Amazon',
-      position: 'Product Manager',
-      linkedCv: 'Project Manager CV',
-      lastEdited: '5 days ago',
-      createdAt: '3 weeks ago',
-      status: 'draft',
-      downloads: 0,
-    },
-    {
-      id: 4,
-      title: 'Startup Cover Letter',
-      company: 'TechStartup Inc.',
-      position: 'Full Stack Developer',
-      linkedCv: 'Software Developer CV',
-      lastEdited: '1 week ago',
-      createdAt: '1 month ago',
-      status: 'draft',
-      downloads: 0,
-    },
-    {
-      id: 5,
-      title: 'Microsoft Internship',
-      company: 'Microsoft',
-      position: 'Software Intern',
-      linkedCv: null,
-      lastEdited: '3 days ago',
-      createdAt: '1 week ago',
-      status: 'complete',
-      downloads: 1,
-    },
-  ]);
 
   const LETTER_LIMIT = isPremium ? Infinity : 3;
   const isLimitReached = !isPremium && letters.length >= LETTER_LIMIT;
@@ -170,17 +114,28 @@ export default function MotivationLettersPage() {
     handleMenuClose();
   };
 
-  const handleDuplicate = () => {
-    const duplicate = {
-      ...selectedLetter,
-      id: Date.now(),
-      title: `${selectedLetter.title} (Copy)`,
-      lastEdited: 'Just now',
-      createdAt: 'Just now',
-      downloads: 0,
-    };
-    setLetters((prev) => [duplicate, ...prev]);
-    handleMenuClose();
+  const handleDuplicate = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/motivation-letters/${selectedLetter.id}/duplicate`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          Accept: 'application/json',
+        },
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.message || 'Failed to duplicate');
+        return;
+      }
+
+      setLetters((prev) => [data.data, ...prev]);
+      handleMenuClose();
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   const handleRenameOpen = () => {
@@ -189,20 +144,91 @@ export default function MotivationLettersPage() {
     handleMenuClose();
   };
 
-  const handleRenameConfirm = () => {
-    setLetters((prev) =>
-      prev.map((letter) =>
-        letter.id === selectedLetter.id
-          ? { ...letter, title: newName, lastEdited: 'Just now' }
-          : letter
-      )
-    );
-    setRenameDialogOpen(false);
+  const handleRenameConfirm = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/motivation-letters/${selectedLetter.id}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({ title: newName }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.message || 'Failed to rename');
+        return;
+      }
+
+      setLetters((prev) =>
+        prev.map((letter) =>
+          letter.id === selectedLetter.id ? data.data : letter
+        )
+      );
+
+      setRenameDialogOpen(false);
+    } catch (error) {
+      console.error(error);
+    }
   };
 
-  const handleShareOpen = () => {
-    setShareDialogOpen(true);
-    handleMenuClose();
+  useEffect(() => {
+    fetchLetters();
+  }, [searchQuery, activeTab, sortBy]);
+
+  const fetchLetters = async () => {
+    try {
+      setLoading(true);
+
+      const params = new URLSearchParams();
+
+      if (searchQuery) params.append('search', searchQuery);
+      if (activeTab !== 'all') params.append('status', activeTab);
+      if (sortBy) params.append('sortBy', sortBy);
+
+      const res = await fetch(`${API_URL}/api/motivation-letters?${params.toString()}`, {
+        method: 'GET',
+        credentials: 'include', // for Sanctum cookie auth
+        headers: {
+          Accept: 'application/json',
+        },
+      });
+
+      const data = await res.json();
+      setLetters(data.data || []);
+    } catch (error) {
+      console.error('Failed to fetch letters:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleShareOpen = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/motivation-letters/${selectedLetter.id}/share`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          Accept: 'application/json',
+        },
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.message || 'Failed to generate share link');
+        return;
+      }
+
+      await navigator.clipboard.writeText(data.data.url);
+      setShareDialogOpen(true);
+      handleMenuClose();
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   const handleDownload = () => {
@@ -214,10 +240,28 @@ export default function MotivationLettersPage() {
     handleMenuClose();
   };
 
-  const handleDeleteConfirm = () => {
-    setLetters((prev) => prev.filter((letter) => letter.id !== selectedLetter.id));
-    setDeleteDialogOpen(false);
-    setSelectedLetter(null);
+  const handleDeleteConfirm = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/motivation-letters/${selectedLetter.id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+        headers: {
+          Accept: 'application/json',
+        },
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.message || 'Failed to delete');
+        return;
+      }
+
+      setLetters((prev) => prev.filter((letter) => letter.id !== selectedLetter.id));
+      setDeleteDialogOpen(false);
+      setSelectedLetter(null);
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   const handleCreateOpen = () => {
@@ -225,20 +269,30 @@ export default function MotivationLettersPage() {
     setCreateDialogOpen(true);
   };
 
-  const handleCreateConfirm = () => {
-    const created = {
-      id: Date.now(),
-      title: newLetter.title || `${newLetter.company} - ${newLetter.position}`,
-      company: newLetter.company,
-      position: newLetter.position,
-      linkedCv: newLetter.linkedCv || null,
-      lastEdited: 'Just now',
-      createdAt: 'Just now',
-      status: 'draft',
-      downloads: 0,
-    };
-    setLetters((prev) => [created, ...prev]);
-    setCreateDialogOpen(false);
+  const handleCreateConfirm = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/motivation-letters`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify(newLetter),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.message || 'Failed to create letter');
+        return;
+      }
+
+      setLetters((prev) => [data.data, ...prev]);
+      setCreateDialogOpen(false);
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   const handleCopyLink = () => {
@@ -293,7 +347,7 @@ export default function MotivationLettersPage() {
             </Typography>
             {!isPremium ? (
               <Chip
-                label={`${letters.length}/${LETTER_LIMIT} used`}
+                label={letter.status === 'complete' ? 'Complete' : 'Draft'}
                 size="small"
                 sx={{
                   fontWeight: 600,
@@ -322,6 +376,8 @@ export default function MotivationLettersPage() {
 
         <Button
           variant="contained"
+          component={Link}
+          href='/motivation-letters'
           startIcon={<AddIcon />}
           onClick={handleCreateOpen}
           sx={{
@@ -543,6 +599,8 @@ export default function MotivationLettersPage() {
           </Typography>
           {!searchQuery && (
             <Button
+              component={Link}
+              href='/motivation-letters'
               variant="contained"
               startIcon={<AddIcon />}
               onClick={handleCreateOpen}
@@ -677,7 +735,7 @@ export default function MotivationLettersPage() {
                 {/* Status */}
                 {!isPremium ? (
                   <Chip
-                    label={`${letters.length}/${LETTER_LIMIT} used`}
+                    label={letter.status === 'complete' ? 'Complete' : 'Draft'}
                     size="small"
                     sx={{
                       fontWeight: 600,
@@ -890,7 +948,7 @@ export default function MotivationLettersPage() {
               {/* Status */}
               {!isPremium ? (
                 <Chip
-                  label={`${letters.length}/${LETTER_LIMIT} used`}
+                  label={letter.status === 'complete' ? 'Complete' : 'Draft'}
                   size="small"
                   sx={{
                     fontWeight: 600,
@@ -1006,128 +1064,6 @@ export default function MotivationLettersPage() {
           )
         )}
       </Menu>
-
-      {/* ===== CREATE DIALOG ===== */}
-      <Dialog
-        open={createDialogOpen}
-        onClose={() => setCreateDialogOpen(false)}
-        fullWidth
-        maxWidth="sm"
-        PaperProps={{ sx: { borderRadius: 3, p: 1 } }}
-      >
-        <DialogTitle sx={{ fontWeight: 700 }}>New Motivation Letter</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" color="#64748b" sx={{ mb: 3 }}>
-            Fill in the details to create a new motivation letter
-          </Typography>
-
-          <TextField
-            fullWidth
-            label="Letter Title"
-            placeholder="e.g. Google Application Letter"
-            value={newLetter.title}
-            onChange={(e) => setNewLetter((prev) => ({ ...prev, title: e.target.value }))}
-            sx={{
-              mb: 2.5,
-              '& .MuiOutlinedInput-root': {
-                borderRadius: 2,
-                '&.Mui-focused fieldset': { borderColor: '#667eea' },
-              },
-              '& .MuiInputLabel-root.Mui-focused': { color: '#667eea' },
-            }}
-          />
-
-          <TextField
-            fullWidth
-            label="Company Name"
-            placeholder="e.g. Google"
-            value={newLetter.company}
-            onChange={(e) => setNewLetter((prev) => ({ ...prev, company: e.target.value }))}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <BusinessIcon sx={{ color: '#94a3b8' }} />
-                </InputAdornment>
-              ),
-            }}
-            sx={{
-              mb: 2.5,
-              '& .MuiOutlinedInput-root': {
-                borderRadius: 2,
-                '&.Mui-focused fieldset': { borderColor: '#667eea' },
-              },
-              '& .MuiInputLabel-root.Mui-focused': { color: '#667eea' },
-            }}
-          />
-
-          <TextField
-            fullWidth
-            label="Position"
-            placeholder="e.g. Software Engineer"
-            value={newLetter.position}
-            onChange={(e) => setNewLetter((prev) => ({ ...prev, position: e.target.value }))}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <WorkIcon sx={{ color: '#94a3b8' }} />
-                </InputAdornment>
-              ),
-            }}
-            sx={{
-              mb: 2.5,
-              '& .MuiOutlinedInput-root': {
-                borderRadius: 2,
-                '&.Mui-focused fieldset': { borderColor: '#667eea' },
-              },
-              '& .MuiInputLabel-root.Mui-focused': { color: '#667eea' },
-            }}
-          />
-
-          <TextField
-            fullWidth
-            label="Link to CV (optional)"
-            placeholder="Select a CV to link"
-            value={newLetter.linkedCv}
-            onChange={(e) => setNewLetter((prev) => ({ ...prev, linkedCv: e.target.value }))}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <LinkIcon sx={{ color: '#94a3b8' }} />
-                </InputAdornment>
-              ),
-            }}
-            sx={{
-              '& .MuiOutlinedInput-root': {
-                borderRadius: 2,
-                '&.Mui-focused fieldset': { borderColor: '#667eea' },
-              },
-              '& .MuiInputLabel-root.Mui-focused': { color: '#667eea' },
-            }}
-          />
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button
-            onClick={() => setCreateDialogOpen(false)}
-            sx={{ textTransform: 'none', borderRadius: 2, color: '#64748b' }}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleCreateConfirm}
-            variant="contained"
-            disabled={!newLetter.company.trim() || !newLetter.position.trim()}
-            sx={{
-              textTransform: 'none',
-              borderRadius: 2,
-              fontWeight: 600,
-              bgcolor: '#667eea',
-              '&:hover': { bgcolor: '#5a6fd6' },
-            }}
-          >
-            Create Letter
-          </Button>
-        </DialogActions>
-      </Dialog>
 
       {/* ===== DELETE DIALOG ===== */}
       <Dialog

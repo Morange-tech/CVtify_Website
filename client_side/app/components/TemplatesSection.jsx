@@ -1,5 +1,5 @@
 // components/TemplatesSection.jsx
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Box,
@@ -32,11 +32,13 @@ import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import ZoomOutIcon from '@mui/icons-material/ZoomOut';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import Image from 'next/image';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import Link from 'next/link';
 import useTemplates from '../hooks/useTemplate';
+import LockIcon from '@mui/icons-material/Lock';
+import { useAuth } from '../hooks/useAuth';
+
 
 // ─── Styled Components ──────────────────────────────────────────
 const StyledSection = styled(Box)(({ theme }) => ({
@@ -310,6 +312,23 @@ const TemplatesSection = () => {
     refresh,
   } = useTemplates();
 
+  // ✅ Add this debug log
+  useEffect(() => {
+    if (templates.length > 0) {
+      console.log('=== COMPONENT DEBUG ===');
+      console.log('Templates in component:', templates);
+      console.log('First template image:', templates[0]?.image);
+
+      // Test if image URL is loadable
+      const img = new window.Image();
+      img.onload = () => console.log('✅ Image loads successfully!');
+      img.onerror = (e) => console.log('❌ Image failed to load:', e);
+      img.src = templates[0]?.image;
+      console.log('Testing URL:', templates[0]?.image);
+      console.log('=== END COMPONENT DEBUG ===');
+    }
+  }, [templates]);
+
   // Compute active tab index from activeFilter
   const activeTab = tabFilters.findIndex((f) => f.value === activeFilter);
 
@@ -317,6 +336,9 @@ const TemplatesSection = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [zoomLevel, setZoomLevel] = useState(100);
+  const { user } = useAuth();
+  const isPremium = user?.plan === 'premium';
+
 
   // Navigation loading state
   const [isNavigating, setIsNavigating] = useState(false);
@@ -383,6 +405,13 @@ const TemplatesSection = () => {
   // ─── Modal Handlers ──────────────────────────────────────
   const handleOpenPreview = (template, e) => {
     e.stopPropagation();
+
+    // ✅ Block free users
+    if (!isPremium && !template.isFree) {
+      router.push('/pricing');
+      return;
+    }
+
     setSelectedTemplate(template);
     setZoomLevel(100);
     setModalOpen(true);
@@ -569,6 +598,68 @@ const TemplatesSection = () => {
                       );
                     })}
                   </BadgeWrapper>
+                  
+                  {/* ✅ Lock overlay for free users on premium templates */}
+                  {!isPremium && !template.isFree && (
+                    <Box
+                      sx={{
+                        position: 'absolute',
+                        inset: 0,
+                        zIndex: 4,
+                        bgcolor: 'rgba(0, 0, 0, 0.45)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 1.5,
+                        cursor: 'pointer',
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        router.push('/pricing');
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          width: 60,
+                          height: 60,
+                          borderRadius: '50%',
+                          bgcolor: 'rgba(255,255,255,0.15)',
+                          backdropFilter: 'blur(8px)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <LockIcon sx={{ fontSize: 30, color: '#ffffff' }} />
+                      </Box>
+                      <Typography
+                        variant="body2"
+                        fontWeight="700"
+                        color="#ffffff"
+                        sx={{ textAlign: 'center' }}
+                      >
+                        Premium Template
+                      </Typography>
+                      <Button
+                        variant="contained"
+                        size="small"
+                        sx={{
+                          bgcolor: '#ffffff',
+                          color: '#667eea',
+                          fontWeight: 600,
+                          textTransform: 'none',
+                          borderRadius: 2,
+                          px: 3,
+                          '&:hover': {
+                            bgcolor: '#f0f0ff',
+                          },
+                        }}
+                      >
+                        Upgrade to Unlock
+                      </Button>
+                    </Box>
+                  )}
 
                   {/* Image */}
                   <ImageWrapper>
@@ -586,14 +677,33 @@ const TemplatesSection = () => {
                     </WishlistButton>
 
                     <TemplateImageBox className="template-image">
-                      <Image
-                        src={template.image}
-                        alt={`${template.name} CV Template`}
-                        fill
-                        style={{ objectFit: 'cover', objectPosition: 'top' }}
-                        sizes="(max-width: 600px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                        priority={template.id <= 3}
-                      />
+                      {template.image ? (
+                        <Box
+                          component="img"
+                          src={template.image}
+                          alt={`${template.name} CV Template`}
+                          sx={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
+                            display: 'block',
+                          }}
+                        />
+                      ) : (
+                        <Box
+                          sx={{
+                            width: '100%',
+                            height: '100%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#94a3b8',
+                            fontSize: 14,
+                          }}
+                        >
+                          No Image
+                        </Box>
+                      )}
                     </TemplateImageBox>
 
                     {/* Hover Overlay */}
@@ -832,14 +942,32 @@ const TemplatesSection = () => {
                           backgroundColor: '#ffffff',
                         }}
                       >
-                        <Image
-                          src={selectedTemplate.image}
-                          alt={`${selectedTemplate.name} CV Template Preview`}
-                          fill
-                          style={{ objectFit: 'contain' }}
-                          quality={100}
-                          priority
-                        />
+                        {selectedTemplate.image ? (
+                          <Box
+                            component="img"
+                            src={selectedTemplate.image}
+                            alt={`${selectedTemplate.name} CV Template Preview`}
+                            sx={{
+                              width: '100%',
+                              height: '100%',
+                              objectFit: 'contain',
+                              display: 'block',
+                            }}
+                          />
+                        ) : (
+                          <Box
+                            sx={{
+                              width: '100%',
+                              height: '100%',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: '#94a3b8',
+                            }}
+                          >
+                            No Preview Available
+                          </Box>
+                        )}
                       </Box>
                     </Box>
                   </ModalImageContainer>

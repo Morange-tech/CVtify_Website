@@ -31,21 +31,32 @@ import InsightsIcon from '@mui/icons-material/Insights';
 import ShieldIcon from '@mui/icons-material/Shield';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../hooks/useAuth'; // adjust path
+import useUpgradeContent from '../../hooks/useUpgradeContent';
+import {
+  calculateSavings,
+  getPerMonth,
+  getCurrentPrice,
+} from '../../helpers/upgradeHelpers';
 
 export default function UpgradePage() {
   const router = useRouter();
   const { user } = useAuth();
   const isPremium = user?.plan === 'premium';
+  const { plans, faqs, loading, error } = useUpgradeContent();
 
+  const freePlan = plans?.free;
+  const premiumPlan = plans?.premium;
+  const monthlyPrice = Number(premiumPlan?.monthlyPrice || 0);
+  const yearlyPrice = Number(premiumPlan?.yearlyPrice || 0);
+  const yearlyMonthly = getPerMonth(monthlyPrice, yearlyPrice, 'yearly');
   const [billingCycle, setBillingCycle] = useState('monthly'); // 'monthly' or 'yearly'
+  const currentPrice = getCurrentPrice(monthlyPrice, yearlyPrice, billingCycle);
+  const savings = calculateSavings(monthlyPrice, yearlyPrice);
+  const perMonth = getPerMonth(monthlyPrice, yearlyPrice, billingCycle);
 
-  const monthlyPrice = 9.99;
-  const yearlyPrice = 79.99;
-  const yearlyMonthly = (yearlyPrice / 12).toFixed(2);
-  const savings = Math.round(((monthlyPrice * 12 - yearlyPrice) / (monthlyPrice * 12)) * 100);
 
-  const currentPrice = billingCycle === 'monthly' ? monthlyPrice : yearlyPrice;
-  const perMonth = billingCycle === 'monthly' ? monthlyPrice : yearlyMonthly;
+
+
 
   // If already premium, show a different state
   if (isPremium) {
@@ -104,6 +115,14 @@ export default function UpgradePage() {
             Go to Dashboard
           </Button>
         </Box>
+      </Box>
+    );
+  }
+
+  if (loading) {
+    return (
+      <Box sx={{ p: 4 }}>
+        <Typography>Loading upgrade content...</Typography>
       </Box>
     );
   }
@@ -391,7 +410,6 @@ export default function UpgradePage() {
               { text: 'Premium Templates', included: false },
               { text: 'Folders & Organization', included: false },
               { text: 'Version History', included: false },
-              { text: 'AI Suggestions', included: false },
               { text: 'Advanced Analytics', included: false },
               { text: 'Priority Support', included: false },
             ].map((feature, index) => (
@@ -427,6 +445,7 @@ export default function UpgradePage() {
             ))}
           </Box>
         </Box>
+
 
         {/* PREMIUM PLAN */}
         <Box
@@ -515,7 +534,6 @@ export default function UpgradePage() {
               { text: 'All Premium Templates', icon: <BrushIcon sx={{ fontSize: 18 }} /> },
               { text: 'Folders & Organization', icon: <FolderIcon sx={{ fontSize: 18 }} /> },
               { text: 'Version History', icon: <HistoryIcon sx={{ fontSize: 18 }} /> },
-              { text: 'AI-Powered Suggestions', icon: <AutoAwesomeIcon sx={{ fontSize: 18 }} /> },
               { text: 'Advanced Analytics', icon: <InsightsIcon sx={{ fontSize: 18 }} /> },
               { text: 'Priority Support', icon: <SupportAgentIcon sx={{ fontSize: 18 }} /> },
             ].map((feature, index) => (
@@ -636,40 +654,19 @@ export default function UpgradePage() {
           Frequently Asked Questions
         </Typography>
 
-        {[
-          {
-            q: 'Can I cancel anytime?',
-            a: 'Yes! You can cancel your subscription at any time. You\'ll keep premium access until the end of your billing period.',
-          },
-          {
-            q: 'What happens to my CVs if I downgrade?',
-            a: 'Your CVs and letters are safe. You\'ll keep all your existing documents, but downloads will include a watermark and be limited to PDF format.',
-          },
-          {
-            q: 'Do I get a refund if I cancel?',
-            a: 'We offer a 7-day money-back guarantee. If you\'re not satisfied within the first 7 days, contact support for a full refund.',
-          },
-          {
-            q: 'What payment methods do you accept?',
-            a: 'We accept all major credit cards, debit cards, and PayPal through our secure payment processor.',
-          },
-          {
-            q: 'Will the watermark be removed from existing downloads?',
-            a: 'Upgrading removes watermarks from all future downloads. Simply re-download your existing CVs to get clean, watermark-free versions.',
-          },
-        ].map((faq, index) => (
+        {faqs.map((faq, index) => (
           <Box
-            key={index}
+            key={faq.id}
             sx={{
               py: 2.5,
-              borderBottom: index < 4 ? '1px solid #f1f5f9' : 'none',
+              borderBottom: index < faqs.length - 1 ? '1px solid #f1f5f9' : 'none',
             }}
           >
             <Typography variant="body1" fontWeight="700" color="#1e293b" gutterBottom>
-              {faq.q}
+              {faq.question}
             </Typography>
             <Typography variant="body2" color="#64748b">
-              {faq.a}
+              {faq.answer}
             </Typography>
           </Box>
         ))}

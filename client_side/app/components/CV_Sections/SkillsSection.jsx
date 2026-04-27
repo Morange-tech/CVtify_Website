@@ -152,12 +152,12 @@ const SkillsSection = ({ cvData, setCvData }) => {
 
                     {/* Action Buttons */}
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pt: 1 }}>
-                        <AIButton
+                        {/* <AIButton
                             variant="contained"
                             startIcon={<AutoFixHighIcon />}
                         >
                             AI Suggestions
-                        </AIButton>
+                        </AIButton> */}
 
                         <Stack direction="row" spacing={2} alignItems="center">
                             <IconButton
@@ -232,12 +232,12 @@ const SkillsSection = ({ cvData, setCvData }) => {
                     >
                         Add Skill
                     </AddButton>
-                    <AIButton
+                    {/* <AIButton
                         variant="contained"
                         startIcon={<AutoFixHighIcon />}
                     >
                         AI Suggestions
-                    </AIButton>
+                    </AIButton> */}
                 </Stack>
             )}
         </Stack>

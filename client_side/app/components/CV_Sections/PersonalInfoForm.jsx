@@ -46,13 +46,13 @@ const StyledTextField = styled(TextField)(({ theme }) => ({
     },
 }));
 
-const PersonalInfoForm = ({ 
-    cvData, 
-    setCvData, 
-    openFields, 
-    setOpenFields, 
-    pendingDeleteField, 
-    setPendingDeleteField 
+const PersonalInfoForm = ({
+    cvData,
+    setCvData,
+    openFields,
+    setOpenFields,
+    pendingDeleteField,
+    setPendingDeleteField
 }) => {
     const [anchorEl, setAnchorEl] = React.useState(null);
     const [activeField, setActiveField] = React.useState(null);
@@ -119,14 +119,25 @@ const PersonalInfoForm = ({
 
     // Format field name for display
     const formatFieldName = (field) => {
-        return field.charAt(0).toUpperCase() + field.slice(1);
+        const labels = {
+            birthDate: "Birth Date",
+            placeOfBirth: "Place Of Birth",
+            drivingLicense: "Driving License",
+            maritalStatus: "Marital Status",
+            linkedIn: "LinkedIn",
+            firstName: "First Name",
+            lastName: "Last Name",
+            phoneNumber: "Phone Number",
+        };
+
+        return labels[field] || field.charAt(0).toUpperCase() + field.slice(1);
     };
 
     // Primary fields (first row)
-    const primaryAddFields = ["birth Date", "place Of Birth", "driving License"];
-    
+    const primaryAddFields = ["birthDate", "placeOfBirth", "drivingLicense"];
+
     // Secondary fields (second row)
-    const secondaryAddFields = ["sex", "nationality", "marital Status", "website", "linkedIn"];
+    const secondaryAddFields = ["sex", "nationality", "maritalStatus", "linkedIn"];
 
     return (
         <FormContainer elevation={0}>
@@ -211,13 +222,13 @@ const PersonalInfoForm = ({
                     />
                 </Grid>
 
-                {/* Postal Code and City Section */}
+                {/* website and City Section */}
                 <Grid item xs={12} sm={6}>
                     <StyledTextField
                         fullWidth
-                        label="Postal Code"
-                        value={cvData.personalInfo.postalCode || ""}
-                        onChange={(e) => updatePersonalInfo('postalCode', e.target.value)}
+                        label="Website"
+                        value={cvData.personalInfo.website || ""}
+                        onChange={(e) => updatePersonalInfo('website', e.target.value)}
                         variant="outlined"
                         size="small"
                     />
@@ -235,7 +246,7 @@ const PersonalInfoForm = ({
 
                 {/* Dynamic Fields */}
                 {openFields.map((field) => {
-                    const isBirthDate = field.toLowerCase() === "birth date";
+                    const isBirthDate = field === "birthDate";
                     const inputType = isBirthDate ? "date" : "text";
 
                     return (
@@ -268,10 +279,10 @@ const PersonalInfoForm = ({
                 <Grid item xs={12}>
                     <Stack spacing={2}>
                         {/* Primary Add Fields Row */}
-                        <Box sx={{ 
-                            display: 'flex', 
-                            flexWrap: 'wrap', 
-                            gap: 1 
+                        <Box sx={{
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            gap: 1
                         }}>
                             {primaryAddFields.map((field) => (
                                 !openFields.includes(field) && (
@@ -289,10 +300,10 @@ const PersonalInfoForm = ({
                         </Box>
 
                         {/* Secondary Add Fields Row */}
-                        <Box sx={{ 
-                            display: 'flex', 
-                            flexWrap: 'wrap', 
-                            gap: 1 
+                        <Box sx={{
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            gap: 1
                         }}>
                             {secondaryAddFields.map((field) => (
                                 !openFields.includes(field) && (

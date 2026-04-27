@@ -334,7 +334,7 @@ const EducationSection = ({
                         </Typography>
                         <Grid container spacing={1}>
                             <Grid item xs={6}>
-                                <FormControl fullWidth size="small">
+                                <FormControl fullWidth  size="small">
                                     <InputLabel>Month</InputLabel>
                                     <Select
                                         value={currentEducation.startMonth || ""}
@@ -533,7 +533,7 @@ const EducationSection = ({
 
                 {/* Action Buttons */}
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Button
+                    {/* <Button
                         variant="contained"
                         startIcon={<AutoFixHighIcon />}
                         sx={{
@@ -546,7 +546,7 @@ const EducationSection = ({
                         }}
                     >
                         AI Suggestions
-                    </Button>
+                    </Button> */}
 
                     <Stack direction="row" spacing={2} alignItems="center">
                         <IconButton

@@ -54,13 +54,24 @@ import RocketLaunchIcon from '@mui/icons-material/RocketLaunch';
 import DrawIcon from '@mui/icons-material/Draw';
 import ArticleIcon from '@mui/icons-material/Article';
 import AddBoxIcon from '@mui/icons-material/AddBox';
+import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
+import Menu from "@mui/material/Menu";
+import MenuItem from "@mui/material/MenuItem";
+import ListItemText from "@mui/material/ListItemText";
+import {
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    TextField
+} from "@mui/material";
 
 // Template Imports
 import Template1 from "../components/templates/Template1";
 import Template2 from "../components/templates/Template2";
 import Template3 from "../components/templates/Template3";
 import Template4 from "../components/templates/Template4";
-import Template5 from "../../public/templates/template5.png";
+// import Template5 from "../../public/templates/template5";
 import Template6 from "../components/templates/Template6";
 
 // Component Imports
@@ -72,6 +83,9 @@ import SkillsSection from "../components/CV_Sections/SkillsSection";
 import LanguagesSection from "../components/CV_Sections/LanguagesSection";
 import InterestsSection from "../components/CV_Sections/InterestsSection";
 import AdditionalSectionForm from "../components/CV_Sections/AdditionalSectionForm";
+import { useCvBuilderApi } from "../lib/useCvBuilderApi";
+import { useSectionMenu } from "../hooks/useSectionMenu";
+
 
 const ReactQuill = dynamic(
     () => import("react-quill-new"),
@@ -100,6 +114,8 @@ const modalSlideIn = keyframes`
     }
 `;
 
+
+
 const scaleIn = keyframes`
     from {
         transform: scale(0);
@@ -117,6 +133,8 @@ const rotate = keyframes`
         transform: rotate(360deg);
     }
 `;
+
+
 
 // =============================================
 // STYLED COMPONENTS
@@ -337,6 +355,7 @@ const LoadingRing = styled(Box, {
     opacity: progress > 0 ? 1 : 0,
 }));
 
+
 // =============================================
 // MAIN COMPONENT
 // =============================================
@@ -344,6 +363,25 @@ const CvBuilder = () => {
     const router = useRouter();
     const searchParams = useSearchParams();
     const theme = useTheme();
+
+    const {
+        sectionMenuAnchor,
+        sectionMenuTarget,
+        sectionTitleOverrides,
+        sectionColumn,
+        sectionPageBreak,
+        openSectionMenu,
+        closeSectionMenu,
+        renameSection,
+        togglePageBreak,
+        setColumn,
+        openRenameDialog,  // ✅ MUST BE HERE
+        confirmRename,     // ✅ MUST BE HERE
+        renameOpen,
+        renameValue,
+        clearSectionLayout,
+        setRenameValue,
+    } = useSectionMenu();
 
     // =============================================
     // STATE DECLARATIONS
@@ -372,7 +410,6 @@ const CvBuilder = () => {
             profileImage: "",
             title: "",
             phoneNumber: "",
-            postalCode: "",
             city: "",
             sex: "",
             birthDate: "",
@@ -381,6 +418,7 @@ const CvBuilder = () => {
             nationality: "",
             maritalStatus: "",
             website: "",
+            personalInfo: "",
         },
         profile: "<p>Commencez à rédiger ici...</p>",
         education: [],
@@ -411,6 +449,10 @@ const CvBuilder = () => {
     const [expandedAdditionalSections, setExpandedAdditionalSections] = useState({});
     const [pendingDeleteField, setPendingDeleteField] = useState(null);
     const [showSectionOptions, setShowSectionOptions] = useState(null);
+    const [showParseSuccess, setShowParseSuccess] = useState(false);
+    const [recentlyUpdatedSections, setRecentlyUpdatedSections] = useState([]);
+
+
 
     // Education states
     const [currentEducation, setCurrentEducation] = useState({
@@ -419,6 +461,62 @@ const CvBuilder = () => {
     });
     const [showEducationForm, setShowEducationForm] = useState(true);
     const [editingIndex, setEditingIndex] = useState(null);
+
+
+
+
+    const getSectionTitle = (sectionId, defaultTitle) =>
+        sectionTitleOverrides[sectionId] || defaultTitle;
+
+
+
+
+    const handleClearSection = () => {
+        const target = sectionMenuTarget;
+
+        setCvData(prev => {
+            const next = { ...prev };
+
+            // main numeric sections
+            if (target === 1) {
+                next.personalInfo = {
+                    ...prev.personalInfo,
+                    firstName: "",
+                    lastName: "",
+                    email: "",
+                    address: "",
+                    profileImage: "",
+                    title: "",
+                    phoneNumber: "",
+                    city: "",
+                    sex: "",
+                    birthDate: "",
+                    placeOfBirth: "",
+                    drivingLicense: "",
+                    nationality: "",
+                    maritalStatus: "",
+                    website: "",
+                    personalInfo: "",
+                };
+            } else if (target === 2) next.profile = "<p>Commencez à rédiger ici...</p>";
+            else if (target === 3) next.education = [];
+            else if (target === 4) next.experience = [];
+            else if (target === 5) next.skills = [];
+            else if (target === 6) next.languages = [];
+            else if (target === 7) next.interests = [];
+
+            // additional sections (string IDs like "courses", "certificates"...)
+            if (typeof target === "string") {
+                next[target] = [];
+            }
+
+            return next;
+        });
+
+        clearSectionLayout(target);
+
+        closeSectionMenu();
+    };
 
     // Experience states
     const [currentExperience, setCurrentExperience] = useState({
@@ -437,6 +535,7 @@ const CvBuilder = () => {
     const [currentLanguage, setCurrentLanguage] = useState({ language: "", level: "" });
     const [editingLanguageIndex, setEditingLanguageIndex] = useState(null);
     const [showLanguageForm, setShowLanguageForm] = useState(true);
+    const [isImportingLinkedIn, setIsImportingLinkedIn] = useState(false);
 
     // Interest states
     const [currentInterest, setCurrentInterest] = useState({ interest: "" });
@@ -595,7 +694,7 @@ const CvBuilder = () => {
 
         const itemToAdd = {
             ...currentAdditionalSection,
-            id: `${sectionId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+            id: `${sectionId}-${crypto.randomUUID().toString(36).substr(2, 9)}`
         };
 
         setCvData(prev => ({ ...prev, [sectionId]: [...prev[sectionId], itemToAdd] }));
@@ -608,7 +707,7 @@ const CvBuilder = () => {
     const updateAdditionalSection = (sectionId, index) => {
         setCvData(prev => {
             const updated = [...prev[sectionId]];
-            updated[index] = { ...currentAdditionalSection, id: currentAdditionalSection.id || `${sectionId}-${Date.now()}` };
+            updated[index] = { ...currentAdditionalSection, id: currentAdditionalSection.id || `${sectionId}-${crypto.randomUUID()}` };
             return { ...prev, [sectionId]: updated };
         });
         setEditingAdditionalIndex(null);
@@ -684,7 +783,7 @@ const CvBuilder = () => {
     // FORM ADD FUNCTIONS
     // =============================================
     const addTraining = () => {
-        setCvData(prev => ({ ...prev, education: [...prev.education, { ...currentEducation, id: Date.now() }] }));
+        setCvData(prev => ({ ...prev, education: [...prev.education, { ...currentEducation, id: crypto.randomUUID() }] }));
         setShowEducationForm(false);
         setCurrentEducation({
             education: "", school: "", city: "", startMonth: "", startYear: "",
@@ -706,7 +805,7 @@ const CvBuilder = () => {
             });
             setEditingSkillIndex(null);
         } else {
-            setCvData(prev => ({ ...prev, skills: [...prev.skills, { ...skillToAdd, id: Date.now() }] }));
+            setCvData(prev => ({ ...prev, skills: [...prev.skills, { ...skillToAdd, id: crypto.randomUUID() }] }));
             setShowSkillForm(false);
         }
         setCurrentSkill({ skill: "", level: "" });
@@ -726,7 +825,7 @@ const CvBuilder = () => {
             });
             setEditingLanguageIndex(null);
         } else {
-            setCvData(prev => ({ ...prev, languages: [...prev.languages, { ...languageToAdd, id: Date.now() }] }));
+            setCvData(prev => ({ ...prev, languages: [...prev.languages, { ...languageToAdd, id: crypto.randomUUID() }] }));
             setShowLanguageForm(false);
         }
         setCurrentLanguage({ language: "", level: "" });
@@ -746,10 +845,71 @@ const CvBuilder = () => {
             });
             setEditingInterestIndex(null);
         } else {
-            setCvData(prev => ({ ...prev, interests: [...prev.interests, { ...interestToAdd, id: Date.now() }] }));
+            setCvData(prev => ({ ...prev, interests: [...prev.interests, { ...interestToAdd, id: crypto.randomUUID() }] }));
             setShowInterestForm(false);
         }
         setCurrentInterest({ interest: "" });
+    };
+
+    const handleLinkedInImport = () => {
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL; // http://localhost:8000
+        if (!backendUrl) return showError("NEXT_PUBLIC_BACKEND_URL is not set");
+
+        setIsImportingLinkedIn(true);
+
+        const popup = window.open(
+            `${backendUrl}/api/auth/linkedin/redirect`,
+            "linkedin_oauth",
+            "width=600,height=720"
+        );
+
+        if (!popup) {
+            setIsImportingLinkedIn(false);
+            return showError("Please allow popups to import LinkedIn.");
+        }
+
+        const backendOrigin = new URL(backendUrl).origin;
+        let received = false;
+
+        const cleanup = () => {
+            window.removeEventListener("message", onMessage);
+            setIsImportingLinkedIn(false);
+        };
+
+        const onMessage = (event) => {
+            // message comes FROM backend origin (localhost:8000)
+            if (event.origin !== backendOrigin) return;
+            if (event.data?.type !== "linkedin-profile") return;
+
+            received = true;
+
+            const data = event.data.payload;
+
+            // If backend sent an error payload, show it
+            if (data?.linkedinError) {
+                showError(JSON.stringify(data.linkedinError, null, 2));
+                cleanup();
+                try { popup.close(); } catch { }
+                return;
+            }
+
+            // Success: merge into cvData
+            setCvData(prev => mergeParsedIntoCvData(prev, data));
+            setSelectedSection(1);
+
+            cleanup();
+            try { popup.close(); } catch { }
+        };
+
+        window.addEventListener("message", onMessage);
+
+        const timer = setInterval(() => {
+            if (popup.closed) {
+                clearInterval(timer);
+                cleanup();
+                if (!received) showError("LinkedIn import was cancelled or failed (no response received).");
+            }
+        }, 400);
     };
 
     // In CvBuilder.jsx - Update the initialization logic
@@ -795,8 +955,7 @@ const CvBuilder = () => {
             }
 
             try {
-                const response = await api.get(`/cvs/${cvId}/`);
-                const fetchedData = response.data;
+                const fetchedData = await getCv(cvId);
 
                 if (fetchedData.template_id) {
                     setSelectedTemplateId(String(fetchedData.template_id));
@@ -836,6 +995,15 @@ const CvBuilder = () => {
 
         fetchCvData();
     }, [cvId]);
+
+    useEffect(() => {
+        if (recentlyUpdatedSections.length > 0) {
+            const timer = setTimeout(() => {
+                setRecentlyUpdatedSections([]);
+            }, 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [recentlyUpdatedSections]);
 
     // =============================================
     // PROGRESS BAR
@@ -921,16 +1089,17 @@ const CvBuilder = () => {
                 customSections: cvData.customSections,
             };
 
+
             let response;
 
             if (cvId) {
-                response = await api.patch(`/cvs/${cvId}/`, payload);
+                response = await updateCv(cvId, payload);
             } else {
-                response = await api.post(`/cvs/`, payload);
-                setCvId(response.data.id);
+                response = await createCv(payload);
+                setCvId(response.id);
 
                 const newParams = new URLSearchParams(searchParams);
-                newParams.set("id", response.data.id);
+                newParams.set("id", response.id);
                 router.replace(`?${newParams.toString()}`, { scroll: false });
             }
 
@@ -1042,7 +1211,7 @@ const CvBuilder = () => {
         });
 
         const templateComponents = {
-            1: Template1, 2: Template2, 3: Template3, 4: Template4, 5: Template5, 6: Template6
+            1: Template1, 2: Template2, 3: Template3, 4: Template4, 6: Template6   //5: Template5,
         };
 
         const TemplateComponent = templateComponents[templateId];
@@ -1050,7 +1219,12 @@ const CvBuilder = () => {
         if (TemplateComponent && typeof TemplateComponent === 'function') {
             return (
                 <CVPrintRoot ref={cvPrintRef} id="cv-pdf-content">
-                    <TemplateComponent cvData={safeCvData} />
+                    <TemplateComponent
+                        cvData={safeCvData}
+                        sectionTitleOverrides={sectionTitleOverrides}
+                        sectionColumn={sectionColumn}
+                        sectionPageBreak={sectionPageBreak}
+                    />
                 </CVPrintRoot>
             );
         }
@@ -1060,6 +1234,100 @@ const CvBuilder = () => {
                 No selected template
             </Typography>
         );
+    };
+
+    const addIds = (arr = []) => arr.map(item => ({ ...item, id: item.id ?? crypto.randomUUID() }));
+
+    const mergeParsedIntoCvData = (prev, parsed) => {
+        // Merge only fields that exist; keep user edits if parsed is empty
+        return {
+            ...prev,
+            personalInfo: {
+                ...prev.personalInfo,
+                ...(parsed.personalInfo || {}),
+            },
+            profile: parsed.profile ?? prev.profile,
+
+            education: parsed.education?.length ? addIds(parsed.education) : prev.education,
+            experience: parsed.experience?.length ? addIds(parsed.experience) : prev.experience,
+            skills: parsed.skills?.length ? addIds(parsed.skills) : prev.skills,
+            languages: parsed.languages?.length ? addIds(parsed.languages) : prev.languages,
+            interests: parsed.interests?.length ? addIds(parsed.interests) : prev.interests,
+
+            // optional additional sections if your parser returns them
+            courses: parsed.courses?.length ? addIds(parsed.courses) : prev.courses,
+            internships: parsed.internships?.length ? addIds(parsed.internships) : prev.internships,
+            extracurricular: parsed.extracurricular?.length ? addIds(parsed.extracurricular) : prev.extracurricular,
+            references: parsed.references?.length ? addIds(parsed.references) : prev.references,
+            qualities: parsed.qualities?.length ? addIds(parsed.qualities) : prev.qualities,
+            certificates: parsed.certificates?.length ? addIds(parsed.certificates) : prev.certificates,
+            achievements: parsed.achievements?.length ? addIds(parsed.achievements) : prev.achievements,
+        };
+    };
+
+    const handleCvUpload = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        // allow uploading same file again
+        e.target.value = "";
+
+        try {
+            setIsParsingCv(true);
+
+            const parsed = await parseCvFile(file);
+
+            setCvData(prev => mergeParsedIntoCvData(prev, parsed));
+
+            setRecentlyUpdatedSections(Object.keys(parsed)); // ✅ here
+
+            setSelectedSection(1);
+
+            setShowParseSuccess(true);
+
+        } catch (err) {
+            console.error(err);
+            showError(err?.message || "Failed to parse CV");
+        } finally {
+            setIsParsingCv(false);
+        }
+    };
+
+    const previewCvData = {
+        ...cvData,
+
+        education:
+            showEducationForm &&
+                (currentEducation.education ||
+                    currentEducation.school ||
+                    currentEducation.city ||
+                    currentEducation.description)
+                ? [...cvData.education, { ...currentEducation, id: "preview-education" }]
+                : cvData.education,
+
+        experience:
+            showExperienceForm &&
+                (currentExperience.position ||
+                    currentExperience.employer ||
+                    currentExperience.city ||
+                    currentExperience.description)
+                ? [...cvData.experience, { ...currentExperience, id: "preview-experience" }]
+                : cvData.experience,
+
+        skills:
+            showSkillForm && (currentSkill.skill || currentSkill.level)
+                ? [...cvData.skills, { ...currentSkill, id: "preview-skill" }]
+                : cvData.skills,
+
+        languages:
+            showLanguageForm && (currentLanguage.language || currentLanguage.level)
+                ? [...cvData.languages, { ...currentLanguage, id: "preview-language" }]
+                : cvData.languages,
+
+        interests:
+            showInterestForm && currentInterest.interest
+                ? [...cvData.interests, { ...currentInterest, id: "preview-interest" }]
+                : cvData.interests,
     };
 
     // =============================================
@@ -1115,6 +1383,15 @@ const CvBuilder = () => {
                     <ExperienceSection
                         cvData={cvData}
                         setCvData={setCvData}
+                        currentExperience={currentExperience}
+                        setCurrentExperience={setCurrentExperience}
+                        editingExperienceIndex={editingExperienceIndex}
+                        setEditingExperienceIndex={setEditingExperienceIndex}
+                        showExperienceForm={showExperienceForm}
+                        setShowExperienceForm={setShowExperienceForm}
+                        quillModules={quillModules}
+                        quillFormats={quillFormats}
+
                     />
                 );
             case 5:
@@ -1122,6 +1399,13 @@ const CvBuilder = () => {
                     <SkillsSection
                         cvData={cvData}
                         setCvData={setCvData}
+                        currentSkill={currentSkill}
+                        setCurrentSkill={setCurrentSkill}
+                        editingSkillIndex={editingSkillIndex}
+                        setEditingSkillIndex={setEditingSkillIndex}
+                        showSkillForm={showSkillForm}
+                        setShowSkillForm={setShowSkillForm}
+                        addSkills={addSkills}
                     />
                 );
             case 6:
@@ -1129,6 +1413,13 @@ const CvBuilder = () => {
                     <LanguagesSection
                         cvData={cvData}
                         setCvData={setCvData}
+                        currentLanguage={currentLanguage}
+                        setCurrentLanguage={setCurrentLanguage}
+                        editingLanguageIndex={editingLanguageIndex}
+                        setEditingLanguageIndex={setEditingLanguageIndex}
+                        showLanguageForm={showLanguageForm}
+                        setShowLanguageForm={setShowLanguageForm}
+                        addLanguage={addLanguage}
                     />
                 );
             case 7:
@@ -1136,12 +1427,25 @@ const CvBuilder = () => {
                     <InterestsSection
                         cvData={cvData}
                         setCvData={setCvData}
+                        currentInterest={currentInterest}
+                        setCurrentInterest={setCurrentInterest}
+                        editingInterestIndex={editingInterestIndex}
+                        setEditingInterestIndex={setEditingInterestIndex}
+                        showInterestForm={showInterestForm}
+                        setShowInterestForm={setShowInterestForm}
+                        addInterest={addInterest}
                     />
                 );
             default:
                 return null;
         }
     };
+    const [isParsingCv, setIsParsingCv] = useState(false);
+    const fileInputRef = useRef(null);
+    const { getCv, createCv, updateCv, parseCvFile } = useCvBuilderApi();
+
+
+
 
     // =============================================
     // LOADING STATE
@@ -1199,19 +1503,36 @@ const CvBuilder = () => {
                         <SectionCard elevation={1}>
                             <Grid container spacing={2}>
                                 <Grid item xs={12} md={6}>
-                                    <UploadCard>
-                                        <CloudUploadIcon sx={{ fontSize: 40, color: 'grey.400', mb: 1 }} />
+                                    <UploadCard
+                                        onClick={() => fileInputRef.current?.click()}
+                                        sx={{ opacity: isParsingCv ? 0.7 : 1, pointerEvents: isParsingCv ? "none" : "auto" }}
+                                    >
+                                        <input
+                                            ref={fileInputRef}
+                                            type="file"
+                                            hidden
+                                            accept=".pdf,.docx"
+                                            onChange={handleCvUpload}
+                                        />
+
+                                        <CloudUploadIcon sx={{ fontSize: 40, color: "grey.400", mb: 1 }} />
                                         <Typography variant="body2" color="text.secondary">
-                                            Download existing CV
+                                            {isParsingCv ? "Parsing CV..." : "Upload existing CV"}
                                         </Typography>
+
+                                        {isParsingCv && <LinearProgress sx={{ width: "100%", mt: 2 }} />}
                                     </UploadCard>
                                 </Grid>
                                 <Grid item xs={12} md={6}>
-                                    <UploadCard>
-                                        <LinkedInIcon sx={{ fontSize: 40, color: 'grey.400', mb: 1 }} />
+                                    <UploadCard
+                                        onClick={handleLinkedInImport}
+                                        sx={{ opacity: isImportingLinkedIn ? 0.7 : 1, pointerEvents: isImportingLinkedIn ? "none" : "auto" }}
+                                    >
+                                        <LinkedInIcon sx={{ fontSize: 40, color: "grey.400", mb: 1 }} />
                                         <Typography variant="body2" color="text.secondary">
-                                            Import LinkedIn
+                                            {isImportingLinkedIn ? "Importing LinkedIn..." : "Import LinkedIn"}
                                         </Typography>
+                                        {isImportingLinkedIn && <LinearProgress sx={{ width: "100%", mt: 2 }} />}
                                     </UploadCard>
                                 </Grid>
                             </Grid>
@@ -1219,21 +1540,30 @@ const CvBuilder = () => {
 
                         {/* Main Sections */}
                         {sections.map((section) => (
-                            <SectionCard key={section.id} elevation={1}>
+                            <SectionCard key={section.id} elevation={1} sx={{ border: recentlyUpdatedSections.includes(section.id) ? "2px solid green" : "none", }}>
                                 <SectionHeader>
                                     <Stack direction="row" alignItems="center" spacing={1}>
-                                        <Box sx={{ color: 'primary.main' }}>{section.icon}</Box>
+                                        <Box sx={{ color: "primary.main" }}>{section.icon}</Box>
                                         <Typography variant="h6" fontWeight="semibold">
-                                            {section.title}
+                                            {getSectionTitle(section.id, section.title)}
                                         </Typography>
                                     </Stack>
-                                    <ToggleButton
-                                        size="small"
-                                        onClick={() => handleToggleSection(section.id)}
-                                    >
-                                        {selectedSection === section.id ? <RemoveIcon /> : <AddIcon />}
-                                    </ToggleButton>
+
+                                    <Stack direction="row" spacing={1} alignItems="center">
+                                        <ToggleButton size="small" onClick={() => handleToggleSection(section.id)}>
+                                            {selectedSection === section.id ? <RemoveIcon /> : <AddIcon />}
+                                        </ToggleButton>
+
+                                        <IconButton
+                                            size="small"
+                                            onClick={(e) => openSectionMenu(e, section.id)}
+                                            className="section-options-container"
+                                        >
+                                            <MoreHorizIcon />
+                                        </IconButton>
+                                    </Stack>
                                 </SectionHeader>
+
                                 <Collapse in={selectedSection === section.id}>
                                     <Divider sx={{ mb: 2 }} />
                                     {renderSectionContent(section.id)}
@@ -1250,18 +1580,23 @@ const CvBuilder = () => {
                                 return (
                                     <SectionCard key={sectionId} elevation={1}>
                                         <SectionHeader>
-                                            <Stack direction="row" alignItems="center" spacing={1}>
-                                                <Box sx={{ color: 'primary.main' }}>{section.icon}</Box>
-                                                <Typography variant="h6" fontWeight="semibold">
-                                                    {section.title}
-                                                </Typography>
+                                            <Typography variant="h6" fontWeight="semibold">
+                                                {getSectionTitle(sectionId, section.title)}
+                                            </Typography>
+
+                                            <Stack direction="row" spacing={1} alignItems="center">
+                                                <ToggleButton size="small" onClick={() => toggleAdditionalSection(sectionId)}>
+                                                    {expandedAdditionalSections[sectionId] ? <RemoveIcon /> : <AddIcon />}
+                                                </ToggleButton>
+
+                                                <IconButton
+                                                    size="small"
+                                                    onClick={(e) => openSectionMenu(e, sectionId)}
+                                                    className="section-options-container"
+                                                >
+                                                    <MoreHorizIcon />
+                                                </IconButton>
                                             </Stack>
-                                            <ToggleButton
-                                                size="small"
-                                                onClick={() => toggleAdditionalSection(sectionId)}
-                                            >
-                                                {expandedAdditionalSections[sectionId] ? <RemoveIcon /> : <AddIcon />}
-                                            </ToggleButton>
                                         </SectionHeader>
                                         <Collapse in={expandedAdditionalSections[sectionId]}>
                                             <Divider sx={{ mb: 2 }} />
@@ -1331,7 +1666,7 @@ const CvBuilder = () => {
                         {/* Scrollable Template Preview */}
                         <TemplatePreviewWrapper>
                             {selectedTemplate ? (
-                                renderTemplatePreview(selectedTemplate.id, cvData)
+                                renderTemplatePreview(selectedTemplate.id, previewCvData)
                             ) : (
                                 <Box
                                     sx={{
@@ -1376,6 +1711,38 @@ const CvBuilder = () => {
                     </Paper>
                 </PreviewContainer>
             </ContentContainer>
+
+            <Menu
+                anchorEl={sectionMenuAnchor}
+                open={Boolean(sectionMenuAnchor)}
+                onClose={closeSectionMenu}
+            >
+                <MenuItem onClick={() => openRenameDialog(sections, additionalSections)}>
+                    <ListItemText>Renommer la rubrique</ListItemText>
+                </MenuItem>
+
+                <MenuItem onClick={togglePageBreak}>
+                    <ListItemText>
+                        Insérer un saut de page {sectionMenuTarget && sectionPageBreak[sectionMenuTarget] ? "(ON)" : "(OFF)"}
+                    </ListItemText>
+                </MenuItem>
+
+                <MenuItem onClick={handleClearSection}>
+                    <ListItemText>Clear section</ListItemText>
+                </MenuItem>
+
+                <MenuItem disabled>
+                    <ListItemText>Afficher la rubrique dans</ListItemText>
+                </MenuItem>
+
+                <MenuItem onClick={() => setColumn("left")}>
+                    <ListItemText>Colonne de gauche</ListItemText>
+                </MenuItem>
+
+                <MenuItem onClick={() => setColumn("right")}>
+                    <ListItemText>Colonne de droite</ListItemText>
+                </MenuItem>
+            </Menu>
 
             {/* Success Modal */}
             <Modal
@@ -1457,6 +1824,69 @@ const CvBuilder = () => {
                     </ModalContent>
                 </Fade>
             </Modal>
+
+            <Modal
+                open={showParseSuccess}
+                onClose={() => setShowParseSuccess(false)}
+            >
+                <Fade in={showParseSuccess}>
+                    <ModalContent>
+                        <Stack alignItems="center">
+                            <SuccessIcon>
+                                <CheckCircleIcon sx={{ fontSize: 40, color: "success.main" }} />
+                            </SuccessIcon>
+
+                            <Typography variant="h6" fontWeight="bold" sx={{ mb: 1 }}>
+                                CV Imported Successfully!
+                            </Typography>
+
+                            <Typography color="text.secondary" textAlign="center" sx={{ mb: 3 }}>
+                                Your CV has been parsed and merged with your current data.
+                            </Typography>
+
+                            <Button
+                                variant="contained"
+                                onClick={() => setShowParseSuccess(false)}
+                            >
+                                Review Information
+                            </Button>
+                        </Stack>
+                    </ModalContent>
+                </Fade>
+            </Modal>
+            {/* Rename Section Dialog */}
+            <Dialog
+                open={renameOpen}
+                onClose={() => setRenameValue("")}
+                maxWidth="sm"
+                fullWidth
+            >
+                <DialogTitle>Rename Section</DialogTitle>
+
+                <DialogContent>
+                    <TextField
+                        fullWidth
+                        label="New Section Name"
+                        value={renameValue}
+                        onChange={(e) => setRenameValue(e.target.value)}
+                        autoFocus
+                        sx={{ mt: 1 }}
+                    />
+                </DialogContent>
+
+                <DialogActions>
+                    <Button onClick={() => setRenameValue("")}>
+                        Cancel
+                    </Button>
+
+                    <Button
+                        variant="contained"
+                        onClick={confirmRename}
+                    >
+                        Save
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </MainContainer>
     );
 };

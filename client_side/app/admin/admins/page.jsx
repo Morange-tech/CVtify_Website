@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import {
     Box,
     Typography,
@@ -75,6 +75,7 @@ import StarIcon from '@mui/icons-material/Star';
 import HistoryIcon from '@mui/icons-material/History';
 import LoginIcon from '@mui/icons-material/Login';
 import FingerprintIcon from '@mui/icons-material/Fingerprint';
+import { fetchAdmins as fetchAdminsApi, fetchAdminStats, fetchAdminById, createAdmin, updateAdmin, updateAdminRole, updateAdminStatus, deleteAdmin as deleteAdminApi, } from '../../hooks/useAdmins';
 
 // ─── Helpers ───
 const getInitials = (name) =>
@@ -182,93 +183,6 @@ const STATUS_CONFIG = {
     suspended: { label: 'Suspended', color: '#ef4444', bgcolor: '#ef444415', icon: <BlockIcon sx={{ fontSize: 14 }} /> },
 };
 
-// ─── Mock Admin Data ───
-const INITIAL_ADMINS = [
-    {
-        id: 'ADM-001',
-        name: 'Ahmed Al-Rashid',
-        email: 'ahmed@cvbuilder.pro',
-        phone: '+1 (555) 100-0001',
-        role: 'super_admin',
-        status: 'active',
-        avatar: null,
-        lastLogin: '2025-06-18T16:30:00',
-        createdAt: '2024-01-15',
-        actionsCount: 342,
-        isCurrent: true,
-        twoFactorEnabled: true,
-    },
-    {
-        id: 'ADM-002',
-        name: 'Sarah Mitchell',
-        email: 'sarah.m@cvbuilder.pro',
-        phone: '+1 (555) 100-0002',
-        role: 'manager',
-        status: 'active',
-        avatar: null,
-        lastLogin: '2025-06-18T14:15:00',
-        createdAt: '2024-06-01',
-        actionsCount: 187,
-        isCurrent: false,
-        twoFactorEnabled: true,
-    },
-    {
-        id: 'ADM-003',
-        name: 'James Cooper',
-        email: 'james.c@cvbuilder.pro',
-        phone: '+1 (555) 100-0003',
-        role: 'support',
-        status: 'active',
-        avatar: null,
-        lastLogin: '2025-06-18T12:45:00',
-        createdAt: '2024-09-10',
-        actionsCount: 95,
-        isCurrent: false,
-        twoFactorEnabled: false,
-    },
-    {
-        id: 'ADM-004',
-        name: 'Maria Garcia',
-        email: 'maria.g@cvbuilder.pro',
-        phone: '+1 (555) 100-0004',
-        role: 'manager',
-        status: 'active',
-        avatar: null,
-        lastLogin: '2025-06-17T18:00:00',
-        createdAt: '2024-11-20',
-        actionsCount: 63,
-        isCurrent: false,
-        twoFactorEnabled: true,
-    },
-    {
-        id: 'ADM-005',
-        name: 'David Kim',
-        email: 'david.k@cvbuilder.pro',
-        phone: '+1 (555) 100-0005',
-        role: 'support',
-        status: 'inactive',
-        avatar: null,
-        lastLogin: '2025-06-10T09:30:00',
-        createdAt: '2025-02-01',
-        actionsCount: 28,
-        isCurrent: false,
-        twoFactorEnabled: false,
-    },
-    {
-        id: 'ADM-006',
-        name: 'Alex Turner',
-        email: 'alex.t@cvbuilder.pro',
-        phone: '+1 (555) 100-0006',
-        role: 'support',
-        status: 'suspended',
-        avatar: null,
-        lastLogin: '2025-05-28T11:00:00',
-        createdAt: '2025-03-15',
-        actionsCount: 12,
-        isCurrent: false,
-        twoFactorEnabled: false,
-    },
-];
 
 // ─── Text Field SX ───
 const tfSx = {
@@ -281,7 +195,6 @@ const tfSx = {
 
 export default function AdminManagementPage() {
     // ─── State ───
-    const [admins, setAdmins] = useState(INITIAL_ADMINS);
     const [searchQuery, setSearchQuery] = useState('');
     const [activeTab, setActiveTab] = useState('all');
     const [roleFilter, setRoleFilter] = useState('all');
@@ -290,6 +203,19 @@ export default function AdminManagementPage() {
     const [menuAnchorEl, setMenuAnchorEl] = useState(null);
     const [menuTarget, setMenuTarget] = useState(null);
     const [viewMode, setViewMode] = useState('grid');
+
+    const [admins, setAdmins] = useState([]);
+    const [stats, setStats] = useState({
+        total: 0,
+        superAdmins: 0,
+        managers: 0,
+        supportStaff: 0,
+        active: 0,
+        inactive: 0,
+    });
+    const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
+    const [error, setError] = useState(null);
 
     // Dialogs
     const [addDialogOpen, setAddDialogOpen] = useState(false);
@@ -313,12 +239,12 @@ export default function AdminManagementPage() {
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
     // ─── Stats ───
-    const totalAdmins = admins.length;
-    const superAdmins = admins.filter((a) => a.role === 'super_admin').length;
-    const managers = admins.filter((a) => a.role === 'manager').length;
-    const supportStaff = admins.filter((a) => a.role === 'support').length;
-    const activeAdmins = admins.filter((a) => a.status === 'active').length;
-    const inactiveAdmins = admins.filter((a) => a.status !== 'active').length;
+    const totalAdmins = stats.total || admins.length;
+    const superAdmins = stats.superAdmins || 0;
+    const managers = stats.managers || 0;
+    const supportStaff = stats.supportStaff || 0;
+    const activeAdmins = stats.active || 0;
+    const inactiveAdmins = stats.inactive || 0;
 
     // ─── Filtered ───
     const filteredAdmins = useMemo(() => {
@@ -368,24 +294,28 @@ export default function AdminManagementPage() {
         setAddDialogOpen(true);
     };
 
-    const handleAddConfirm = () => {
-        const newAdmin = {
-            id: `ADM-${String(admins.length + 1).padStart(3, '0')}`,
-            name: formData.name,
-            email: formData.email,
-            phone: formData.phone,
-            role: formData.role,
-            status: formData.status,
-            avatar: null,
-            lastLogin: null,
-            createdAt: new Date().toISOString().split('T')[0],
-            actionsCount: 0,
-            isCurrent: false,
-            twoFactorEnabled: formData.twoFactorEnabled,
-        };
-        setAdmins((prev) => [newAdmin, ...prev]);
-        setAddDialogOpen(false);
-        setSnackbar({ open: true, message: `Admin "${formData.name}" added as ${ROLES[formData.role].label}!`, severity: 'success' });
+    const handleAddConfirm = async () => {
+        try {
+            const data = await createAdmin(formData);
+            const newAdmin = data.admin || data.data;
+
+            setAdmins((prev) => [newAdmin, ...prev]);
+            setAddDialogOpen(false);
+
+            setSnackbar({
+                open: true,
+                message: `Admin "${newAdmin.name}" added as ${ROLES[newAdmin.role].label}!`,
+                severity: 'success',
+            });
+
+            loadAdmins(false);
+        } catch (err) {
+            setSnackbar({
+                open: true,
+                message: `Failed to add admin: ${err.message}`,
+                severity: 'error',
+            });
+        }
     };
 
     const handleEditOpen = (admin) => {
@@ -403,16 +333,31 @@ export default function AdminManagementPage() {
         handleMenuClose();
     };
 
-    const handleEditConfirm = () => {
-        setAdmins((prev) =>
-            prev.map((a) =>
-                a.id === menuTarget.id
-                    ? { ...a, name: formData.name, email: formData.email, phone: formData.phone, role: formData.role, status: formData.status, twoFactorEnabled: formData.twoFactorEnabled }
-                    : a
-            )
-        );
-        setEditDialogOpen(false);
-        setSnackbar({ open: true, message: `Admin "${formData.name}" updated!`, severity: 'success' });
+    const handleEditConfirm = async () => {
+        try {
+            const data = await updateAdmin(menuTarget.id, formData);
+            const updated = data.admin || data.data;
+
+            setAdmins((prev) =>
+                prev.map((a) => (a.id === updated.id ? updated : a))
+            );
+
+            setEditDialogOpen(false);
+
+            setSnackbar({
+                open: true,
+                message: `Admin "${updated.name}" updated!`,
+                severity: 'success',
+            });
+
+            loadAdmins(false);
+        } catch (err) {
+            setSnackbar({
+                open: true,
+                message: `Failed to update admin: ${err.message}`,
+                severity: 'error',
+            });
+        }
     };
 
     const handleRoleChangeOpen = (admin) => {
@@ -423,18 +368,57 @@ export default function AdminManagementPage() {
         handleMenuClose();
     };
 
-    const handleRoleChangeConfirm = () => {
-        setAdmins((prev) =>
-            prev.map((a) => (a.id === menuTarget.id ? { ...a, role: formData.role } : a))
-        );
-        setRoleDialogOpen(false);
-        setSnackbar({ open: true, message: `"${menuTarget.name}" role changed to ${ROLES[formData.role].label}.`, severity: 'success' });
+    const handleRoleChangeConfirm = async () => {
+        try {
+            const data = await updateAdminRole(menuTarget.id, formData.role);
+            const updated = data.admin || data.data;
+
+            setAdmins((prev) =>
+                prev.map((a) => (a.id === updated.id ? updated : a))
+            );
+
+            setRoleDialogOpen(false);
+
+            setSnackbar({
+                open: true,
+                message: `"${updated.name}" role changed to ${ROLES[updated.role].label}.`,
+                severity: 'success',
+            });
+
+            loadAdmins(false);
+        } catch (err) {
+            setSnackbar({
+                open: true,
+                message: `Failed to change role: ${err.message}`,
+                severity: 'error',
+            });
+        }
     };
 
-    const handleViewOpen = (admin) => {
-        setViewTarget(admin || menuTarget);
-        setViewDialogOpen(true);
-        handleMenuClose();
+    const handleRefresh = async () => {
+        setRefreshing(true);
+        await loadAdmins(false);
+        setSnackbar({
+            open: true,
+            message: 'Admins refreshed!',
+            severity: 'success',
+        });
+    };
+
+    const handleViewOpen = async (admin) => {
+        try {
+            const target = admin || menuTarget;
+            const data = await fetchAdminById(target.id);
+            setViewTarget(data.admin || data.data || target);
+            setViewDialogOpen(true);
+            handleMenuClose();
+        } catch (err) {
+            setSnackbar({
+                open: true,
+                message: 'Failed to load admin details',
+                severity: 'error',
+            });
+        }
     };
 
     const handleDeleteOpen = (admin) => {
@@ -443,20 +427,57 @@ export default function AdminManagementPage() {
         handleMenuClose();
     };
 
-    const handleDeleteConfirm = () => {
-        setAdmins((prev) => prev.filter((a) => a.id !== deleteTarget.id));
-        setDeleteDialogOpen(false);
-        setSnackbar({ open: true, message: `Admin "${deleteTarget.name}" removed.`, severity: 'warning' });
+    const handleDeleteConfirm = async () => {
+        try {
+            await deleteAdminApi(deleteTarget.id);
+
+            setAdmins((prev) => prev.filter((a) => a.id !== deleteTarget.id));
+            setDeleteDialogOpen(false);
+
+            setSnackbar({
+                open: true,
+                message: `Admin "${deleteTarget.name}" removed.`,
+                severity: 'warning',
+            });
+
+            loadAdmins(false);
+        } catch (err) {
+            setSnackbar({
+                open: true,
+                message: `Failed to remove admin: ${err.message}`,
+                severity: 'error',
+            });
+        }
     };
 
-    const handleToggleStatus = (admin) => {
+    const handleToggleStatus = async (admin) => {
         const target = admin || menuTarget;
         const newStatus = target.status === 'active' ? 'suspended' : 'active';
-        setAdmins((prev) =>
-            prev.map((a) => (a.id === target.id ? { ...a, status: newStatus } : a))
-        );
-        handleMenuClose();
-        setSnackbar({ open: true, message: `"${target.name}" ${newStatus === 'active' ? 'activated' : 'suspended'}.`, severity: 'info' });
+
+        try {
+            const data = await updateAdminStatus(target.id, newStatus);
+            const updated = data.admin || data.data;
+
+            setAdmins((prev) =>
+                prev.map((a) => (a.id === updated.id ? updated : a))
+            );
+
+            handleMenuClose();
+
+            setSnackbar({
+                open: true,
+                message: `"${updated.name}" ${newStatus === 'active' ? 'activated' : 'suspended'}.`,
+                severity: 'info',
+            });
+
+            loadAdmins(false);
+        } catch (err) {
+            setSnackbar({
+                open: true,
+                message: `Failed to update status: ${err.message}`,
+                severity: 'error',
+            });
+        }
     };
 
     const handleCopyId = (id) => {
@@ -464,13 +485,48 @@ export default function AdminManagementPage() {
         setSnackbar({ open: true, message: `Copied ${id}`, severity: 'info' });
     };
 
+    const loadAdmins = useCallback(async (showLoading = true) => {
+        try {
+            if (showLoading) setLoading(true);
+            setError(null);
+
+            const [adminsData, statsData] = await Promise.all([
+                fetchAdminsApi({
+                    tab: activeTab,
+                    role: roleFilter,
+                    search: searchQuery,
+                    sort: sortBy,
+                }),
+                fetchAdminStats(),
+            ]);
+
+            setAdmins(adminsData.admins || adminsData.data || adminsData || []);
+            setStats(statsData || {});
+        } catch (err) {
+            console.error('Failed to fetch admins:', err);
+            setError(err.message);
+            setSnackbar({
+                open: true,
+                message: `Failed to load admins: ${err.message}`,
+                severity: 'error',
+            });
+        } finally {
+            setLoading(false);
+            setRefreshing(false);
+        }
+    }, [activeTab, roleFilter, searchQuery, sortBy]);
+
+    useEffect(() => {
+        loadAdmins();
+    }, [loadAdmins]);
+
     // ─── Admin Form (inline) ───
     const renderAdminForm = (isEdit = false) => (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, mt: 1 }}>
             <TextField
                 fullWidth
                 label="Full Name"
-                placeholder="e.g. John Smith"
+                placeholder="e.g. Kapawa Morange"
                 value={formData.name}
                 onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
                 InputProps={{ startAdornment: <InputAdornment position="start"><PersonIcon sx={{ fontSize: 18, color: '#94a3b8' }} /></InputAdornment> }}
@@ -480,7 +536,7 @@ export default function AdminManagementPage() {
             <TextField
                 fullWidth
                 label="Email Address"
-                placeholder="e.g. john@cvbuilder.pro"
+                placeholder="e.g. morange@cvtify.pro"
                 type="email"
                 value={formData.email}
                 onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))}
@@ -491,7 +547,7 @@ export default function AdminManagementPage() {
             <TextField
                 fullWidth
                 label="Phone Number"
-                placeholder="e.g. +1 (555) 123-4567"
+                placeholder="e.g. +237 680 526 194"
                 value={formData.phone}
                 onChange={(e) => setFormData((prev) => ({ ...prev, phone: e.target.value }))}
                 InputProps={{ startAdornment: <InputAdornment position="start"><PhoneIcon sx={{ fontSize: 18, color: '#94a3b8' }} /></InputAdornment> }}
@@ -630,7 +686,7 @@ export default function AdminManagementPage() {
                         Add Admin
                     </Button>
                     <Tooltip title="Refresh">
-                        <IconButton sx={{ bgcolor: '#ffffff', border: '1px solid #e2e8f0', '&:hover': { bgcolor: '#f8fafc' } }}>
+                        <IconButton onClick={handleRefresh} sx={{ bgcolor: '#ffffff', border: '1px solid #e2e8f0', '&:hover': { bgcolor: '#f8fafc' } }}>
                             <RefreshIcon sx={{ fontSize: 20, color: '#64748b' }} />
                         </IconButton>
                     </Tooltip>
@@ -730,6 +786,12 @@ export default function AdminManagementPage() {
                     </IconButton>
                 </Box>
             </Box>
+
+            {error && (
+                <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>
+                    {error}
+                </Alert>
+            )}
 
             {/* ─── Admin Cards / List ─── */}
             {filteredAdmins.length === 0 ? (
@@ -936,14 +998,20 @@ export default function AdminManagementPage() {
                     <ListItemText primary={menuTarget?.status === 'active' ? 'Suspend Admin' : 'Activate Admin'} primaryTypographyProps={{ color: menuTarget?.status === 'active' ? '#f59e0b' : '#10b981' }} />
                 </MenuItem>
 
+                {!menuTarget?.isCurrent && <Divider sx={{ my: 0.5 }} />}
                 {!menuTarget?.isCurrent && (
-                    <>
-                        <Divider sx={{ my: 0.5 }} />
-                        <MenuItem onClick={() => handleDeleteOpen()} sx={{ py: 1, '&:hover': { bgcolor: '#ef444410' } }}>
-                            <ListItemIcon><DeleteIcon fontSize="small" sx={{ color: '#ef4444' }} /></ListItemIcon>
-                            <ListItemText primary="Remove Admin" primaryTypographyProps={{ color: '#ef4444' }} />
-                        </MenuItem>
-                    </>
+                    <MenuItem
+                        onClick={() => handleDeleteOpen()}
+                        sx={{ py: 1, '&:hover': { bgcolor: '#ef444410' } }}
+                    >
+                        <ListItemIcon>
+                            <DeleteIcon fontSize="small" sx={{ color: '#ef4444' }} />
+                        </ListItemIcon>
+                        <ListItemText
+                            primary="Remove Admin"
+                            primaryTypographyProps={{ color: '#ef4444' }}
+                        />
+                    </MenuItem>
                 )}
             </Menu>
 

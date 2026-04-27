@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -25,7 +25,8 @@ import {
   Badge,
   Alert,
   Snackbar,
-  TextareaAutosize,
+  Skeleton,
+  CircularProgress,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
@@ -54,9 +55,46 @@ import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import KeyboardArrowLeftIcon from '@mui/icons-material/KeyboardArrowLeft';
 import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
+import { adminApi } from '../../services/api';
+
+// ─── Helpers ───
+const parseAmount = (amount) => {
+  if (typeof amount === 'number') return amount;
+  if (typeof amount === 'string') {
+    const cleaned = amount.replace(/[^0-9.-]/g, '');
+    return parseFloat(cleaned) || 0;
+  }
+  return 0;
+};
+
+const formatAmount = (amount) => {
+  const num = parseAmount(amount);
+  return `$${num.toFixed(2)}`;
+};
+
+const getTimeAgo = (dateStr) => {
+  if (!dateStr) return 'N/A';
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return 'N/A';
+  const now = new Date();
+  const diffMs = now - date;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+};
 
 export default function PaymentsPage() {
   // ─── State ───
+  const [payments, setPayments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
@@ -74,144 +112,59 @@ export default function PaymentsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // ─── Mock Payment Data ───
-  const [payments, setPayments] = useState([
-    {
-      id: 1,
-      user: { name: 'Emma Wilson', email: 'emma@mail.com', avatar: null },
-      plan: 'Monthly',
-      amount: '$9.99',
-      paymentMethod: 'Bank Transfer',
-      reference: 'TXN-20250618-001',
-      proofImage: '/proof/proof1.png',
-      status: 'pending',
-      requestedAt: '2025-06-18T14:30:00',
-      timeAgo: '2 hours ago',
-      processedAt: null,
-      processedBy: null,
-      adminNote: '',
-    },
-    {
-      id: 2,
-      user: { name: 'Robert Chen', email: 'robert@mail.com', avatar: null },
-      plan: 'Yearly',
-      amount: '$79.99',
-      paymentMethod: 'Mobile Money',
-      reference: 'TXN-20250618-002',
-      proofImage: '/proof/proof2.png',
-      status: 'pending',
-      requestedAt: '2025-06-18T10:15:00',
-      timeAgo: '6 hours ago',
-      processedAt: null,
-      processedBy: null,
-      adminNote: '',
-    },
-    {
-      id: 3,
-      user: { name: 'Lisa Park', email: 'lisa@mail.com', avatar: null },
-      plan: 'Monthly',
-      amount: '$9.99',
-      paymentMethod: 'Bank Transfer',
-      reference: 'TXN-20250617-001',
-      proofImage: '/proof/proof3.png',
-      status: 'pending',
-      requestedAt: '2025-06-17T16:45:00',
-      timeAgo: '1 day ago',
-      processedAt: null,
-      processedBy: null,
-      adminNote: '',
-    },
-    {
-      id: 4,
-      user: { name: 'John Doe', email: 'john@mail.com', avatar: null },
-      plan: 'Monthly',
-      amount: '$9.99',
-      paymentMethod: 'PayPal',
-      reference: 'TXN-20250615-001',
-      proofImage: '/proof/proof4.png',
-      status: 'approved',
-      requestedAt: '2025-06-15T09:20:00',
-      timeAgo: '3 days ago',
-      processedAt: '2025-06-15T11:00:00',
-      processedBy: 'Admin',
-      adminNote: 'Payment verified successfully.',
-    },
-    {
-      id: 5,
-      user: { name: 'Jane Smith', email: 'jane@mail.com', avatar: null },
-      plan: 'Yearly',
-      amount: '$79.99',
-      paymentMethod: 'Bank Transfer',
-      reference: 'TXN-20250614-001',
-      proofImage: '/proof/proof5.png',
-      status: 'approved',
-      requestedAt: '2025-06-14T08:30:00',
-      timeAgo: '4 days ago',
-      processedAt: '2025-06-14T10:15:00',
-      processedBy: 'Admin',
-      adminNote: 'Bank transfer confirmed.',
-    },
-    {
-      id: 6,
-      user: { name: 'Alex Johnson', email: 'alex@mail.com', avatar: null },
-      plan: 'Monthly',
-      amount: '$9.99',
-      paymentMethod: 'Mobile Money',
-      reference: 'TXN-20250612-001',
-      proofImage: '/proof/proof6.png',
-      status: 'rejected',
-      requestedAt: '2025-06-12T14:10:00',
-      timeAgo: '6 days ago',
-      processedAt: '2025-06-12T16:00:00',
-      processedBy: 'Admin',
-      adminNote: 'Payment proof is unclear. Please resubmit.',
-    },
-    {
-      id: 7,
-      user: { name: 'Sarah Williams', email: 'sarah@mail.com', avatar: null },
-      plan: 'Monthly',
-      amount: '$9.99',
-      paymentMethod: 'Bank Transfer',
-      reference: 'TXN-20250610-001',
-      proofImage: '/proof/proof7.png',
-      status: 'approved',
-      requestedAt: '2025-06-10T17:25:00',
-      timeAgo: '1 week ago',
-      processedAt: '2025-06-10T18:00:00',
-      processedBy: 'Admin',
-      adminNote: '',
-    },
-    {
-      id: 8,
-      user: { name: 'Mike Brown', email: 'mike@mail.com', avatar: null },
-      plan: 'Monthly',
-      amount: '$9.99',
-      paymentMethod: 'PayPal',
-      reference: 'TXN-20250608-001',
-      proofImage: null,
-      status: 'rejected',
-      requestedAt: '2025-06-08T12:00:00',
-      timeAgo: '10 days ago',
-      processedAt: '2025-06-08T14:30:00',
-      processedBy: 'Admin',
-      adminNote: 'No payment proof provided.',
-    },
-    {
-      id: 9,
-      user: { name: 'David Kim', email: 'david@mail.com', avatar: null },
-      plan: 'Yearly',
-      amount: '$79.99',
-      paymentMethod: 'Bank Transfer',
-      reference: 'TXN-20250618-003',
-      proofImage: '/proof/proof9.png',
-      status: 'pending',
-      requestedAt: '2025-06-18T16:00:00',
-      timeAgo: '30 minutes ago',
-      processedAt: null,
-      processedBy: null,
-      adminNote: '',
-    },
-  ]);
+  // ─── Fetch Payments ───
+  const fetchPayments = useCallback(async (showRefresh = false) => {
+    try {
+      if (showRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+
+      let response;
+      if (typeof adminApi.getPayments === 'function') {
+        response = await adminApi.getPayments();
+      } else if (typeof adminApi.getPremiumRequests === 'function') {
+        response = await adminApi.getPremiumRequests();
+      } else if (typeof adminApi.getSubscriptions === 'function') {
+        response = await adminApi.getSubscriptions();
+      } else {
+        console.warn(
+          'No payments API method found. Available adminApi methods:',
+          Object.keys(adminApi).filter((k) => typeof adminApi[k] === 'function')
+        );
+        response = { data: [] };
+      }
+
+      const extractArray = (res) => {
+        if (Array.isArray(res)) return res;
+        if (Array.isArray(res?.data)) return res.data;
+        if (Array.isArray(res?.data?.results)) return res.data.results;
+        if (Array.isArray(res?.data?.payments)) return res.data.payments;
+        if (Array.isArray(res?.data?.requests)) return res.data.requests;
+        if (Array.isArray(res?.data?.subscriptions)) return res.data.subscriptions;
+        if (Array.isArray(res?.payments)) return res.payments;
+        if (Array.isArray(res?.requests)) return res.requests;
+        return [];
+      };
+
+      setPayments(extractArray(response));
+    } catch (error) {
+      console.error('Failed to fetch payments:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to load payments. Please try again.',
+        severity: 'error',
+      });
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchPayments();
+  }, [fetchPayments]);
 
   // ─── Computed ───
   const totalPayments = payments.length;
@@ -219,24 +172,46 @@ export default function PaymentsPage() {
   const approvedPayments = payments.filter((p) => p.status === 'approved');
   const rejectedPayments = payments.filter((p) => p.status === 'rejected');
   const totalRevenue = approvedPayments.reduce(
-    (acc, p) => acc + parseFloat(p.amount.replace('$', '')),
+    (acc, p) => acc + parseAmount(p.amount),
     0
   );
   const pendingAmount = pendingPayments.reduce(
-    (acc, p) => acc + parseFloat(p.amount.replace('$', '')),
+    (acc, p) => acc + parseAmount(p.amount),
     0
   );
 
-  // ─── Filter ───
-  const filteredPayments = payments.filter((p) => {
-    const matchesSearch =
-      p.user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.reference.toLowerCase().includes(searchQuery.toLowerCase());
+  // ─── Filter & Sort ───
+  const filteredPayments = useMemo(() => {
+    let result = payments.filter((p) => {
+      const userName = p.user?.name || p.userName || '';
+      const userEmail = p.user?.email || p.userEmail || '';
+      const reference = p.reference || p.transactionRef || '';
 
-    if (activeTab === 'all') return matchesSearch;
-    return matchesSearch && p.status === activeTab;
-  });
+      const matchesSearch =
+        userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        userEmail.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        reference.toLowerCase().includes(searchQuery.toLowerCase());
+
+      if (activeTab === 'all') return matchesSearch;
+      return matchesSearch && p.status === activeTab;
+    });
+
+    result.sort((a, b) => {
+      switch (sortBy) {
+        case 'oldest':
+          return new Date(a.requestedAt || a.createdAt) - new Date(b.requestedAt || b.createdAt);
+        case 'amount-desc':
+          return parseAmount(b.amount) - parseAmount(a.amount);
+        case 'name':
+          return (a.user?.name || a.userName || '').localeCompare(b.user?.name || b.userName || '');
+        case 'newest':
+        default:
+          return new Date(b.requestedAt || b.createdAt) - new Date(a.requestedAt || a.createdAt);
+      }
+    });
+
+    return result;
+  }, [payments, searchQuery, activeTab, sortBy]);
 
   // ─── Pagination ───
   const totalPages = Math.ceil(filteredPayments.length / itemsPerPage);
@@ -244,6 +219,21 @@ export default function PaymentsPage() {
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
+
+  // ─── Safe Accessors ───
+  const getUserName = (payment) => payment?.user?.name || payment?.userName || 'Unknown';
+  const getUserEmail = (payment) => payment?.user?.email || payment?.userEmail || '';
+  const getUserInitial = (payment) => getUserName(payment).charAt(0) || '?';
+  const getReference = (payment) => payment?.reference || payment?.transactionRef || 'N/A';
+  const getPlan = (payment) => payment?.plan || payment?.planName || 'Premium';
+  const getPaymentMethod = (payment) => payment?.paymentMethod || payment?.method || 'N/A';
+  const getProofImage = (payment) => payment?.proofImage || payment?.screenshot || null;
+  const getRequestedAt = (payment) => payment?.requestedAt || payment?.createdAt || null;
+  const getTimeAgoStr = (payment) => payment?.timeAgo || getTimeAgo(getRequestedAt(payment));
+  const getAmountDisplay = (payment) => {
+    if (typeof payment?.amount === 'string' && payment.amount.includes('$')) return payment.amount;
+    return formatAmount(payment?.amount);
+  };
 
   // ─── Status Helpers ───
   const getStatusColor = (status) => {
@@ -294,26 +284,51 @@ export default function PaymentsPage() {
     handleMenuClose();
   };
 
-  const handleApproveConfirm = () => {
-    setPayments((prev) =>
-      prev.map((p) =>
-        p.id === selectedPayment.id
-          ? {
-              ...p,
-              status: 'approved',
-              processedAt: new Date().toISOString(),
-              processedBy: 'Admin',
-              adminNote: adminNote,
-            }
-          : p
-      )
-    );
-    setApproveDialogOpen(false);
-    setSnackbar({
-      open: true,
-      message: `Payment approved! ${selectedPayment.user.name} is now Premium.`,
-      severity: 'success',
-    });
+  const handleApproveConfirm = async () => {
+    if (!selectedPayment) return;
+    setActionLoading(true);
+    try {
+      if (typeof adminApi.approvePayment === 'function') {
+        await adminApi.approvePayment(selectedPayment.id, { adminNote });
+      } else if (typeof adminApi.approvePremiumRequest === 'function') {
+        await adminApi.approvePremiumRequest(selectedPayment.id, { adminNote });
+      } else if (typeof adminApi.updatePayment === 'function') {
+        await adminApi.updatePayment(selectedPayment.id, { status: 'approved', adminNote });
+      } else if (typeof adminApi.updateSubscription === 'function') {
+        await adminApi.updateSubscription(selectedPayment.id, { status: 'approved', adminNote });
+      } else {
+        console.warn('No approve API method found');
+      }
+
+      setPayments((prev) =>
+        prev.map((p) =>
+          p.id === selectedPayment.id
+            ? {
+                ...p,
+                status: 'approved',
+                processedAt: new Date().toISOString(),
+                processedBy: 'Admin',
+                adminNote: adminNote,
+              }
+            : p
+        )
+      );
+      setApproveDialogOpen(false);
+      setSnackbar({
+        open: true,
+        message: `Payment approved! ${getUserName(selectedPayment)} is now Premium.`,
+        severity: 'success',
+      });
+    } catch (error) {
+      console.error('Approve failed:', error);
+      setSnackbar({
+        open: true,
+        message: `Failed to approve payment. ${error?.response?.data?.message || 'Please try again.'}`,
+        severity: 'error',
+      });
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const handleRejectOpen = (payment) => {
@@ -323,33 +338,160 @@ export default function PaymentsPage() {
     handleMenuClose();
   };
 
-  const handleRejectConfirm = () => {
-    setPayments((prev) =>
-      prev.map((p) =>
-        p.id === selectedPayment.id
-          ? {
-              ...p,
-              status: 'rejected',
-              processedAt: new Date().toISOString(),
-              processedBy: 'Admin',
-              adminNote: rejectReason,
-            }
-          : p
-      )
-    );
-    setRejectDialogOpen(false);
-    setSnackbar({
-      open: true,
-      message: `Payment from ${selectedPayment.user.name} rejected.`,
-      severity: 'warning',
-    });
+  const handleRejectConfirm = async () => {
+    if (!selectedPayment) return;
+    setActionLoading(true);
+    try {
+      if (typeof adminApi.rejectPayment === 'function') {
+        await adminApi.rejectPayment(selectedPayment.id, { adminNote: rejectReason });
+      } else if (typeof adminApi.rejectPremiumRequest === 'function') {
+        await adminApi.rejectPremiumRequest(selectedPayment.id, { adminNote: rejectReason });
+      } else if (typeof adminApi.updatePayment === 'function') {
+        await adminApi.updatePayment(selectedPayment.id, { status: 'rejected', adminNote: rejectReason });
+      } else if (typeof adminApi.updateSubscription === 'function') {
+        await adminApi.updateSubscription(selectedPayment.id, { status: 'rejected', adminNote: rejectReason });
+      } else {
+        console.warn('No reject API method found');
+      }
+
+      setPayments((prev) =>
+        prev.map((p) =>
+          p.id === selectedPayment.id
+            ? {
+                ...p,
+                status: 'rejected',
+                processedAt: new Date().toISOString(),
+                processedBy: 'Admin',
+                adminNote: rejectReason,
+              }
+            : p
+        )
+      );
+      setRejectDialogOpen(false);
+      setSnackbar({
+        open: true,
+        message: `Payment from ${getUserName(selectedPayment)} rejected.`,
+        severity: 'warning',
+      });
+    } catch (error) {
+      console.error('Reject failed:', error);
+      setSnackbar({
+        open: true,
+        message: `Failed to reject payment. ${error?.response?.data?.message || 'Please try again.'}`,
+        severity: 'error',
+      });
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const handleCopyReference = (ref) => {
+    if (!ref) return;
     navigator.clipboard.writeText(ref);
     handleMenuClose();
     setSnackbar({ open: true, message: 'Reference copied!', severity: 'success' });
   };
+
+  const handleRefresh = () => {
+    fetchPayments(true);
+  };
+
+  const handleExport = async () => {
+    try {
+      setSnackbar({ open: true, message: 'Exporting payments...', severity: 'info' });
+
+      const headers = [
+        'ID', 'User', 'Email', 'Amount', 'Plan', 'Payment Method',
+        'Reference', 'Status', 'Requested At', 'Processed At', 'Processed By', 'Admin Note',
+      ];
+
+      const csvRows = [
+        headers.join(','),
+        ...payments.map((p) =>
+          [
+            `"${p.id || ''}"`,
+            `"${getUserName(p)}"`,
+            `"${getUserEmail(p)}"`,
+            `"${getAmountDisplay(p)}"`,
+            `"${getPlan(p)}"`,
+            `"${getPaymentMethod(p)}"`,
+            `"${getReference(p)}"`,
+            `"${p.status || ''}"`,
+            `"${getRequestedAt(p) || ''}"`,
+            `"${p.processedAt || ''}"`,
+            `"${p.processedBy || ''}"`,
+            `"${(p.adminNote || '').replace(/"/g, '""')}"`,
+          ].join(',')
+        ),
+      ];
+
+      const csvContent = csvRows.join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `payments-export-${new Date().toISOString().split('T')[0]}.csv`;
+      link.click();
+      window.URL.revokeObjectURL(url);
+
+      setSnackbar({ open: true, message: 'Payments exported successfully!', severity: 'success' });
+    } catch (error) {
+      console.error('Export failed:', error);
+      setSnackbar({ open: true, message: 'Failed to export payments.', severity: 'error' });
+    }
+  };
+
+  // ─── Loading Skeleton ───
+  if (loading) {
+    return (
+      <Box sx={{ p: { xs: 2, md: 4 } }}>
+        <Box sx={{ mb: 4 }}>
+          <Skeleton variant="text" width={300} height={40} />
+          <Skeleton variant="text" width={400} height={24} />
+        </Box>
+
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr 1fr', md: '1fr 1fr 1fr 1fr 1fr' },
+            gap: 2,
+            mb: 4,
+          }}
+        >
+          {[...Array(5)].map((_, i) => (
+            <Skeleton key={i} variant="rounded" height={85} sx={{ borderRadius: 3 }} />
+          ))}
+        </Box>
+
+        <Skeleton variant="rounded" height={48} sx={{ mb: 3, borderRadius: 2 }} />
+        <Skeleton variant="rounded" height={48} sx={{ mb: 3, borderRadius: 2 }} />
+
+        <Box
+          sx={{
+            bgcolor: '#ffffff',
+            borderRadius: 3,
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+            overflow: 'hidden',
+          }}
+        >
+          <Skeleton variant="rectangular" height={48} />
+          {[...Array(5)].map((_, i) => (
+            <Box key={i} sx={{ p: 2, borderBottom: '1px solid #f1f5f9' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Skeleton variant="circular" width={38} height={38} />
+                <Box sx={{ flex: 1 }}>
+                  <Skeleton variant="text" width="55%" height={20} />
+                  <Skeleton variant="text" width="40%" height={16} />
+                </Box>
+                <Skeleton variant="rounded" width={60} height={24} sx={{ borderRadius: 2 }} />
+                <Skeleton variant="rounded" width={70} height={26} sx={{ borderRadius: 2 }} />
+              </Box>
+            </Box>
+          ))}
+        </Box>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ p: { xs: 2, md: 4 } }}>
@@ -377,6 +519,7 @@ export default function PaymentsPage() {
           <Button
             size="small"
             startIcon={<FileDownloadIcon />}
+            onClick={handleExport}
             sx={{
               textTransform: 'none',
               color: '#64748b',
@@ -390,8 +533,26 @@ export default function PaymentsPage() {
             Export
           </Button>
           <Tooltip title="Refresh">
-            <IconButton sx={{ bgcolor: '#ffffff', border: '1px solid #e2e8f0', '&:hover': { bgcolor: '#f8fafc' } }}>
-              <RefreshIcon sx={{ fontSize: 20, color: '#64748b' }} />
+            <IconButton
+              onClick={handleRefresh}
+              disabled={refreshing}
+              sx={{
+                bgcolor: '#ffffff',
+                border: '1px solid #e2e8f0',
+                '&:hover': { bgcolor: '#f8fafc' },
+              }}
+            >
+              <RefreshIcon
+                sx={{
+                  fontSize: 20,
+                  color: '#64748b',
+                  animation: refreshing ? 'spin 1s linear infinite' : 'none',
+                  '@keyframes spin': {
+                    '0%': { transform: 'rotate(0deg)' },
+                    '100%': { transform: 'rotate(360deg)' },
+                  },
+                }}
+              />
             </IconButton>
           </Tooltip>
         </Box>
@@ -486,8 +647,8 @@ export default function PaymentsPage() {
           icon={<PendingIcon />}
           sx={{ mb: 3, borderRadius: 2, fontWeight: 500 }}
         >
-          <strong>{pendingPayments.length} payment{pendingPayments.length > 1 ? 's' : ''}</strong> pending
-          review (${pendingAmount.toFixed(2)} total). Please review and approve or reject.
+          <strong>{pendingPayments.length} payment{pendingPayments.length > 1 ? 's' : ''}</strong>{' '}
+          pending review (${pendingAmount.toFixed(2)} total). Please review and approve or reject.
         </Alert>
       )}
 
@@ -506,7 +667,11 @@ export default function PaymentsPage() {
         <Tab
           value="pending"
           label={
-            <Badge badgeContent={pendingPayments.length} color="warning" sx={{ '& .MuiBadge-badge': { fontSize: '0.6rem', height: 16, minWidth: 16 } }}>
+            <Badge
+              badgeContent={pendingPayments.length}
+              color="warning"
+              sx={{ '& .MuiBadge-badge': { fontSize: '0.6rem', height: 16, minWidth: 16 } }}
+            >
               <Box sx={{ pr: 1 }}>Pending</Box>
             </Badge>
           }
@@ -565,14 +730,22 @@ export default function PaymentsPage() {
           Sort
         </Button>
 
-        <Menu anchorEl={sortAnchorEl} open={Boolean(sortAnchorEl)} onClose={() => setSortAnchorEl(null)}>
+        <Menu
+          anchorEl={sortAnchorEl}
+          open={Boolean(sortAnchorEl)}
+          onClose={() => setSortAnchorEl(null)}
+        >
           {[
             { label: 'Newest First', value: 'newest' },
             { label: 'Oldest First', value: 'oldest' },
             { label: 'Highest Amount', value: 'amount-desc' },
             { label: 'User Name (A-Z)', value: 'name' },
           ].map((opt) => (
-            <MenuItem key={opt.value} selected={sortBy === opt.value} onClick={() => { setSortBy(opt.value); setSortAnchorEl(null); }}>
+            <MenuItem
+              key={opt.value}
+              selected={sortBy === opt.value}
+              onClick={() => { setSortBy(opt.value); setSortAnchorEl(null); }}
+            >
               {opt.label}
             </MenuItem>
           ))}
@@ -612,8 +785,12 @@ export default function PaymentsPage() {
         {paginatedPayments.length === 0 ? (
           <Box sx={{ textAlign: 'center', py: 8 }}>
             <PaymentIcon sx={{ fontSize: 48, color: '#e2e8f0', mb: 2 }} />
-            <Typography variant="body1" fontWeight="600" color="#94a3b8">No payments found</Typography>
-            <Typography variant="body2" color="#cbd5e1">Try a different search or filter</Typography>
+            <Typography variant="body1" fontWeight="600" color="#94a3b8">
+              No payments found
+            </Typography>
+            <Typography variant="body2" color="#cbd5e1">
+              Try a different search or filter
+            </Typography>
           </Box>
         ) : (
           paginatedPayments.map((payment, index) => (
@@ -645,27 +822,27 @@ export default function PaymentsPage() {
                     fontWeight: 700,
                   }}
                 >
-                  {payment.user.name.charAt(0)}
+                  {getUserInitial(payment)}
                 </Avatar>
                 <Box sx={{ minWidth: 0 }}>
                   <Typography variant="body2" fontWeight="600" color="#1e293b" noWrap>
-                    {payment.user.name}
+                    {getUserName(payment)}
                   </Typography>
                   <Typography variant="caption" color="#94a3b8" noWrap>
-                    {payment.plan} Plan • {payment.reference}
+                    {getPlan(payment)} Plan • {getReference(payment)}
                   </Typography>
                 </Box>
               </Box>
 
               {/* Amount */}
               <Typography variant="body2" fontWeight="700" color="#1e293b">
-                {payment.amount}
+                {getAmountDisplay(payment)}
               </Typography>
 
               {/* Status */}
               <Chip
                 icon={getStatusIcon(payment.status)}
-                label={payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}
+                label={(payment.status || 'unknown').charAt(0).toUpperCase() + (payment.status || 'unknown').slice(1)}
                 size="small"
                 sx={{
                   fontWeight: 600,
@@ -680,12 +857,12 @@ export default function PaymentsPage() {
 
               {/* Method */}
               <Typography variant="body2" color="#64748b" sx={{ display: { xs: 'none', md: 'block' } }}>
-                {payment.paymentMethod}
+                {getPaymentMethod(payment)}
               </Typography>
 
               {/* Proof */}
               <Box sx={{ display: { xs: 'none', md: 'flex' } }}>
-                {payment.proofImage ? (
+                {getProofImage(payment) ? (
                   <Tooltip title="View Proof">
                     <IconButton
                       size="small"
@@ -706,7 +883,7 @@ export default function PaymentsPage() {
 
               {/* Date */}
               <Typography variant="body2" color="#94a3b8" sx={{ display: { xs: 'none', md: 'block' } }}>
-                {payment.timeAgo}
+                {getTimeAgoStr(payment)}
               </Typography>
 
               {/* Actions */}
@@ -758,27 +935,49 @@ export default function PaymentsPage() {
               {Math.min(currentPage * itemsPerPage, filteredPayments.length)} of {filteredPayments.length}
             </Typography>
             <Box sx={{ display: 'flex', gap: 0.5 }}>
-              <IconButton size="small" disabled={currentPage === 1} onClick={() => setCurrentPage((p) => p - 1)}>
+              <IconButton
+                size="small"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage((p) => p - 1)}
+              >
                 <KeyboardArrowLeftIcon />
               </IconButton>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                <Button
-                  key={page}
-                  size="small"
-                  onClick={() => setCurrentPage(page)}
-                  sx={{
-                    minWidth: 32,
-                    height: 32,
-                    borderRadius: 1,
-                    fontWeight: 600,
-                    fontSize: '0.8rem',
-                    ...(currentPage === page ? { bgcolor: '#667eea', color: '#ffffff' } : { color: '#64748b' }),
-                  }}
-                >
-                  {page}
-                </Button>
-              ))}
-              <IconButton size="small" disabled={currentPage === totalPages} onClick={() => setCurrentPage((p) => p + 1)}>
+              {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+                let page;
+                if (totalPages <= 7) {
+                  page = i + 1;
+                } else if (currentPage <= 4) {
+                  page = i + 1;
+                } else if (currentPage >= totalPages - 3) {
+                  page = totalPages - 6 + i;
+                } else {
+                  page = currentPage - 3 + i;
+                }
+                return (
+                  <Button
+                    key={page}
+                    size="small"
+                    onClick={() => setCurrentPage(page)}
+                    sx={{
+                      minWidth: 32,
+                      height: 32,
+                      borderRadius: 1,
+                      fontWeight: 600,
+                      fontSize: '0.8rem',
+                      ...(currentPage === page
+                        ? { bgcolor: '#667eea', color: '#ffffff' }
+                        : { color: '#64748b' }),
+                    }}
+                  >
+                    {page}
+                  </Button>
+                );
+              })}
+              <IconButton
+                size="small"
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage((p) => p + 1)}
+              >
                 <KeyboardArrowRightIcon />
               </IconButton>
             </Box>
@@ -791,21 +990,27 @@ export default function PaymentsPage() {
         anchorEl={menuAnchorEl}
         open={Boolean(menuAnchorEl)}
         onClose={handleMenuClose}
-        PaperProps={{ sx: { borderRadius: 2, boxShadow: '0 4px 20px rgba(0,0,0,0.12)', minWidth: 200 } }}
+        PaperProps={{
+          sx: {
+            borderRadius: 2,
+            boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
+            minWidth: 200,
+          },
+        }}
       >
-        <MenuItem onClick={() => handleViewPayment()} sx={{ py: 1 }}>
+        <MenuItem onClick={() => handleViewPayment(selectedPayment)} sx={{ py: 1 }}>
           <ListItemIcon><VisibilityIcon fontSize="small" sx={{ color: '#667eea' }} /></ListItemIcon>
           <ListItemText primary="View Details" />
         </MenuItem>
 
-        {selectedPayment?.proofImage && (
-          <MenuItem onClick={() => handleViewProof()} sx={{ py: 1 }}>
+        {getProofImage(selectedPayment) && (
+          <MenuItem onClick={() => handleViewProof(selectedPayment)} sx={{ py: 1 }}>
             <ListItemIcon><ImageIcon fontSize="small" sx={{ color: '#8b5cf6' }} /></ListItemIcon>
             <ListItemText primary="View Proof" />
           </MenuItem>
         )}
 
-        <MenuItem onClick={() => handleCopyReference(selectedPayment?.reference)} sx={{ py: 1 }}>
+        <MenuItem onClick={() => handleCopyReference(getReference(selectedPayment))} sx={{ py: 1 }}>
           <ListItemIcon><ContentCopyIcon fontSize="small" sx={{ color: '#64748b' }} /></ListItemIcon>
           <ListItemText primary="Copy Reference" />
         </MenuItem>
@@ -813,11 +1018,11 @@ export default function PaymentsPage() {
         {selectedPayment?.status === 'pending' && (
           <>
             <Divider sx={{ my: 0.5 }} />
-            <MenuItem onClick={() => handleApproveOpen()} sx={{ py: 1 }}>
+            <MenuItem onClick={() => handleApproveOpen(selectedPayment)} sx={{ py: 1 }}>
               <ListItemIcon><CheckCircleIcon fontSize="small" sx={{ color: '#10b981' }} /></ListItemIcon>
               <ListItemText primary="Approve" primaryTypographyProps={{ color: '#10b981' }} />
             </MenuItem>
-            <MenuItem onClick={() => handleRejectOpen()} sx={{ py: 1 }}>
+            <MenuItem onClick={() => handleRejectOpen(selectedPayment)} sx={{ py: 1 }}>
               <ListItemIcon><CancelIcon fontSize="small" sx={{ color: '#ef4444' }} /></ListItemIcon>
               <ListItemText primary="Reject" primaryTypographyProps={{ color: '#ef4444' }} />
             </MenuItem>
@@ -852,16 +1057,21 @@ export default function PaymentsPage() {
 
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
                 <Avatar
-                  sx={{ width: 50, height: 50, bgcolor: getStatusColor(selectedPayment.status), fontWeight: 700 }}
+                  sx={{
+                    width: 50,
+                    height: 50,
+                    bgcolor: getStatusColor(selectedPayment.status),
+                    fontWeight: 700,
+                  }}
                 >
-                  {selectedPayment.user.name.charAt(0)}
+                  {getUserInitial(selectedPayment)}
                 </Avatar>
                 <Box>
                   <Typography variant="h6" fontWeight="700" color="#1e293b">
-                    {selectedPayment.user.name}
+                    {getUserName(selectedPayment)}
                   </Typography>
                   <Typography variant="body2" color="#64748b">
-                    {selectedPayment.user.email}
+                    {getUserEmail(selectedPayment)}
                   </Typography>
                 </Box>
               </Box>
@@ -869,7 +1079,7 @@ export default function PaymentsPage() {
               <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
                 <Chip
                   icon={getStatusIcon(selectedPayment.status)}
-                  label={selectedPayment.status.charAt(0).toUpperCase() + selectedPayment.status.slice(1)}
+                  label={(selectedPayment.status || 'unknown').charAt(0).toUpperCase() + (selectedPayment.status || 'unknown').slice(1)}
                   sx={{
                     fontWeight: 600,
                     bgcolor: getStatusBg(selectedPayment.status),
@@ -878,7 +1088,7 @@ export default function PaymentsPage() {
                   }}
                 />
                 <Chip
-                  label={`${selectedPayment.plan} Plan`}
+                  label={`${getPlan(selectedPayment)} Plan`}
                   sx={{ fontWeight: 600, bgcolor: '#667eea15', color: '#667eea' }}
                 />
               </Box>
@@ -898,19 +1108,24 @@ export default function PaymentsPage() {
               >
                 <Typography variant="caption" color="#94a3b8">Amount</Typography>
                 <Typography variant="h3" fontWeight="800" color="#1e293b">
-                  {selectedPayment.amount}
+                  {getAmountDisplay(selectedPayment)}
                 </Typography>
               </Box>
 
               {/* Details Grid */}
               {[
-                { label: 'Reference', value: selectedPayment.reference },
-                { label: 'Payment Method', value: selectedPayment.paymentMethod },
-                { label: 'Requested', value: new Date(selectedPayment.requestedAt).toLocaleString() },
+                { label: 'Reference', value: getReference(selectedPayment) },
+                { label: 'Payment Method', value: getPaymentMethod(selectedPayment) },
+                {
+                  label: 'Requested',
+                  value: getRequestedAt(selectedPayment)
+                    ? new Date(getRequestedAt(selectedPayment)).toLocaleString()
+                    : 'N/A',
+                },
                 ...(selectedPayment.processedAt
                   ? [
                       { label: 'Processed', value: new Date(selectedPayment.processedAt).toLocaleString() },
-                      { label: 'Processed By', value: selectedPayment.processedBy },
+                      { label: 'Processed By', value: selectedPayment.processedBy || 'N/A' },
                     ]
                   : []),
               ].map((detail, i) => (
@@ -939,8 +1154,8 @@ export default function PaymentsPage() {
                 </Box>
               )}
 
-              {/* Proof Image Thumbnail */}
-              {selectedPayment.proofImage && (
+              {/* Proof Image */}
+              {getProofImage(selectedPayment) && (
                 <Box sx={{ mt: 3 }}>
                   <Typography variant="body2" fontWeight="600" color="#1e293b" sx={{ mb: 1 }}>
                     Payment Proof
@@ -963,7 +1178,17 @@ export default function PaymentsPage() {
                       '&:hover': { borderColor: '#667eea', '& .zoom-overlay': { opacity: 1 } },
                     }}
                   >
-                    <ImageIcon sx={{ fontSize: 48, color: '#cbd5e1' }} />
+                    {getProofImage(selectedPayment)?.startsWith('http') ? (
+                      <Box
+                        component="img"
+                        src={getProofImage(selectedPayment)}
+                        alt="Payment proof"
+                        sx={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                        onError={(e) => { e.target.style.display = 'none'; }}
+                      />
+                    ) : (
+                      <ImageIcon sx={{ fontSize: 48, color: '#cbd5e1' }} />
+                    )}
                     <Box
                       className="zoom-overlay"
                       sx={{
@@ -1016,7 +1241,10 @@ export default function PaymentsPage() {
                 </>
               )}
               <Box sx={{ flex: 1 }} />
-              <Button onClick={() => setViewDialogOpen(false)} sx={{ textTransform: 'none', color: '#64748b' }}>
+              <Button
+                onClick={() => setViewDialogOpen(false)}
+                sx={{ textTransform: 'none', color: '#64748b' }}
+              >
                 Close
               </Button>
             </DialogActions>
@@ -1032,129 +1260,169 @@ export default function PaymentsPage() {
         fullWidth
         PaperProps={{ sx: { borderRadius: 3, overflow: 'hidden' } }}
       >
-        <Box
-          sx={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            p: 2,
-            bgcolor: '#f8fafc',
-            borderBottom: '1px solid #e2e8f0',
-          }}
-        >
-          <Box>
-            <Typography variant="body1" fontWeight="700" color="#1e293b">
-              Payment Proof — {selectedPayment?.user.name}
-            </Typography>
-            <Typography variant="caption" color="#94a3b8">
-              {selectedPayment?.reference} • {selectedPayment?.paymentMethod}
-            </Typography>
-          </Box>
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-            <Tooltip title="Zoom Out">
-              <IconButton size="small" onClick={() => setProofZoom((z) => Math.max(z - 25, 50))} disabled={proofZoom <= 50}>
-                <ZoomOutIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-            <Typography variant="caption" fontWeight="600" color="#64748b" sx={{ minWidth: 40, textAlign: 'center' }}>
-              {proofZoom}%
-            </Typography>
-            <Tooltip title="Zoom In">
-              <IconButton size="small" onClick={() => setProofZoom((z) => Math.min(z + 25, 200))} disabled={proofZoom >= 200}>
-                <ZoomInIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-            <IconButton onClick={() => setProofDialogOpen(false)} sx={{ ml: 1 }}>
-              <CloseIcon />
-            </IconButton>
-          </Box>
-        </Box>
-
-        <Box
-          sx={{
-            height: '70vh',
-            overflow: 'auto',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            bgcolor: '#1e293b',
-            p: 3,
-          }}
-        >
-          {selectedPayment?.proofImage ? (
+        {selectedPayment && (
+          <>
             <Box
               sx={{
-                transform: `scale(${proofZoom / 100})`,
-                transition: 'transform 0.2s ease',
-                maxWidth: '100%',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                p: 2,
+                bgcolor: '#f8fafc',
+                borderBottom: '1px solid #e2e8f0',
               }}
             >
-              {/* Replace with actual Image component */}
-              <Box
-                sx={{
-                  width: { xs: 300, md: 500 },
-                  height: { xs: 400, md: 650 },
-                  bgcolor: '#ffffff',
-                  borderRadius: 2,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  boxShadow: '0 10px 40px rgba(0,0,0,0.3)',
-                }}
-              >
-                <Box sx={{ textAlign: 'center', color: '#94a3b8' }}>
-                  <ImageIcon sx={{ fontSize: 60, mb: 1 }} />
-                  <Typography variant="body2">Payment Screenshot</Typography>
-                  <Typography variant="caption">{selectedPayment.proofImage}</Typography>
-                </Box>
+              <Box>
+                <Typography variant="body1" fontWeight="700" color="#1e293b">
+                  Payment Proof — {getUserName(selectedPayment)}
+                </Typography>
+                <Typography variant="caption" color="#94a3b8">
+                  {getReference(selectedPayment)} • {getPaymentMethod(selectedPayment)}
+                </Typography>
+              </Box>
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                <Tooltip title="Zoom Out">
+                  <IconButton
+                    size="small"
+                    onClick={() => setProofZoom((z) => Math.max(z - 25, 50))}
+                    disabled={proofZoom <= 50}
+                  >
+                    <ZoomOutIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+                <Typography
+                  variant="caption"
+                  fontWeight="600"
+                  color="#64748b"
+                  sx={{ minWidth: 40, textAlign: 'center' }}
+                >
+                  {proofZoom}%
+                </Typography>
+                <Tooltip title="Zoom In">
+                  <IconButton
+                    size="small"
+                    onClick={() => setProofZoom((z) => Math.min(z + 25, 200))}
+                    disabled={proofZoom >= 200}
+                  >
+                    <ZoomInIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+                <IconButton onClick={() => setProofDialogOpen(false)} sx={{ ml: 1 }}>
+                  <CloseIcon />
+                </IconButton>
               </Box>
             </Box>
-          ) : (
-            <Typography color="#94a3b8">No proof image available</Typography>
-          )}
-        </Box>
 
-        {/* Bottom Actions */}
-        {selectedPayment?.status === 'pending' && (
-          <Box
-            sx={{
-              display: 'flex',
-              justifyContent: 'flex-end',
-              gap: 1.5,
-              p: 2,
-              bgcolor: '#f8fafc',
-              borderTop: '1px solid #e2e8f0',
-            }}
-          >
-            <Button
-              variant="contained"
-              startIcon={<CheckCircleIcon />}
-              onClick={() => { setProofDialogOpen(false); handleApproveOpen(selectedPayment); }}
+            <Box
               sx={{
-                textTransform: 'none',
-                fontWeight: 600,
-                borderRadius: 2,
-                bgcolor: '#10b981',
-                '&:hover': { bgcolor: '#059669' },
+                height: '70vh',
+                overflow: 'auto',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                bgcolor: '#1e293b',
+                p: 3,
               }}
             >
-              Approve Payment
-            </Button>
-            <Button
-              variant="outlined"
-              color="error"
-              startIcon={<CancelIcon />}
-              onClick={() => { setProofDialogOpen(false); handleRejectOpen(selectedPayment); }}
-              sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 2 }}
-            >
-              Reject
-            </Button>
-          </Box>
+              {getProofImage(selectedPayment) ? (
+                <Box
+                  sx={{
+                    transform: `scale(${proofZoom / 100})`,
+                    transition: 'transform 0.2s ease',
+                    maxWidth: '100%',
+                  }}
+                >
+                  {getProofImage(selectedPayment)?.startsWith('http') ? (
+                    <Box
+                      component="img"
+                      src={getProofImage(selectedPayment)}
+                      alt="Payment proof screenshot"
+                      sx={{
+                        maxWidth: '100%',
+                        maxHeight: '65vh',
+                        objectFit: 'contain',
+                        borderRadius: 2,
+                        boxShadow: '0 10px 40px rgba(0,0,0,0.3)',
+                      }}
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <Box
+                      sx={{
+                        width: { xs: 300, md: 500 },
+                        height: { xs: 400, md: 650 },
+                        bgcolor: '#ffffff',
+                        borderRadius: 2,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: '0 10px 40px rgba(0,0,0,0.3)',
+                      }}
+                    >
+                      <Box sx={{ textAlign: 'center', color: '#94a3b8' }}>
+                        <ImageIcon sx={{ fontSize: 60, mb: 1 }} />
+                        <Typography variant="body2">Payment Screenshot</Typography>
+                        <Typography variant="caption">{getProofImage(selectedPayment)}</Typography>
+                      </Box>
+                    </Box>
+                  )}
+                </Box>
+              ) : (
+                <Typography color="#94a3b8">No proof image available</Typography>
+              )}
+            </Box>
+
+            {/* Bottom Actions */}
+            {selectedPayment.status === 'pending' && (
+              <Box
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'flex-end',
+                  gap: 1.5,
+                  p: 2,
+                  bgcolor: '#f8fafc',
+                  borderTop: '1px solid #e2e8f0',
+                }}
+              >
+                <Button
+                  variant="contained"
+                  startIcon={<CheckCircleIcon />}
+                  onClick={() => { setProofDialogOpen(false); handleApproveOpen(selectedPayment); }}
+                  sx={{
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    borderRadius: 2,
+                    bgcolor: '#10b981',
+                    '&:hover': { bgcolor: '#059669' },
+                  }}
+                >
+                  Approve Payment
+                </Button>
+                <Button
+                  variant="outlined"
+                  color="error"
+                  startIcon={<CancelIcon />}
+                  onClick={() => { setProofDialogOpen(false); handleRejectOpen(selectedPayment); }}
+                  sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 2 }}
+                >
+                  Reject
+                </Button>
+              </Box>
+            )}
+          </>
         )}
       </Dialog>
 
       {/* ═══════════ APPROVE DIALOG ═══════════ */}
-      <Dialog open={approveDialogOpen} onClose={() => setApproveDialogOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3, p: 1 } }}>
+      <Dialog
+        open={approveDialogOpen}
+        onClose={() => !actionLoading && setApproveDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 3, p: 1 } }}
+      >
         <DialogTitle sx={{ fontWeight: 700, color: '#10b981' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <CheckCircleIcon />
@@ -1163,21 +1431,20 @@ export default function PaymentsPage() {
         </DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="#64748b" sx={{ mb: 2 }}>
-            Approve payment from <strong>{selectedPayment?.user.name}</strong> for{' '}
-            <strong>{selectedPayment?.amount}</strong> ({selectedPayment?.plan} Plan)?
+            Approve payment from <strong>{getUserName(selectedPayment)}</strong> for{' '}
+            <strong>{getAmountDisplay(selectedPayment)}</strong> ({getPlan(selectedPayment)} Plan)?
           </Typography>
 
           <Alert severity="success" sx={{ mb: 2, borderRadius: 2 }}>
-            This will activate Premium for <strong>{selectedPayment?.user.name}</strong> immediately.
+            This will activate Premium for <strong>{getUserName(selectedPayment)}</strong> immediately.
           </Alert>
 
-          {/* Payment Summary */}
           <Box sx={{ p: 2, borderRadius: 2, bgcolor: '#f8fafc', border: '1px solid #e2e8f0', mb: 2 }}>
             {[
-              { label: 'User', value: selectedPayment?.user.email },
-              { label: 'Amount', value: selectedPayment?.amount },
-              { label: 'Method', value: selectedPayment?.paymentMethod },
-              { label: 'Reference', value: selectedPayment?.reference },
+              { label: 'User', value: getUserEmail(selectedPayment) },
+              { label: 'Amount', value: getAmountDisplay(selectedPayment) },
+              { label: 'Method', value: getPaymentMethod(selectedPayment) },
+              { label: 'Reference', value: getReference(selectedPayment) },
             ].map((item, i) => (
               <Box key={i} sx={{ display: 'flex', justifyContent: 'space-between', py: 0.8 }}>
                 <Typography variant="caption" color="#94a3b8">{item.label}</Typography>
@@ -1196,19 +1463,32 @@ export default function PaymentsPage() {
             placeholder="Add a note about this approval..."
             value={adminNote}
             onChange={(e) => setAdminNote(e.target.value)}
+            disabled={actionLoading}
             sx={{
-              '& .MuiOutlinedInput-root': { borderRadius: 2, '&.Mui-focused fieldset': { borderColor: '#10b981' } },
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 2,
+                '&.Mui-focused fieldset': { borderColor: '#10b981' },
+              },
             }}
           />
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setApproveDialogOpen(false)} sx={{ textTransform: 'none', color: '#64748b' }}>
+          <Button
+            onClick={() => setApproveDialogOpen(false)}
+            sx={{ textTransform: 'none', color: '#64748b' }}
+            disabled={actionLoading}
+          >
             Cancel
           </Button>
           <Button
             variant="contained"
-            startIcon={<CheckCircleIcon />}
+            startIcon={
+              actionLoading
+                ? <CircularProgress size={16} color="inherit" />
+                : <CheckCircleIcon />
+            }
             onClick={handleApproveConfirm}
+            disabled={actionLoading}
             sx={{
               textTransform: 'none',
               fontWeight: 600,
@@ -1217,13 +1497,19 @@ export default function PaymentsPage() {
               '&:hover': { bgcolor: '#059669' },
             }}
           >
-            Approve & Activate Premium
+            {actionLoading ? 'Approving...' : 'Approve & Activate Premium'}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* ═══════════ REJECT DIALOG ═══════════ */}
-      <Dialog open={rejectDialogOpen} onClose={() => setRejectDialogOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3, p: 1 } }}>
+      <Dialog
+        open={rejectDialogOpen}
+        onClose={() => !actionLoading && setRejectDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 3, p: 1 } }}
+      >
         <DialogTitle sx={{ fontWeight: 700, color: '#ef4444' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <WarningAmberIcon />
@@ -1232,8 +1518,8 @@ export default function PaymentsPage() {
         </DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="#64748b" sx={{ mb: 2 }}>
-            Reject payment from <strong>{selectedPayment?.user.name}</strong> for{' '}
-            <strong>{selectedPayment?.amount}</strong>?
+            Reject payment from <strong>{getUserName(selectedPayment)}</strong> for{' '}
+            <strong>{getAmountDisplay(selectedPayment)}</strong>?
           </Typography>
 
           <Alert severity="warning" sx={{ mb: 2, borderRadius: 2 }}>
@@ -1250,24 +1536,36 @@ export default function PaymentsPage() {
             placeholder="Explain why this payment is being rejected (e.g., unclear proof, wrong amount, etc.)..."
             value={rejectReason}
             onChange={(e) => setRejectReason(e.target.value)}
+            disabled={actionLoading}
             sx={{
-              '& .MuiOutlinedInput-root': { borderRadius: 2, '&.Mui-focused fieldset': { borderColor: '#ef4444' } },
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 2,
+                '&.Mui-focused fieldset': { borderColor: '#ef4444' },
+              },
             }}
           />
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setRejectDialogOpen(false)} sx={{ textTransform: 'none', color: '#64748b' }}>
+          <Button
+            onClick={() => setRejectDialogOpen(false)}
+            sx={{ textTransform: 'none', color: '#64748b' }}
+            disabled={actionLoading}
+          >
             Cancel
           </Button>
           <Button
             variant="contained"
             color="error"
-            startIcon={<CancelIcon />}
-            disabled={!rejectReason.trim()}
+            startIcon={
+              actionLoading
+                ? <CircularProgress size={16} color="inherit" />
+                : <CancelIcon />
+            }
+            disabled={!rejectReason.trim() || actionLoading}
             onClick={handleRejectConfirm}
             sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 2 }}
           >
-            Reject Payment
+            {actionLoading ? 'Rejecting...' : 'Reject Payment'}
           </Button>
         </DialogActions>
       </Dialog>

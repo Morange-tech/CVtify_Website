@@ -26,6 +26,11 @@ export const useTemplates = () => {
       setError(null);
 
       const response = await templateApi.getTemplates(filter);
+      // ✅ Add these debug logs
+      console.log('=== TEMPLATE DEBUG ===');
+      console.log('Full response:', JSON.stringify(response, null, 2));
+      console.log('response.data:', response.data);
+      console.log('Templates array:', response.data || response);
 
       setTemplates(response.data || []);
 

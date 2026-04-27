@@ -1,7 +1,8 @@
+// app/motivation-letters/page.jsx
 'use client';
 
-// app/motivation-letters/page.jsx
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Box,
   Container,
@@ -17,28 +18,36 @@ import {
   useTheme,
   useMediaQuery,
   Fade,
-  Backdrop
+  Backdrop,
+  CircularProgress,
+  Snackbar,
+  Alert,
+  Skeleton,
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import StarIcon from '@mui/icons-material/Star';
+import WorkspacePremiumIcon from '@mui/icons-material/WorkspacePremium';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import CloseIcon from '@mui/icons-material/Close';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import ZoomOutIcon from '@mui/icons-material/ZoomOut';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import MailOutlineIcon from '@mui/icons-material/MailOutline';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
+import FavoriteIcon from '@mui/icons-material/Favorite';
 import Image from 'next/image';
 import Link from 'next/link';
+import { motion } from 'framer-motion';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import ScrollToTop from '../components/ScrollToTop';
-import { motion } from 'framer-motion';
+import useMotivationTemplates from '../hooks/useMotivationTemplates';
 
+// ─── Styled Components ──────────────────────────────────────────
 
-
-// Styled components
 const PageWrapper = styled(Box)({
   minHeight: '100vh',
   display: 'flex',
@@ -50,12 +59,8 @@ const HeroSection = styled(Box)(({ theme }) => ({
   padding: theme.spacing(20, 2, 10),
   position: 'relative',
   overflow: 'hidden',
-  [theme.breakpoints.down('md')]: {
-    padding: theme.spacing(16, 2, 8),
-  },
-  [theme.breakpoints.down('sm')]: {
-    padding: theme.spacing(14, 2, 6),
-  },
+  [theme.breakpoints.down('md')]: { padding: theme.spacing(16, 2, 8) },
+  [theme.breakpoints.down('sm')]: { padding: theme.spacing(14, 2, 6) },
 }));
 
 const HeroDecoration = styled(Box)({
@@ -82,12 +87,8 @@ const StyledSection = styled(Box)(({ theme }) => ({
   background: '#ffffff',
   padding: theme.spacing(8, 2),
   flex: 1,
-  [theme.breakpoints.down('md')]: {
-    padding: theme.spacing(6, 2),
-  },
-  [theme.breakpoints.down('sm')]: {
-    padding: theme.spacing(4, 2),
-  },
+  [theme.breakpoints.down('md')]: { padding: theme.spacing(6, 2) },
+  [theme.breakpoints.down('sm')]: { padding: theme.spacing(4, 2) },
 }));
 
 const TemplatesGrid = styled(Box)(({ theme }) => ({
@@ -116,12 +117,8 @@ const TemplateCard = styled(Card)(({ theme }) => ({
     transform: 'translateY(-8px)',
     boxShadow: '0 25px 50px rgba(102, 126, 234, 0.2)',
     borderColor: '#667eea',
-    '& .overlay': {
-      opacity: 1,
-    },
-    '& .template-image': {
-      transform: 'scale(1.05)',
-    },
+    '& .overlay': { opacity: 1 },
+    '& .template-image': { transform: 'scale(1.05)' },
   },
 }));
 
@@ -141,11 +138,8 @@ const TemplateImageBox = styled(Box)({
 
 const Overlay = styled(Box)(({ theme }) => ({
   position: 'absolute',
-  top: 0,
-  left: 0,
-  right: 0,
-  bottom: 0,
-  background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.9) 0%, rgba(118, 75, 162, 0.9) 100%)',
+  top: 0, left: 0, right: 0, bottom: 0,
+  background: 'linear-gradient(135deg, rgba(102,126,234,0.9) 0%, rgba(118,75,162,0.9) 100%)',
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
@@ -169,16 +163,11 @@ const StyledChip = styled(Chip, {
   shouldForwardProp: (prop) => prop !== 'badgetype',
 })(({ badgetype }) => {
   const styles = {
-    popular: {
-      background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-      color: '#ffffff',
-    },
-    free: {
-      background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-      color: '#ffffff',
-    },
+    popular: { background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', color: '#fff' },
+    free: { background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: '#fff' },
+    premium: { background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)', color: '#fff' },
+    new: { background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)', color: '#fff' },
   };
-
   return {
     ...styles[badgetype],
     fontWeight: 700,
@@ -198,226 +187,185 @@ const CardFooter = styled(Box)(({ theme }) => ({
 
 const StyledTabs = styled(Tabs)(({ theme }) => ({
   marginBottom: theme.spacing(5),
-  '& .MuiTabs-indicator': {
-    background: '#EAB308',
-    height: 3,
-    borderRadius: 3,
-  },
+  '& .MuiTabs-indicator': { background: '#EAB308', height: 3, borderRadius: 3 },
   '& .MuiTab-root': {
-    textTransform: 'none',
-    fontWeight: 600,
-    fontSize: '1rem',
-    color: '#64748b',
-    '&.Mui-selected': {
-      color: '#EAB308',
-    },
+    textTransform: 'none', fontWeight: 600, fontSize: '1rem', color: '#64748b',
+    '&.Mui-selected': { color: '#EAB308' },
   },
 }));
 
-const FeatureCard = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  alignItems: 'flex-start',
-  gap: theme.spacing(2),
-  padding: theme.spacing(3),
-  borderRadius: theme.spacing(2),
-  backgroundColor: 'rgba(255, 255, 255, 0.1)',
-  backdropFilter: 'blur(10px)',
+const WishlistButton = styled(IconButton)(({ theme }) => ({
+  position: 'absolute',
+  top: theme.spacing(2),
+  right: theme.spacing(2),
+  zIndex: 3,
+  backgroundColor: 'rgba(255, 255, 255, 0.9)',
+  backdropFilter: 'blur(4px)',
+  '&:hover': { backgroundColor: '#ffffff', transform: 'scale(1.1)' },
+  transition: 'all 0.2s ease',
 }));
 
-// Modal Styles
+const NoResults = styled(Box)(({ theme }) => ({
+  textAlign: 'center',
+  padding: theme.spacing(8, 2),
+  color: '#64748b',
+}));
+
 const ModalContent = styled(Box)(({ theme }) => ({
   position: 'absolute',
-  top: '50%',
-  left: '50%',
+  top: '50%', left: '50%',
   transform: 'translate(-50%, -50%)',
-  width: '90vw',
-  maxWidth: '900px',
-  height: '90vh',
+  width: '90vw', maxWidth: '900px', height: '90vh',
   backgroundColor: '#ffffff',
   borderRadius: theme.spacing(2),
   boxShadow: '0 25px 50px rgba(0, 0, 0, 0.3)',
-  display: 'flex',
-  flexDirection: 'column',
-  overflow: 'hidden',
-  [theme.breakpoints.down('sm')]: {
-    width: '95vw',
-    height: '95vh',
-    borderRadius: theme.spacing(1),
-  },
+  display: 'flex', flexDirection: 'column', overflow: 'hidden',
+  [theme.breakpoints.down('sm')]: { width: '95vw', height: '95vh', borderRadius: theme.spacing(1) },
 }));
 
 const ModalHeader = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
+  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
   padding: theme.spacing(2, 3),
-  borderBottom: '1px solid #e2e8f0',
-  backgroundColor: '#f8fafc',
+  borderBottom: '1px solid #e2e8f0', backgroundColor: '#f8fafc',
 }));
 
 const ModalImageContainer = styled(Box)({
-  flex: 1,
-  overflow: 'auto',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  padding: '20px',
-  backgroundColor: '#f1f5f9',
-  '&::-webkit-scrollbar': {
-    width: '8px',
-    height: '8px',
-  },
-  '&::-webkit-scrollbar-track': {
-    background: '#e2e8f0',
-  },
-  '&::-webkit-scrollbar-thumb': {
-    background: '#94a3b8',
-    borderRadius: '4px',
-  },
+  flex: 1, overflow: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center',
+  padding: '20px', backgroundColor: '#f1f5f9',
+  '&::-webkit-scrollbar': { width: '8px', height: '8px' },
+  '&::-webkit-scrollbar-track': { background: '#e2e8f0' },
+  '&::-webkit-scrollbar-thumb': { background: '#94a3b8', borderRadius: '4px' },
 });
 
 const ZoomControls = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  alignItems: 'center',
-  gap: theme.spacing(2),
+  display: 'flex', alignItems: 'center', gap: theme.spacing(2),
   padding: theme.spacing(2, 3),
-  borderTop: '1px solid #e2e8f0',
-  backgroundColor: '#f8fafc',
-  [theme.breakpoints.down('sm')]: {
-    padding: theme.spacing(1.5, 2),
-    gap: theme.spacing(1),
-  },
+  borderTop: '1px solid #e2e8f0', backgroundColor: '#f8fafc',
+  [theme.breakpoints.down('sm')]: { padding: theme.spacing(1.5, 2), gap: theme.spacing(1) },
 }));
+
+const LoadingOverlay = styled(Box)({
+  position: 'fixed',
+  top: 0, left: 0, right: 0, bottom: 0,
+  backgroundColor: 'rgba(255, 255, 255, 0.9)',
+  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+  zIndex: 9999, gap: 16,
+});
+
+// ─── Skeleton ───────────────────────────────────────────────────
+
+const TemplateCardSkeleton = () => (
+  <Card sx={{ borderRadius: 2, overflow: 'hidden', border: '1px solid #e2e8f0', boxShadow: 'none' }}>
+    <Skeleton variant="rectangular" sx={{ aspectRatio: '3/4', width: '100%' }} />
+    <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between' }}>
+      <Box>
+        <Skeleton variant="text" width={120} height={24} />
+        <Skeleton variant="text" width={80} height={18} />
+      </Box>
+      <Skeleton variant="rounded" width={50} height={24} />
+    </Box>
+  </Card>
+);
+
+// ─── Constants ──────────────────────────────────────────────────
+
+const TAB_FILTERS = [
+  { label: 'All Templates', value: 'all' },
+  { label: 'Free', value: 'free' },
+  { label: 'Premium', value: 'premium' },
+  { label: 'Popular', value: 'popular' },
+];
+
+const FEATURES = [
+  'Professionally crafted content suggestions',
+  'Industry-specific language and tone',
+  'Easy customization for any job application',
+  'ATS-friendly formatting',
+];
+
+const getBadgeLabel = (badge) => {
+  const labels = {
+    popular: { label: 'Most Popular', icon: <StarIcon sx={{ fontSize: 14 }} /> },
+    free: { label: 'Free', icon: null },
+    premium: { label: 'Premium', icon: <WorkspacePremiumIcon sx={{ fontSize: 14 }} /> },
+    new: { label: 'New', icon: null },
+  };
+  return labels[badge] || { label: badge, icon: null };
+};
+
+// ─── Main Component ─────────────────────────────────────────────
 
 const MotivationLettersPage = () => {
   const theme = useTheme();
+  const router = useRouter();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const [activeTab, setActiveTab] = useState(0);
 
-  // Modal state
+  // Backend data
+  const { templates, loading, error, toggleWishlist, refresh } = useMotivationTemplates();
+
+  // Local UI state
+  const [activeTab, setActiveTab] = useState(0);
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [zoomLevel, setZoomLevel] = useState(100);
+  const [isNavigating, setIsNavigating] = useState(false);
+  const [navigatingTemplateName, setNavigatingTemplateName] = useState('');
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
-  // Tab filter values - Only Free and Popular
-  const tabFilters = [
-    { label: 'All Templates', value: 'all' },
-    { label: 'Free', value: 'free' },
-    { label: 'Popular', value: 'popular' },
-  ];
-
-  // Motivation Letter Templates - Only Free and Popular
-  const templates = [
-    {
-      id: 1,
-      name: 'Professional Classic',
-      category: 'professional',
-      image: '/templates/motivation1.png',
-      badges: ['popular', 'free'],
-      rating: 4.9,
-      uses: '18.5k',
-      isFree: true,
-      description: 'A timeless design perfect for corporate applications',
-    },
-    {
-      id: 2,
-      name: 'Modern Minimal',
-      category: 'modern',
-      image: '/templates/motivation2.png',
-      badges: ['popular'],
-      rating: 4.8,
-      uses: '15.2k',
-      isFree: true,
-      description: 'Clean and contemporary style for tech industries',
-    },
-    {
-      id: 3,
-      name: 'Creative Bold',
-      category: 'creative',
-      image: '/templates/motivation3.png',
-      badges: ['free'],
-      rating: 4.7,
-      uses: '12.3k',
-      isFree: true,
-      description: 'Stand out with this eye-catching design',
-    },
-    {
-      id: 4,
-      name: 'Executive Elite',
-      category: 'executive',
-      image: '/templates/motivation4.png',
-      badges: ['popular', 'free'],
-      rating: 4.9,
-      uses: '14.8k',
-      isFree: true,
-      description: 'Sophisticated template for senior positions',
-    },
-    {
-      id: 5,
-      name: 'Fresh Graduate',
-      category: 'entry',
-      image: '/templates/motivation5.png',
-      badges: ['free'],
-      rating: 4.6,
-      uses: '22.1k',
-      isFree: true,
-      description: 'Perfect for students and first-time job seekers',
-    },
-    {
-      id: 6,
-      name: 'Corporate Pro',
-      category: 'corporate',
-      image: '/templates/motivation6.png',
-      badges: ['popular'],
-      rating: 4.8,
-      uses: '11.4k',
-      isFree: true,
-      description: 'Ideal for business and finance sectors',
-    },
-  ];
-
-  // Features for motivation letters
-  const features = [
-    'Professionally crafted content suggestions',
-    'Industry-specific language and tone',
-    'Easy customization for any job application',
-    'ATS-friendly formatting',
-  ];
-
-  // Filter templates based on active tab
+  // ─── Filter templates ─────────────────────────────────────
   const filteredTemplates = useMemo(() => {
-    const currentFilter = tabFilters[activeTab].value;
+    if (!templates || templates.length === 0) return [];
+    const currentFilter = TAB_FILTERS[activeTab]?.value || 'all';
 
     switch (currentFilter) {
-      case 'all':
-        return templates;
       case 'free':
-        return templates.filter((template) => template.isFree === true);
+        return templates.filter((t) => t.isFree === true);
+      case 'premium':
+        return templates.filter((t) => t.isFree === false);
       case 'popular':
-        return templates.filter((template) => template.badges.includes('popular'));
+        return templates.filter((t) => (t.badges || []).includes('popular'));
       default:
         return templates;
     }
-  }, [activeTab]);
+  }, [activeTab, templates]);
 
-  const handleTabChange = (event, newValue) => {
-    setActiveTab(newValue);
+  // ─── Snackbar ─────────────────────────────────────────────
+  const showSnackbar = (message, severity = 'success') => {
+    setSnackbar({ open: true, message, severity });
   };
 
-  const getBadgeLabel = (badge) => {
-    const labels = {
-      popular: { label: 'Most Popular', icon: <StarIcon sx={{ fontSize: 14 }} /> },
-      free: { label: 'Free', icon: null },
-    };
-    return labels[badge] || { label: badge, icon: null };
+  const handleCloseSnackbar = () => {
+    setSnackbar((prev) => ({ ...prev, open: false }));
   };
 
-  // Modal handlers
-  const handleOpenPreview = (template, e) => {
+  // ─── Tab ──────────────────────────────────────────────────
+  const handleTabChange = (_, newValue) => setActiveTab(newValue);
+
+  // ─── Wishlist ─────────────────────────────────────────────
+  const handleToggleWishlist = useCallback(async (templateId, e) => {
     e.stopPropagation();
+    try {
+      const result = await toggleWishlist(templateId);
+      if (result?.error === 'auth_required') {
+        showSnackbar('Please log in to save templates', 'warning');
+        return;
+      }
+      showSnackbar(result.is_wishlisted ? 'Added to wishlist!' : 'Removed from wishlist');
+    } catch {
+      showSnackbar('Failed to update wishlist', 'error');
+    }
+  }, [toggleWishlist]);
+
+  // ─── Card Click → Preview ────────────────────────────────
+  const handleCardClick = (template) => {
     setSelectedTemplate(template);
     setZoomLevel(100);
     setModalOpen(true);
+  };
+
+  const handleOpenPreview = (template, e) => {
+    e.stopPropagation();
+    handleCardClick(template);
   };
 
   const handleCloseModal = () => {
@@ -426,33 +374,64 @@ const MotivationLettersPage = () => {
     setZoomLevel(100);
   };
 
-  const handleZoomIn = () => {
-    setZoomLevel((prev) => Math.min(prev + 25, 200));
-  };
+  // ─── Zoom ────────────────────────────────────────────────
+  const handleZoomIn = () => setZoomLevel((p) => Math.min(p + 25, 200));
+  const handleZoomOut = () => setZoomLevel((p) => Math.max(p - 25, 50));
+  const handleZoomReset = () => setZoomLevel(100);
+  const handleZoomSliderChange = (_, val) => setZoomLevel(val);
 
-  const handleZoomOut = () => {
-    setZoomLevel((prev) => Math.max(prev - 25, 50));
-  };
-
-  const handleZoomReset = () => {
-    setZoomLevel(100);
-  };
-
-  const handleZoomSliderChange = (event, newValue) => {
-    setZoomLevel(newValue);
-  };
-
+  // ─── Use Template ────────────────────────────────────────
   const handleUseTemplate = (template, e) => {
     e?.stopPropagation();
-    console.log('Using motivation letter template:', template.name);
-    // router.push(`/editor/motivation-letter?template=${template.id}`);
+    setIsNavigating(true);
+    setNavigatingTemplateName(template.name);
+
+    if (modalOpen) handleCloseModal();
+
+    localStorage.setItem(
+      'selectedMotivationTemplate',
+      JSON.stringify({
+        templateId: template.templateId,
+        templateName: template.name,
+        selectedAt: new Date().toISOString(),
+      })
+    );
+
+    setTimeout(() => {
+      router.push(`/motivation-letter-builder?template=${template.templateId}`);
+    }, 500);
   };
 
   return (
     <PageWrapper>
       <Navbar />
 
-      {/* Hero Section */}
+      {/* Navigation Loading */}
+      {isNavigating && (
+        <LoadingOverlay>
+          <CircularProgress size={60} sx={{ color: '#667eea' }} />
+          <Typography variant="h6" color="text.primary" fontWeight={600}>
+            Loading {navigatingTemplateName}...
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Preparing your editor
+          </Typography>
+        </LoadingOverlay>
+      )}
+
+      {/* Snackbar */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={3000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} variant="filled" sx={{ width: '100%' }}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+
+      {/* Hero */}
       <HeroSection>
         <HeroDecoration />
         <HeroDecoration2 />
@@ -464,75 +443,42 @@ const MotivationLettersPage = () => {
         >
           <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
             <Box textAlign="center" color="#ffffff">
-              {/* Icon */}
               <Box
                 sx={{
-                  width: 80,
-                  height: 80,
-                  borderRadius: '50%',
+                  width: 80, height: 80, borderRadius: '50%',
                   backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
                   margin: '0 auto 24px',
                 }}
               >
                 <MailOutlineIcon sx={{ fontSize: 40, color: '#EAB308' }} />
               </Box>
 
-              <Typography
-                variant={isMobile ? 'h4' : 'h2'}
-                fontWeight="700"
-                gutterBottom
-                sx={{ mb: 2 }}
-              >
+              <Typography variant={isMobile ? 'h4' : 'h2'} fontWeight="700" gutterBottom sx={{ mb: 2 }}>
                 Motivation Letter
-                <Box component="span" sx={{ color: '#EAB308', display: 'block' }}>
-                  Templates
-                </Box>
+                <Box component="span" sx={{ color: '#EAB308', display: 'block' }}>Templates</Box>
               </Typography>
 
               <Typography
                 variant={isMobile ? 'body1' : 'h6'}
-                sx={{
-                  maxWidth: 700,
-                  margin: '0 auto 40px',
-                  opacity: 0.9,
-                  lineHeight: 1.7,
-                }}
+                sx={{ maxWidth: 700, margin: '0 auto 40px', opacity: 0.9, lineHeight: 1.7 }}
               >
-                Create compelling motivation letters that capture attention and showcase
-                your passion. All templates are free and designed to help you land your dream job.
+                Create compelling motivation letters that capture attention. Choose from free
+                and premium templates designed to help you land your dream job.
               </Typography>
 
-              {/* Features */}
-              <Box
-                sx={{
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  justifyContent: 'center',
-                  gap: 2,
-                  maxWidth: 800,
-                  margin: '0 auto',
-                }}
-              >
-                {features.map((feature, index) => (
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 2, maxWidth: 800, margin: '0 auto' }}>
+                {FEATURES.map((feature, index) => (
                   <Box
                     key={index}
                     sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 1,
+                      display: 'flex', alignItems: 'center', gap: 1,
                       backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                      padding: '8px 16px',
-                      borderRadius: 5,
-                      backdropFilter: 'blur(10px)',
+                      padding: '8px 16px', borderRadius: 5, backdropFilter: 'blur(10px)',
                     }}
                   >
                     <CheckCircleIcon sx={{ fontSize: 18, color: '#EAB308' }} />
-                    <Typography variant="body2" fontWeight="500">
-                      {feature}
-                    </Typography>
+                    <Typography variant="body2" fontWeight="500">{feature}</Typography>
                   </Box>
                 ))}
               </Box>
@@ -544,7 +490,6 @@ const MotivationLettersPage = () => {
       {/* Templates Section */}
       <StyledSection>
         <Container maxWidth="lg">
-          {/* Section Header */}
           <motion.div
             initial={{ opacity: 0, y: 50 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -552,28 +497,16 @@ const MotivationLettersPage = () => {
             transition={{ duration: 1.0 }}
           >
             <Box mb={4} textAlign="center">
-              <Typography
-                variant={isMobile ? 'h5' : 'h4'}
-                component="h2"
-                fontWeight="bold"
-                color="text.primary"
-                gutterBottom
-                sx={{ mb: 1 }}
-              >
+              <Typography variant={isMobile ? 'h5' : 'h4'} component="h2" fontWeight="bold" color="text.primary" gutterBottom sx={{ mb: 1 }}>
                 Choose Your Template
               </Typography>
-              <Typography
-                variant="body1"
-                color="text.secondary"
-                sx={{ maxWidth: 500, margin: '0 auto' }}
-              >
-                All our motivation letter templates are completely free.
-                Pick one and start writing today.
+              <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 500, margin: '0 auto' }}>
+                Free and premium motivation letter templates. Pick one and start writing today.
               </Typography>
             </Box>
           </motion.div>
 
-          {/* Filter Tabs */}
+          {/* Tabs */}
           <Box display="flex" justifyContent="center" mb={2}>
             <StyledTabs
               value={activeTab}
@@ -582,141 +515,147 @@ const MotivationLettersPage = () => {
               scrollButtons="auto"
               centered={!isMobile}
             >
-              {tabFilters.map((tab, index) => (
-                <Tab key={index} label={tab.label} />
+              {TAB_FILTERS.map((tab, index) => (
+                <Tab key={index} label={tab.label} disabled={loading} />
               ))}
             </StyledTabs>
           </Box>
 
-          {/* Templates Grid */}
-          <TemplatesGrid>
-            {filteredTemplates.map((template) => (
-              <TemplateCard key={template.id}>
-                {/* Badges */}
+          {/* Error */}
+          {error && (
+            <Box display="flex" justifyContent="center" mb={4}>
+              <Alert
+                severity="error"
+                action={
+                  <Button color="inherit" size="small" onClick={refresh} startIcon={<RefreshIcon />}>
+                    Retry
+                  </Button>
+                }
+                sx={{ maxWidth: 600, width: '100%' }}
+              >
+                {error}
+              </Alert>
+            </Box>
+          )}
+
+          {/* Loading */}
+          {loading && (
+            <TemplatesGrid>
+              {[...Array(6)].map((_, i) => (
+                <TemplateCardSkeleton key={i} />
+              ))}
+            </TemplatesGrid>
+          )}
+
+          {/* Grid */}
+          {!loading && !error && filteredTemplates.length > 0 && (
+            <TemplatesGrid>
+              {filteredTemplates.map((template) => (
                 <motion.div
+                  key={template.id}
                   initial={{ opacity: 0, y: 50 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true, amount: 0.3 }}
-                  transition={{ duration: 1.0 }}
+                  transition={{ duration: 0.6 }}
                 >
-                  <BadgeWrapper>
-                    {template.badges.map((badge, idx) => {
-                      const { label, icon } = getBadgeLabel(badge);
-                      return (
-                        <StyledChip
-                          key={idx}
-                          label={label}
-                          icon={icon}
-                          badgetype={badge}
-                          size="small"
+                  <TemplateCard onClick={() => handleCardClick(template)}>
+                    <BadgeWrapper>
+                      {(template.badges || []).map((badge, idx) => {
+                        const { label, icon } = getBadgeLabel(badge);
+                        return <StyledChip key={idx} label={label} icon={icon} badgetype={badge} size="small" />;
+                      })}
+                    </BadgeWrapper>
+
+                    <ImageWrapper>
+                      <WishlistButton onClick={(e) => handleToggleWishlist(template.id, e)} size="small">
+                        {template.isWishlisted ? (
+                          <FavoriteIcon sx={{ color: '#ef4444', fontSize: 20 }} />
+                        ) : (
+                          <FavoriteBorderIcon sx={{ color: '#64748b', fontSize: 20 }} />
+                        )}
+                      </WishlistButton>
+
+                      <TemplateImageBox className="template-image">
+                        <Box
+                          component="img"
+                          src={template.image}
+                          alt={`${template.name} Motivation Letter Template`}
+                          sx={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top' }}
                         />
-                      );
-                    })}
-                  </BadgeWrapper>
+                      </TemplateImageBox>
 
-                  {/* Image Area */}
-                  <ImageWrapper>
-                    <TemplateImageBox className="template-image">
-                      <Image
-                        src={template.image}
-                        alt={`${template.name} Motivation Letter Template`}
-                        fill
-                        style={{
-                          objectFit: 'cover',
-                          objectPosition: 'top'
-                        }}
-                        sizes="(max-width: 600px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                        priority={template.id <= 3}
-                      />
-                    </TemplateImageBox>
+                      <Overlay className="overlay">
+                        <Button
+                          variant="contained" size="large" endIcon={<ArrowForwardIcon />}
+                          onClick={(e) => handleUseTemplate(template, e)}
+                          sx={{
+                            background: '#ffffff', color: '#667eea', fontWeight: 600,
+                            textTransform: 'none', borderRadius: 3, px: 4, py: 1.5,
+                            '&:hover': { background: '#f8fafc', transform: 'scale(1.05)' },
+                          }}
+                        >
+                          Use This Template
+                        </Button>
+                        <Button
+                          variant="outlined" size="medium" startIcon={<VisibilityIcon />}
+                          onClick={(e) => handleOpenPreview(template, e)}
+                          sx={{
+                            borderColor: '#ffffff', color: '#ffffff', fontWeight: 500,
+                            textTransform: 'none', borderRadius: 3, px: 3, py: 1,
+                            '&:hover': { borderColor: '#ffffff', background: 'rgba(255,255,255,0.1)' },
+                          }}
+                        >
+                          Preview
+                        </Button>
+                      </Overlay>
+                    </ImageWrapper>
 
-                    {/* Hover Overlay */}
-                    <Overlay className="overlay">
-                      <Button
-                        variant="contained"
-                        size="large"
-                        endIcon={<ArrowForwardIcon />}
-                        onClick={(e) => handleUseTemplate(template, e)}
-                        sx={{
-                          background: '#ffffff',
-                          color: '#667eea',
-                          fontWeight: 600,
-                          textTransform: 'none',
-                          borderRadius: 3,
-                          px: 4,
-                          py: 1.5,
-                          '&:hover': {
-                            background: '#f8fafc',
-                            transform: 'scale(1.05)',
-                          },
-                        }}
-                      >
-                        Use This Template
-                      </Button>
-                      <Button
-                        variant="outlined"
-                        size="medium"
-                        startIcon={<VisibilityIcon />}
-                        onClick={(e) => handleOpenPreview(template, e)}
-                        sx={{
-                          borderColor: '#ffffff',
-                          color: '#ffffff',
-                          fontWeight: 500,
-                          textTransform: 'none',
-                          borderRadius: 3,
-                          px: 3,
-                          py: 1,
-                          '&:hover': {
-                            borderColor: '#ffffff',
-                            background: 'rgba(255,255,255,0.1)',
-                          },
-                        }}
-                      >
-                        Preview
-                      </Button>
-                    </Overlay>
-                  </ImageWrapper>
-
-                  {/* Card Footer */}
-                  <CardFooter>
-                    <Box>
-                      <Typography
-                        variant="subtitle1"
-                        fontWeight="700"
-                        color="text.primary"
-                      >
-                        {template.name}
-                      </Typography>
-                      <Box display="flex" alignItems="center" gap={0.5}>
-                        <StarIcon sx={{ fontSize: 16, color: '#f59e0b' }} />
-                        <Typography variant="body2" color="text.secondary">
-                          {template.rating} • {template.uses} uses
+                    <CardFooter>
+                      <Box>
+                        <Typography variant="subtitle1" fontWeight="700" color="text.primary">
+                          {template.name}
                         </Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                          {template.description}
+                        </Typography>
+                        <Box display="flex" alignItems="center" gap={0.5}>
+                          <StarIcon sx={{ fontSize: 16, color: '#f59e0b' }} />
+                          <Typography variant="body2" color="text.secondary">
+                            {template.rating} • {template.uses} uses
+                          </Typography>
+                        </Box>
                       </Box>
-                    </Box>
-                    <Chip
-                      label="Free"
-                      size="small"
-                      sx={{
-                        fontWeight: 600,
-                        fontSize: '0.75rem',
-                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                        color: '#ffffff',
-                      }}
-                    />
-                  </CardFooter>
+                      <Chip
+                        label={template.isFree ? 'Free' : 'Pro'}
+                        size="small"
+                        sx={{
+                          fontWeight: 600, fontSize: '0.75rem',
+                          background: template.isFree
+                            ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                            : 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+                          color: '#ffffff',
+                        }}
+                      />
+                    </CardFooter>
+                  </TemplateCard>
                 </motion.div>
-              </TemplateCard>
-            ))}
-          </TemplatesGrid>
+              ))}
+            </TemplatesGrid>
+          )}
 
-          {/* CTA Section */}
+          {/* Empty */}
+          {!loading && !error && filteredTemplates.length === 0 && (
+            <NoResults>
+              <Typography variant="h6" gutterBottom>No templates found</Typography>
+              <Typography variant="body2">Try selecting a different filter.</Typography>
+            </NoResults>
+          )}
+
+          {/* CTA */}
           <Box
-            mt={8}
-            p={5}
-            textAlign="center"
+            mt={8} p={5} textAlign="center"
             sx={{
-              background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%)',
+              background: 'linear-gradient(135deg, rgba(102,126,234,0.05) 0%, rgba(118,75,162,0.05) 100%)',
               borderRadius: 4,
             }}
           >
@@ -724,27 +663,17 @@ const MotivationLettersPage = () => {
               Need Help Writing Your Motivation Letter?
             </Typography>
             <Typography variant="body1" color="text.secondary" sx={{ mb: 3, maxWidth: 500, margin: '0 auto 24px' }}>
-              We can help you craft the perfect motivation letter
-              tailored to your dream job.
+              We can help you craft the perfect motivation letter tailored to your dream job.
             </Typography>
             <Link href="/signup" passHref style={{ textDecoration: 'none' }}>
               <Button
-                variant="contained"
-                size="large"
-                endIcon={<ArrowForwardIcon />}
+                variant="contained" size="large" endIcon={<ArrowForwardIcon />}
                 sx={{
                   background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                  color: '#ffffff',
-                  fontWeight: 600,
-                  textTransform: 'none',
-                  borderRadius: 3,
-                  px: 5,
-                  py: 1.5,
+                  color: '#ffffff', fontWeight: 600, textTransform: 'none',
+                  borderRadius: 3, px: 5, py: 1.5,
                   boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
-                  '&:hover': {
-                    boxShadow: '0 6px 20px rgba(102, 126, 234, 0.5)',
-                    transform: 'translateY(-2px)',
-                  },
+                  '&:hover': { boxShadow: '0 6px 20px rgba(102,126,234,0.5)', transform: 'translateY(-2px)' },
                 }}
               >
                 Get Started for Free
@@ -760,20 +689,12 @@ const MotivationLettersPage = () => {
         onClose={handleCloseModal}
         closeAfterTransition
         slots={{ backdrop: Backdrop }}
-        slotProps={{
-          backdrop: {
-            timeout: 300,
-            sx: {
-              backgroundColor: 'rgba(0, 0, 0, 0.8)',
-            },
-          },
-        }}
+        slotProps={{ backdrop: { timeout: 300, sx: { backgroundColor: 'rgba(0,0,0,0.8)' } } }}
       >
         <Fade in={modalOpen}>
           <ModalContent>
             {selectedTemplate && (
               <>
-                {/* Modal Header */}
                 <ModalHeader>
                   <Box>
                     <Typography variant="h6" fontWeight="700" color="text.primary">
@@ -785,13 +706,13 @@ const MotivationLettersPage = () => {
                         {selectedTemplate.rating} • {selectedTemplate.uses} uses
                       </Typography>
                       <Chip
-                        label="Free"
+                        label={selectedTemplate.isFree ? 'Free' : 'Pro'}
                         size="small"
                         sx={{
-                          fontWeight: 600,
-                          fontSize: '0.65rem',
-                          height: '20px',
-                          background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                          fontWeight: 600, fontSize: '0.65rem', height: '20px',
+                          background: selectedTemplate.isFree
+                            ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                            : 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
                           color: '#ffffff',
                         }}
                       />
@@ -799,169 +720,54 @@ const MotivationLettersPage = () => {
                   </Box>
                   <Box display="flex" alignItems="center" gap={1}>
                     <Button
-                      variant="contained"
-                      size="small"
-                      endIcon={<ArrowForwardIcon />}
-                      onClick={(e) => {
-                        handleUseTemplate(selectedTemplate, e);
-                        handleCloseModal();
-                      }}
+                      variant="contained" size="small" endIcon={<ArrowForwardIcon />}
+                      onClick={(e) => handleUseTemplate(selectedTemplate, e)}
                       sx={{
                         background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                        color: '#ffffff',
-                        fontWeight: 600,
-                        textTransform: 'none',
-                        borderRadius: 2,
-                        px: 2,
-                        '&:hover': {
-                          background: 'linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%)',
-                        },
+                        color: '#ffffff', fontWeight: 600, textTransform: 'none',
+                        borderRadius: 2, px: 2,
+                        '&:hover': { background: 'linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%)' },
                         display: { xs: 'none', sm: 'flex' },
                       }}
                     >
                       Use Template
                     </Button>
-                    <IconButton
-                      onClick={handleCloseModal}
-                      sx={{
-                        color: '#64748b',
-                        '&:hover': {
-                          backgroundColor: '#e2e8f0',
-                          color: '#1e293b',
-                        },
-                      }}
-                    >
+                    <IconButton onClick={handleCloseModal} sx={{ color: '#64748b', '&:hover': { backgroundColor: '#e2e8f0', color: '#1e293b' } }}>
                       <CloseIcon />
                     </IconButton>
                   </Box>
                 </ModalHeader>
 
-                {/* Modal Image Container */}
                 <ModalImageContainer>
-                  <Box
-                    sx={{
-                      transform: `scale(${zoomLevel / 100})`,
-                      transition: 'transform 0.2s ease-out',
-                      transformOrigin: 'center center',
-                      position: 'relative',
-                      width: 'auto',
-                      height: 'auto',
-                      maxWidth: '100%',
-                      display: 'flex',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <Box
-                      sx={{
-                        position: 'relative',
-                        width: { xs: '300px', sm: '400px', md: '500px' },
-                        height: { xs: '424px', sm: '566px', md: '707px' },
-                        boxShadow: '0 10px 40px rgba(0, 0, 0, 0.2)',
-                        borderRadius: 1,
-                        overflow: 'hidden',
-                        backgroundColor: '#ffffff',
-                      }}
-                    >
-                      <Image
-                        src={selectedTemplate.image}
-                        alt={`${selectedTemplate.name} Motivation Letter Preview`}
-                        fill
-                        style={{ objectFit: 'contain' }}
-                        quality={100}
-                        priority
-                      />
+                  <Box sx={{ transform: `scale(${zoomLevel / 100})`, transition: 'transform 0.2s ease-out', transformOrigin: 'center center', maxWidth: '100%', display: 'flex', justifyContent: 'center' }}>
+                    <Box sx={{ position: 'relative', width: { xs: '300px', sm: '400px', md: '500px' }, height: { xs: '424px', sm: '566px', md: '707px' }, boxShadow: '0 10px 40px rgba(0,0,0,0.2)', borderRadius: 1, overflow: 'hidden', backgroundColor: '#ffffff' }}>
+                      <Image src={selectedTemplate.image} alt={`${selectedTemplate.name} Preview`} fill style={{ objectFit: 'contain' }} quality={100} priority />
                     </Box>
                   </Box>
                 </ModalImageContainer>
 
-                {/* Zoom Controls */}
                 <ZoomControls>
-                  <IconButton
-                    onClick={handleZoomOut}
-                    disabled={zoomLevel <= 50}
-                    size="small"
-                    sx={{
-                      color: zoomLevel <= 50 ? '#cbd5e1' : '#64748b',
-                      '&:hover': { backgroundColor: '#e2e8f0' },
-                    }}
-                  >
+                  <IconButton onClick={handleZoomOut} disabled={zoomLevel <= 50} size="small" sx={{ color: zoomLevel <= 50 ? '#cbd5e1' : '#64748b', '&:hover': { backgroundColor: '#e2e8f0' } }}>
                     <ZoomOutIcon />
                   </IconButton>
-
-                  <Slider
-                    value={zoomLevel}
-                    onChange={handleZoomSliderChange}
-                    min={50}
-                    max={200}
-                    step={5}
-                    sx={{
-                      width: { xs: 100, sm: 200 },
-                      color: '#667eea',
-                      '& .MuiSlider-thumb': {
-                        width: 16,
-                        height: 16,
-                        '&:hover': {
-                          boxShadow: '0 0 0 8px rgba(102, 126, 234, 0.16)',
-                        },
-                      },
-                      '& .MuiSlider-track': { height: 4 },
-                      '& .MuiSlider-rail': {
-                        height: 4,
-                        backgroundColor: '#e2e8f0',
-                      },
-                    }}
+                  <Slider value={zoomLevel} onChange={handleZoomSliderChange} min={50} max={200} step={5}
+                    sx={{ width: { xs: 100, sm: 200 }, color: '#667eea', '& .MuiSlider-thumb': { width: 16, height: 16 }, '& .MuiSlider-track': { height: 4 }, '& .MuiSlider-rail': { height: 4, backgroundColor: '#e2e8f0' } }}
                   />
-
-                  <IconButton
-                    onClick={handleZoomIn}
-                    disabled={zoomLevel >= 200}
-                    size="small"
-                    sx={{
-                      color: zoomLevel >= 200 ? '#cbd5e1' : '#64748b',
-                      '&:hover': { backgroundColor: '#e2e8f0' },
-                    }}
-                  >
+                  <IconButton onClick={handleZoomIn} disabled={zoomLevel >= 200} size="small" sx={{ color: zoomLevel >= 200 ? '#cbd5e1' : '#64748b', '&:hover': { backgroundColor: '#e2e8f0' } }}>
                     <ZoomInIcon />
                   </IconButton>
-
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{ minWidth: 50, textAlign: 'center', fontWeight: 600 }}
-                  >
-                    {zoomLevel}%
-                  </Typography>
-
-                  <IconButton
-                    onClick={handleZoomReset}
-                    size="small"
-                    sx={{
-                      color: '#64748b',
-                      '&:hover': { backgroundColor: '#e2e8f0' },
-                    }}
-                  >
+                  <Typography variant="body2" color="text.secondary" sx={{ minWidth: 50, textAlign: 'center', fontWeight: 600 }}>{zoomLevel}%</Typography>
+                  <IconButton onClick={handleZoomReset} size="small" sx={{ color: '#64748b', '&:hover': { backgroundColor: '#e2e8f0' } }}>
                     <RestartAltIcon />
                   </IconButton>
-
-                  {/* Mobile Use Template Button */}
                   <Button
-                    variant="contained"
-                    size="small"
-                    onClick={(e) => {
-                      handleUseTemplate(selectedTemplate, e);
-                      handleCloseModal();
-                    }}
+                    variant="contained" size="small"
+                    onClick={(e) => handleUseTemplate(selectedTemplate, e)}
                     sx={{
                       background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                      color: '#ffffff',
-                      fontWeight: 600,
-                      textTransform: 'none',
-                      borderRadius: 2,
-                      px: 2,
-                      ml: 'auto',
-                      '&:hover': {
-                        background: 'linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%)',
-                      },
+                      color: '#ffffff', fontWeight: 600, textTransform: 'none',
+                      borderRadius: 2, px: 2, ml: 'auto',
+                      '&:hover': { background: 'linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%)' },
                       display: { xs: 'flex', sm: 'none' },
                     }}
                   >
@@ -973,6 +779,7 @@ const MotivationLettersPage = () => {
           </ModalContent>
         </Fade>
       </Modal>
+
       <Footer />
       <ScrollToTop />
     </PageWrapper>

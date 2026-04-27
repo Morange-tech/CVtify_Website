@@ -5,6 +5,9 @@ namespace App\Providers;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\Event;
+use SocialiteProviders\Manager\SocialiteWasCalled;
+use SocialiteProviders\LinkedIn\LinkedInExtendSocialite;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -21,7 +24,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        if (env('APP_ENV') !== 'local' || str_contains(request()->getHost(), 'ngrok')) {
+        // Register LinkedIn driver for SocialiteProviders
+        Event::listen(SocialiteWasCalled::class, LinkedInExtendSocialite::class . '@handle');
+
+        if (!app()->runningInConsole() && (env('APP_ENV') !== 'local' || str_contains(request()->getHost(), 'ngrok'))) {
             URL::forceScheme('https');
         }
 

@@ -23,19 +23,14 @@ class AuthController extends Controller
         path: "/register",
         summary: "Register a new user",
         tags: ["Authentication"],
-        requestBody: new OA\RequestBody(
-            required: true,
-            content: new OA\JsonContent(
-                required: ["name", "email", "password", "password_confirmation"],
-                properties: [
-                    new OA\Property(property: "name", type: "string", example: "John Doe"),
-                    new OA\Property(property: "email", type: "string", format: "email", example: "john@example.com"),
-                    new OA\Property(property: "password", type: "string", format: "password", example: "password123"),
-                    new OA\Property(property: "password_confirmation", type: "string", format: "password", example: "password123"),
-                    
-                ]
-            )
-        ),
+        parameters: [
+            new OA\Parameter(
+                name: "filter",
+                in: "query",
+                required: false,
+                schema: new OA\Schema(type: "string", example: "all")
+            ),
+        ],
         responses: [
             new OA\Response(response: 201, description: "Registration successful"),
             new OA\Response(response: 422, description: "Validation error")
@@ -112,16 +107,21 @@ class AuthController extends Controller
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
+        $user->update([
+            'last_login_at' => now(),
+        ]);
+
         return response()->json([
             'message' => 'Login successful',
-                'user' => [
-        'id' => $user->id,
-        'name' => $user->name,
-        'email' => $user->email,
-        'plan' => $user->plan,
-        'subscription_status' => $user->subscription_status,
-        'subscription_expires_at' => $user->subscription_expires_at,
-    ],
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'plan' => $user->plan,
+                'subscription_status' => $user->subscription_status,
+                'subscription_expires_at' => $user->subscription_expires_at,
+                'role' => $user->role,
+            ],
             'token' => $token,
         ]);
     }

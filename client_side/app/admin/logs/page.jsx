@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import {
     Box,
     Typography,
@@ -77,6 +77,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import ClearAllIcon from '@mui/icons-material/ClearAll';
+import { fetchLogs as fetchLogsApi, fetchLogStats, fetchLogById, deleteLog as deleteLogApi, clearLogs as clearLogsApi, } from '../../hooks/useLogs';
 
 // ─── Helpers ───
 const getInitials = (name) =>
@@ -111,105 +112,90 @@ const formatFullDate = (dateStr) =>
         second: '2-digit',
     });
 
-// ─── Log Type Config ───
 const LOG_TYPES = {
     admin_action: {
         label: 'Admin Action',
         shortLabel: 'Admin',
         icon: <AdminPanelSettingsIcon />,
         color: '#8b5cf6',
-        gradient: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+        gradient: 'linear-gradient(135deg,#8b5cf6,#7c3aed)',
+    },
+    settings_changed: {
+        label: 'Settings Changed',
+        shortLabel: 'Settings',
+        icon: <SettingsIcon />,
+        color: '#6366f1',
+        gradient: 'linear-gradient(135deg,#6366f1,#4f46e5)',
+    },
+    template_added: {
+        label: 'Template Added',
+        shortLabel: 'Template',
+        icon: <NoteAddIcon />,
+        color: '#06b6d4',
+        gradient: 'linear-gradient(135deg,#06b6d4,#0891b2)',
     },
     user_login: {
         label: 'User Login',
         shortLabel: 'Login',
         icon: <LoginIcon />,
-        color: '#667eea',
-        gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        color: '#3b82f6',
+        gradient: 'linear-gradient(135deg,#3b82f6,#2563eb)',
     },
     user_logout: {
         label: 'User Logout',
         shortLabel: 'Logout',
         icon: <LogoutIcon />,
-        color: '#94a3b8',
-        gradient: 'linear-gradient(135deg, #94a3b8 0%, #64748b 100%)',
+        color: '#64748b',
+        gradient: 'linear-gradient(135deg,#64748b,#475569)',
+    },
+    user_registered: {
+        label: 'User Registered',
+        shortLabel: 'Signup',
+        icon: <PersonAddIcon />,
+        color: '#10b981',
+        gradient: 'linear-gradient(135deg,#10b981,#059669)',
     },
     cv_created: {
         label: 'CV Created',
         shortLabel: 'CV Create',
-        icon: <NoteAddIcon />,
+        icon: <DescriptionIcon />,
         color: '#10b981',
-        gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+        gradient: 'linear-gradient(135deg,#10b981,#059669)',
     },
-    cv_edited: {
-        label: 'CV Edited',
+    cv_updated: {
+        label: 'CV Updated',
         shortLabel: 'CV Edit',
         icon: <EditIcon />,
-        color: '#06b6d4',
-        gradient: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)',
+        color: '#0ea5e9',
+        gradient: 'linear-gradient(135deg,#0ea5e9,#0284c7)',
     },
     cv_deleted: {
         label: 'CV Deleted',
         shortLabel: 'CV Delete',
         icon: <DeleteForeverIcon />,
         color: '#ef4444',
-        gradient: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+        gradient: 'linear-gradient(135deg,#ef4444,#dc2626)',
     },
-    cv_downloaded: {
-        label: 'CV Downloaded',
-        shortLabel: 'Download',
-        icon: <DownloadIcon />,
-        color: '#3b82f6',
-        gradient: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+    payment_submitted: {
+        label: 'Payment Submitted',
+        shortLabel: 'Payment',
+        icon: <PaymentIcon />,
+        color: '#f59e0b',
+        gradient: 'linear-gradient(135deg,#f59e0b,#d97706)',
     },
-    payment_approved: {
-        label: 'Payment Approved',
-        shortLabel: 'Payment ✓',
-        icon: <CheckCircleIcon />,
-        color: '#10b981',
-        gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-    },
-    payment_rejected: {
-        label: 'Payment Rejected',
-        shortLabel: 'Payment ✗',
+    payment_failed: {
+        label: 'Payment Failed',
+        shortLabel: 'Failed Pay',
         icon: <CancelIcon />,
         color: '#ef4444',
-        gradient: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+        gradient: 'linear-gradient(135deg,#ef4444,#dc2626)',
     },
     premium_upgrade: {
         label: 'Premium Upgrade',
         shortLabel: 'Upgrade',
         icon: <WorkspacePremiumIcon />,
-        color: '#f59e0b',
-        gradient: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-    },
-    user_registered: {
-        label: 'User Registered',
-        shortLabel: 'Signup',
-        icon: <PersonAddIcon />,
-        color: '#ec4899',
-        gradient: 'linear-gradient(135deg, #ec4899 0%, #db2777 100%)',
-    },
-    user_banned: {
-        label: 'User Banned',
-        shortLabel: 'Banned',
-        icon: <BlockIcon />,
-        color: '#dc2626',
-        gradient: 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)',
-    },
-    settings_changed: {
-        label: 'Settings Changed',
-        shortLabel: 'Settings',
-        icon: <SettingsIcon />,
-        color: '#64748b',
-        gradient: 'linear-gradient(135deg, #64748b 0%, #475569 100%)',
-    },
-    template_added: {
-        label: 'Template Added',
-        shortLabel: 'Template',
-        icon: <BrushIcon />,
-        color: '#ec4899',
-        gradient: 'linear-gradient(135deg, #ec4899 0%, #db2777 100%)',
+        color: '#8b5cf6',
+        gradient: 'linear-gradient(135deg,#8b5cf6,#7c3aed)',
     },
 };
 
@@ -220,279 +206,15 @@ const SEVERITY_CONFIG = {
     error: { label: 'Error', color: '#ef4444', bgcolor: '#ef444415', icon: <CancelIcon sx={{ fontSize: 14 }} /> },
 };
 
-// ─── Mock Logs ───
-const INITIAL_LOGS = [
-    {
-        id: 'LOG-001',
-        type: 'user_login',
-        severity: 'info',
-        actor: 'John Smith',
-        actorEmail: 'john@example.com',
-        actorRole: 'user',
-        action: 'User logged in',
-        details: 'Logged in via email/password',
-        target: null,
-        ip: '192.168.1.45',
-        device: 'Chrome 125 / Windows 11',
-        location: 'New York, US',
-        timestamp: '2025-06-18T16:30:00',
-    },
-    {
-        id: 'LOG-002',
-        type: 'admin_action',
-        severity: 'warning',
-        actor: 'Admin',
-        actorEmail: 'admin@cvbuilder.pro',
-        actorRole: 'admin',
-        action: 'Approved premium upgrade',
-        details: 'Approved premium request for Sarah Johnson (Premium Monthly - $9.99)',
-        target: 'Sarah Johnson',
-        ip: '10.0.0.1',
-        device: 'Firefox 126 / macOS',
-        location: 'San Francisco, US',
-        timestamp: '2025-06-18T16:15:00',
-    },
-    {
-        id: 'LOG-003',
-        type: 'payment_approved',
+const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadLogs(false);
+    setSnackbar({
+        open: true,
+        message: 'Logs refreshed!',
         severity: 'success',
-        actor: 'System',
-        actorEmail: 'system@cvbuilder.pro',
-        actorRole: 'system',
-        action: 'Payment processed',
-        details: 'Payment of $9.99 approved for Sarah Johnson (TXN-7842)',
-        target: 'Sarah Johnson',
-        ip: null,
-        device: 'System',
-        location: null,
-        timestamp: '2025-06-18T16:14:00',
-    },
-    {
-        id: 'LOG-004',
-        type: 'cv_created',
-        severity: 'info',
-        actor: 'Michael Chen',
-        actorEmail: 'michael@example.com',
-        actorRole: 'user',
-        action: 'Created new CV',
-        details: 'Created "Data Scientist CV" using template "Tech Pro"',
-        target: 'Data Scientist CV',
-        ip: '172.16.0.88',
-        device: 'Safari 18 / macOS',
-        location: 'Los Angeles, US',
-        timestamp: '2025-06-18T15:45:00',
-    },
-    {
-        id: 'LOG-005',
-        type: 'cv_downloaded',
-        severity: 'info',
-        actor: 'Emily Davis',
-        actorEmail: 'emily@example.com',
-        actorRole: 'user',
-        action: 'Downloaded CV',
-        details: 'Downloaded "UX Designer Portfolio" as PDF (420 KB)',
-        target: 'UX Designer Portfolio',
-        ip: '192.168.2.12',
-        device: 'Chrome 125 / Windows 10',
-        location: 'Chicago, US',
-        timestamp: '2025-06-18T15:20:00',
-    },
-    {
-        id: 'LOG-006',
-        type: 'user_registered',
-        severity: 'success',
-        actor: 'Tom Harris',
-        actorEmail: 'tom@example.com',
-        actorRole: 'user',
-        action: 'New user registered',
-        details: 'Registered via email signup (Free plan)',
-        target: null,
-        ip: '203.0.113.55',
-        device: 'Chrome 125 / Android 14',
-        location: 'London, UK',
-        timestamp: '2025-06-18T14:30:00',
-    },
-    {
-        id: 'LOG-007',
-        type: 'admin_action',
-        severity: 'error',
-        actor: 'Admin',
-        actorEmail: 'admin@cvbuilder.pro',
-        actorRole: 'admin',
-        action: 'Banned user',
-        details: 'Banned user "SpamBot99" for violating terms of service',
-        target: 'SpamBot99',
-        ip: '10.0.0.1',
-        device: 'Chrome 125 / macOS',
-        location: 'San Francisco, US',
-        timestamp: '2025-06-18T13:45:00',
-    },
-    {
-        id: 'LOG-008',
-        type: 'cv_edited',
-        severity: 'info',
-        actor: 'Sarah Johnson',
-        actorEmail: 'sarah@example.com',
-        actorRole: 'user',
-        action: 'Edited CV',
-        details: 'Updated work experience section in "Marketing Manager Resume"',
-        target: 'Marketing Manager Resume',
-        ip: '192.168.1.78',
-        device: 'Firefox 126 / Windows 11',
-        location: 'Boston, US',
-        timestamp: '2025-06-18T12:10:00',
-    },
-    {
-        id: 'LOG-009',
-        type: 'payment_rejected',
-        severity: 'error',
-        actor: 'System',
-        actorEmail: 'system@cvbuilder.pro',
-        actorRole: 'system',
-        action: 'Payment failed',
-        details: 'Payment of $9.99 failed for James Lee — card declined (TXN-7845)',
-        target: 'James Lee',
-        ip: null,
-        device: 'System',
-        location: null,
-        timestamp: '2025-06-18T11:30:00',
-    },
-    {
-        id: 'LOG-010',
-        type: 'premium_upgrade',
-        severity: 'success',
-        actor: 'David Brown',
-        actorEmail: 'david@example.com',
-        actorRole: 'user',
-        action: 'Upgraded to Premium',
-        details: 'Upgraded from Free to Premium Annual ($79.99)',
-        target: null,
-        ip: '10.20.30.40',
-        device: 'Safari 18 / iOS 18',
-        location: 'Seattle, US',
-        timestamp: '2025-06-18T10:00:00',
-    },
-    {
-        id: 'LOG-011',
-        type: 'settings_changed',
-        severity: 'warning',
-        actor: 'Admin',
-        actorEmail: 'admin@cvbuilder.pro',
-        actorRole: 'admin',
-        action: 'Changed system settings',
-        details: 'Updated free CV limit from 3 to 5, enabled AI assistant',
-        target: 'System Settings',
-        ip: '10.0.0.1',
-        device: 'Chrome 125 / macOS',
-        location: 'San Francisco, US',
-        timestamp: '2025-06-17T17:30:00',
-    },
-    {
-        id: 'LOG-012',
-        type: 'template_added',
-        severity: 'info',
-        actor: 'Admin',
-        actorEmail: 'admin@cvbuilder.pro',
-        actorRole: 'admin',
-        action: 'Added new template',
-        details: 'Added "Academic Research" template (Premium, Academic category)',
-        target: 'Academic Research',
-        ip: '10.0.0.1',
-        device: 'Chrome 125 / macOS',
-        location: 'San Francisco, US',
-        timestamp: '2025-06-17T16:00:00',
-    },
-    {
-        id: 'LOG-013',
-        type: 'user_login',
-        severity: 'info',
-        actor: 'Alex Wilson',
-        actorEmail: 'alex@example.com',
-        actorRole: 'user',
-        action: 'User logged in',
-        details: 'Logged in via Google OAuth',
-        target: null,
-        ip: '198.51.100.22',
-        device: 'Chrome 125 / macOS',
-        location: 'Austin, US',
-        timestamp: '2025-06-17T14:20:00',
-    },
-    {
-        id: 'LOG-014',
-        type: 'cv_deleted',
-        severity: 'warning',
-        actor: 'Lisa Anderson',
-        actorEmail: 'lisa@example.com',
-        actorRole: 'user',
-        action: 'Deleted CV',
-        details: 'Deleted "Old Resume Draft" permanently',
-        target: 'Old Resume Draft',
-        ip: '192.168.3.99',
-        device: 'Safari 18 / macOS',
-        location: 'Denver, US',
-        timestamp: '2025-06-17T11:45:00',
-    },
-    {
-        id: 'LOG-015',
-        type: 'user_logout',
-        severity: 'info',
-        actor: 'Nina Patel',
-        actorEmail: 'nina@example.com',
-        actorRole: 'user',
-        action: 'User logged out',
-        details: 'Session ended normally',
-        target: null,
-        ip: '203.0.113.10',
-        device: 'Firefox 126 / Linux',
-        location: 'Mumbai, IN',
-        timestamp: '2025-06-17T09:30:00',
-    },
-    {
-        id: 'LOG-016',
-        type: 'admin_action',
-        severity: 'info',
-        actor: 'Admin',
-        actorEmail: 'admin@cvbuilder.pro',
-        actorRole: 'admin',
-        action: 'Replied to support ticket',
-        details: 'Replied to Emily Davis: "Template colors not saving"',
-        target: 'Emily Davis',
-        ip: '10.0.0.1',
-        device: 'Chrome 125 / macOS',
-        location: 'San Francisco, US',
-        timestamp: '2025-06-16T15:30:00',
-    },
-    {
-        id: 'LOG-017',
-        type: 'user_login',
-        severity: 'warning',
-        actor: 'Unknown',
-        actorEmail: 'unknown@suspicious.com',
-        actorRole: 'user',
-        action: 'Failed login attempt',
-        details: 'Failed login — incorrect password (attempt 3/5)',
-        target: null,
-        ip: '45.33.32.156',
-        device: 'Unknown / Unknown',
-        location: 'Unknown',
-        timestamp: '2025-06-16T03:12:00',
-    },
-    {
-        id: 'LOG-018',
-        type: 'payment_approved',
-        severity: 'success',
-        actor: 'System',
-        actorEmail: 'system@cvbuilder.pro',
-        actorRole: 'system',
-        action: 'Subscription renewed',
-        details: 'Auto-renewed Premium Monthly for Rachel Green ($9.99, TXN-7830)',
-        target: 'Rachel Green',
-        ip: null,
-        device: 'System',
-        location: null,
-        timestamp: '2025-06-15T00:01:00',
-    },
-];
+    });
+};
 
 // ─── Category groups for tabs ───
 const TAB_FILTERS = {
@@ -505,7 +227,19 @@ const TAB_FILTERS = {
 };
 
 export default function AdminLogsPage() {
-    const [logs] = useState(INITIAL_LOGS);
+    const [logs, setLogs] = useState([]);
+    const [stats, setStats] = useState({
+        total: 0,
+        today: 0,
+        admin: 0,
+        logins: 0,
+        cv: 0,
+        payments: 0,
+        errors: 0,
+    });
+    const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
+    const [error, setError] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [activeTab, setActiveTab] = useState('all');
     const [typeFilter, setTypeFilter] = useState('all');
@@ -521,16 +255,13 @@ export default function AdminLogsPage() {
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
     // ─── Computed ───
-    const totalLogs = logs.length;
-    const adminLogs = logs.filter(TAB_FILTERS.admin).length;
-    const loginLogs = logs.filter(TAB_FILTERS.logins).length;
-    const cvLogs = logs.filter(TAB_FILTERS.cv).length;
-    const paymentLogs = logs.filter(TAB_FILTERS.payments).length;
-    const errorLogs = logs.filter(TAB_FILTERS.errors).length;
-
-    const todayCount = logs.filter(
-        (l) => new Date(l.timestamp).toDateString() === new Date().toDateString()
-    ).length;
+    const totalLogs = stats.total || logs.length;
+    const adminLogs = stats.admin || 0;
+    const loginLogs = stats.logins || 0;
+    const cvLogs = stats.cv || 0;
+    const paymentLogs = stats.payments || 0;
+    const errorLogs = stats.errors || 0;
+    const todayCount = stats.today || 0;
 
     // ─── Filtered ───
     const filteredLogs = useMemo(() => {
@@ -559,6 +290,43 @@ export default function AdminLogsPage() {
         return result;
     }, [logs, searchQuery, activeTab, typeFilter, severityFilter, roleFilter, sortBy]);
 
+    const loadLogs = useCallback(async (showLoading = true) => {
+        try {
+            if (showLoading) setLoading(true);
+            setError(null);
+
+            const [logsData, statsData] = await Promise.all([
+                fetchLogsApi({
+                    tab: activeTab,
+                    type: typeFilter,
+                    severity: severityFilter,
+                    role: roleFilter,
+                    search: searchQuery,
+                    sort: sortBy,
+                }),
+                fetchLogStats(),
+            ]);
+
+            setLogs(logsData.logs || logsData.data || logsData || []);
+            setStats(statsData || {});
+        } catch (err) {
+            console.error('Failed to fetch logs:', err);
+            setError(err.message);
+            setSnackbar({
+                open: true,
+                message: `Failed to load logs: ${err.message}`,
+                severity: 'error',
+            });
+        } finally {
+            setLoading(false);
+            setRefreshing(false);
+        }
+    }, [activeTab, typeFilter, severityFilter, roleFilter, searchQuery, sortBy]);
+
+    useEffect(() => {
+        loadLogs();
+    }, [loadLogs]);
+
     // Group by date
     const groupedLogs = useMemo(() => {
         const groups = {};
@@ -579,9 +347,18 @@ export default function AdminLogsPage() {
     }, [filteredLogs]);
 
     // ─── Handlers ───
-    const handleViewDetail = (log) => {
-        setDetailTarget(log);
-        setDetailOpen(true);
+    const handleViewDetail = async (log) => {
+        try {
+            const data = await fetchLogById(log.id);
+            setDetailTarget(data.log || data.data || data);
+            setDetailOpen(true);
+        } catch (err) {
+            setSnackbar({
+                open: true,
+                message: 'Failed to load log details',
+                severity: 'error',
+            });
+        }
     };
 
     const handleCopyId = (id) => {
@@ -629,6 +406,7 @@ export default function AdminLogsPage() {
                     </Button>
                     <Tooltip title="Refresh">
                         <IconButton
+                            onClick={handleRefresh}
                             sx={{
                                 bgcolor: '#ffffff',
                                 border: '1px solid #e2e8f0',

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
     Box,
     Typography,
@@ -30,6 +30,8 @@ import {
     Badge,
     LinearProgress,
     TextareaAutosize,
+    CircularProgress,
+    Skeleton,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import RefreshIcon from '@mui/icons-material/Refresh';
@@ -75,17 +77,111 @@ import TaskAltIcon from '@mui/icons-material/TaskAlt';
 import DoNotDisturbIcon from '@mui/icons-material/DoNotDisturb';
 import HistoryIcon from '@mui/icons-material/History';
 import StarIcon from '@mui/icons-material/Star';
+import { adminApi } from '../../services/api';
 
+// ═══════════════════════════════════════════════════
+// ─── Configuration Constants ───
+// ═══════════════════════════════════════════════════
+
+const STATUS_CONFIG = {
+    pending: {
+        label: 'Pending',
+        color: '#f59e0b',
+        bgcolor: '#f59e0b12',
+        borderColor: '#f59e0b30',
+        gradient: 'linear-gradient(135deg, #f59e0b, #d97706)',
+        icon: <HourglassEmptyIcon sx={{ fontSize: 14 }} />,
+    },
+    approved: {
+        label: 'Approved',
+        color: '#10b981',
+        bgcolor: '#10b98112',
+        borderColor: '#10b98130',
+        gradient: 'linear-gradient(135deg, #10b981, #059669)',
+        icon: <CheckCircleIcon sx={{ fontSize: 14 }} />,
+    },
+    rejected: {
+        label: 'Rejected',
+        color: '#ef4444',
+        bgcolor: '#ef444412',
+        borderColor: '#ef444430',
+        gradient: 'linear-gradient(135deg, #ef4444, #dc2626)',
+        icon: <CancelIcon sx={{ fontSize: 14 }} />,
+    },
+};
+
+const PAYMENT_METHODS = {
+    mtn_momo: {
+        label: 'MTN Mobile Money',
+        shortLabel: 'MTN MoMo',
+        color: '#f59e0b',
+        bgcolor: '#f59e0b12',
+        icon: <PhoneAndroidIcon sx={{ fontSize: 14 }} />,
+    },
+    orange_money: {
+        label: 'Orange Money',
+        shortLabel: 'Orange Money',
+        color: '#f97316',
+        bgcolor: '#f9731612',
+        icon: <PhoneAndroidIcon sx={{ fontSize: 14 }} />,
+    },
+    bank_transfer: {
+        label: 'Bank Transfer',
+        shortLabel: 'Bank Transfer',
+        color: '#3b82f6',
+        bgcolor: '#3b82f612',
+        icon: <AccountBalanceIcon sx={{ fontSize: 14 }} />,
+    },
+    credit_card: {
+        label: 'Credit Card',
+        shortLabel: 'Card',
+        color: '#8b5cf6',
+        bgcolor: '#8b5cf612',
+        icon: <CreditCardIcon sx={{ fontSize: 14 }} />,
+    },
+};
+
+const PLAN_CONFIG = {
+    premium_monthly: {
+        label: 'Premium Monthly',
+        shortLabel: 'Monthly',
+        color: '#667eea',
+        price: 2000,
+        icon: <StarIcon sx={{ fontSize: 14 }} />,
+    },
+    premium_yearly: {
+        label: 'Premium Yearly',
+        shortLabel: 'Yearly',
+        color: '#8b5cf6',
+        price: 20000,
+        icon: <WorkspacePremiumIcon sx={{ fontSize: 14 }} />,
+    },
+    premium_lifetime: {
+        label: 'Premium Lifetime',
+        shortLabel: 'Lifetime',
+        color: '#f59e0b',
+        price: 50000,
+        icon: <WorkspacePremiumIcon sx={{ fontSize: 14 }} />,
+    },
+};
+
+// ═══════════════════════════════════════════════════
 // ─── Helpers ───
-const getInitials = (name) =>
-    name
+// ═══════════════════════════════════════════════════
+
+const getInitials = (name) => {
+    if (!name) return '?';
+    return name
         .split(' ')
         .map((n) => n[0])
         .join('')
         .toUpperCase();
+};
 
 const formatDate = (dateStr) => {
+    if (!dateStr) return 'N/A';
     const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return 'N/A';
     const now = new Date();
     const diffMs = now - date;
     const diffMins = Math.floor(diffMs / 60000);
@@ -98,8 +194,11 @@ const formatDate = (dateStr) => {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 };
 
-const formatFullDate = (dateStr) =>
-    new Date(dateStr).toLocaleDateString('en-US', {
+const formatFullDate = (dateStr) => {
+    if (!dateStr) return 'N/A';
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return 'N/A';
+    return date.toLocaleDateString('en-US', {
         weekday: 'short',
         month: 'short',
         day: 'numeric',
@@ -107,309 +206,25 @@ const formatFullDate = (dateStr) =>
         hour: '2-digit',
         minute: '2-digit',
     });
+};
 
 const formatCurrency = (amount, currency = 'XAF') => {
-    if (currency === 'XAF') return `${amount.toLocaleString()} FCFA`;
-    return `$${amount.toFixed(2)}`;
+    if (amount == null || isNaN(amount)) return '0 FCFA';
+    if (currency === 'XAF') return `${Number(amount).toLocaleString()} FCFA`;
+    return `$${Number(amount).toFixed(2)}`;
 };
 
-// ─── Status Config ───
-const STATUS_CONFIG = {
-    pending: {
-        label: 'Pending',
-        color: '#f59e0b',
-        bgcolor: '#f59e0b12',
-        borderColor: '#f59e0b30',
-        icon: <HourglassEmptyIcon sx={{ fontSize: 16 }} />,
-        gradient: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-    },
-    approved: {
-        label: 'Approved',
-        color: '#10b981',
-        bgcolor: '#10b98112',
-        borderColor: '#10b98130',
-        icon: <CheckCircleIcon sx={{ fontSize: 16 }} />,
-        gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-    },
-    rejected: {
-        label: 'Rejected',
-        color: '#ef4444',
-        bgcolor: '#ef444412',
-        borderColor: '#ef444430',
-        icon: <CancelIcon sx={{ fontSize: 16 }} />,
-        gradient: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-    },
-};
-
-// ─── Payment Method Config ───
-const PAYMENT_METHODS = {
-    mtn_momo: {
-        label: 'MTN Mobile Money',
-        shortLabel: 'MTN MoMo',
-        icon: <PhoneAndroidIcon sx={{ fontSize: 16 }} />,
-        color: '#f59e0b',
-        bgcolor: '#f59e0b12',
-    },
-    orange_money: {
-        label: 'Orange Money',
-        shortLabel: 'Orange Money',
-        icon: <PhoneAndroidIcon sx={{ fontSize: 16 }} />,
-        color: '#f97316',
-        bgcolor: '#f9731612',
-    },
-    bank_transfer: {
-        label: 'Bank Transfer',
-        shortLabel: 'Bank',
-        icon: <AccountBalanceIcon sx={{ fontSize: 16 }} />,
-        color: '#3b82f6',
-        bgcolor: '#3b82f612',
-    },
-    credit_card: {
-        label: 'Credit Card',
-        shortLabel: 'Card',
-        icon: <CreditCardIcon sx={{ fontSize: 16 }} />,
-        color: '#8b5cf6',
-        bgcolor: '#8b5cf612',
-    },
-};
-
-// ─── Plan Config ───
-const PLAN_CONFIG = {
-    premium_monthly: {
-        label: 'Premium Monthly',
-        shortLabel: 'Monthly',
-        price: 5000,
-        currency: 'XAF',
-        color: '#667eea',
-        icon: <StarIcon sx={{ fontSize: 14 }} />,
-    },
-    premium_annual: {
-        label: 'Premium Annual',
-        shortLabel: 'Annual',
-        price: 45000,
-        currency: 'XAF',
-        color: '#8b5cf6',
-        icon: <WorkspacePremiumIcon sx={{ fontSize: 14 }} />,
-    },
-};
-
-// ─── Mock Premium Requests ───
-const INITIAL_REQUESTS = [
-    {
-        id: 'REQ-001',
-        userId: 'USR-101',
-        userName: 'Sarah Johnson',
-        userEmail: 'sarah.johnson@email.com',
-        userPhone: '+237 6XX XXX 001',
-        userAvatar: null,
-        plan: 'premium_monthly',
-        paymentMethod: 'mtn_momo',
-        amount: 5000,
-        currency: 'XAF',
-        transactionRef: 'MTN-TXN-78429301',
-        screenshot: '/payment-proofs/req-001.jpg',
-        status: 'pending',
-        note: 'Please upgrade my account. I paid via MTN MoMo.',
-        adminNote: '',
-        reviewedBy: null,
-        reviewedAt: null,
-        createdAt: '2025-06-18T16:30:00',
-        updatedAt: '2025-06-18T16:30:00',
-    },
-    {
-        id: 'REQ-002',
-        userId: 'USR-102',
-        userName: 'Michael Chen',
-        userEmail: 'michael.chen@email.com',
-        userPhone: '+237 6XX XXX 002',
-        userAvatar: null,
-        plan: 'premium_annual',
-        paymentMethod: 'orange_money',
-        amount: 45000,
-        currency: 'XAF',
-        transactionRef: 'OM-TXN-56231890',
-        screenshot: '/payment-proofs/req-002.jpg',
-        status: 'pending',
-        note: 'Annual subscription payment done via Orange Money.',
-        adminNote: '',
-        reviewedBy: null,
-        reviewedAt: null,
-        createdAt: '2025-06-18T14:15:00',
-        updatedAt: '2025-06-18T14:15:00',
-    },
-    {
-        id: 'REQ-003',
-        userId: 'USR-103',
-        userName: 'Emily Davis',
-        userEmail: 'emily.davis@email.com',
-        userPhone: '+237 6XX XXX 003',
-        userAvatar: null,
-        plan: 'premium_monthly',
-        paymentMethod: 'bank_transfer',
-        amount: 5000,
-        currency: 'XAF',
-        transactionRef: 'BNK-REF-44120098',
-        screenshot: '/payment-proofs/req-003.jpg',
-        status: 'pending',
-        note: 'Bank transfer done. Attached receipt.',
-        adminNote: '',
-        reviewedBy: null,
-        reviewedAt: null,
-        createdAt: '2025-06-18T11:45:00',
-        updatedAt: '2025-06-18T11:45:00',
-    },
-    {
-        id: 'REQ-004',
-        userId: 'USR-104',
-        userName: 'James Wilson',
-        userEmail: 'james.w@email.com',
-        userPhone: '+237 6XX XXX 004',
-        userAvatar: null,
-        plan: 'premium_monthly',
-        paymentMethod: 'mtn_momo',
-        amount: 5000,
-        currency: 'XAF',
-        transactionRef: 'MTN-TXN-99182736',
-        screenshot: '/payment-proofs/req-004.jpg',
-        status: 'approved',
-        note: 'Payment done.',
-        adminNote: 'Payment verified. Transaction confirmed on MTN dashboard.',
-        reviewedBy: 'Admin',
-        reviewedAt: '2025-06-17T15:30:00',
-        createdAt: '2025-06-17T10:20:00',
-        updatedAt: '2025-06-17T15:30:00',
-    },
-    {
-        id: 'REQ-005',
-        userId: 'USR-105',
-        userName: 'Lisa Anderson',
-        userEmail: 'lisa.a@email.com',
-        userPhone: '+237 6XX XXX 005',
-        userAvatar: null,
-        plan: 'premium_annual',
-        paymentMethod: 'orange_money',
-        amount: 45000,
-        currency: 'XAF',
-        transactionRef: 'OM-TXN-33901827',
-        screenshot: '/payment-proofs/req-005.jpg',
-        status: 'approved',
-        note: 'Annual plan payment via Orange Money.',
-        adminNote: 'Verified and approved. Annual subscription activated.',
-        reviewedBy: 'Admin',
-        reviewedAt: '2025-06-16T14:00:00',
-        createdAt: '2025-06-16T09:15:00',
-        updatedAt: '2025-06-16T14:00:00',
-    },
-    {
-        id: 'REQ-006',
-        userId: 'USR-106',
-        userName: 'Tom Harris',
-        userEmail: 'tom.h@email.com',
-        userPhone: '+237 6XX XXX 006',
-        userAvatar: null,
-        plan: 'premium_monthly',
-        paymentMethod: 'mtn_momo',
-        amount: 3000,
-        currency: 'XAF',
-        transactionRef: 'MTN-TXN-11002233',
-        screenshot: '/payment-proofs/req-006.jpg',
-        status: 'rejected',
-        note: 'I paid for premium.',
-        adminNote: 'Incorrect amount. Monthly plan costs 5,000 FCFA but only 3,000 FCFA was sent. Please pay the remaining balance and resubmit.',
-        reviewedBy: 'Admin',
-        reviewedAt: '2025-06-15T16:45:00',
-        createdAt: '2025-06-15T12:00:00',
-        updatedAt: '2025-06-15T16:45:00',
-    },
-    {
-        id: 'REQ-007',
-        userId: 'USR-107',
-        userName: 'Nina Patel',
-        userEmail: 'nina.p@email.com',
-        userPhone: '+237 6XX XXX 007',
-        userAvatar: null,
-        plan: 'premium_monthly',
-        paymentMethod: 'credit_card',
-        amount: 5000,
-        currency: 'XAF',
-        transactionRef: 'CC-TXN-88776655',
-        screenshot: '/payment-proofs/req-007.jpg',
-        status: 'rejected',
-        note: 'Card payment screenshot attached.',
-        adminNote: 'Screenshot appears to be edited/fake. Transaction reference not found in payment system. Request denied.',
-        reviewedBy: 'Admin',
-        reviewedAt: '2025-06-14T11:30:00',
-        createdAt: '2025-06-14T08:00:00',
-        updatedAt: '2025-06-14T11:30:00',
-    },
-    {
-        id: 'REQ-008',
-        userId: 'USR-108',
-        userName: 'David Brown',
-        userEmail: 'david.b@email.com',
-        userPhone: '+237 6XX XXX 008',
-        userAvatar: null,
-        plan: 'premium_annual',
-        paymentMethod: 'bank_transfer',
-        amount: 45000,
-        currency: 'XAF',
-        transactionRef: 'BNK-REF-77553311',
-        screenshot: '/payment-proofs/req-008.jpg',
-        status: 'pending',
-        note: 'Bank transfer receipt attached. Annual plan please.',
-        adminNote: '',
-        reviewedBy: null,
-        reviewedAt: null,
-        createdAt: '2025-06-18T09:00:00',
-        updatedAt: '2025-06-18T09:00:00',
-    },
-    {
-        id: 'REQ-009',
-        userId: 'USR-109',
-        userName: 'Rachel Green',
-        userEmail: 'rachel.g@email.com',
-        userPhone: '+237 6XX XXX 009',
-        userAvatar: null,
-        plan: 'premium_monthly',
-        paymentMethod: 'mtn_momo',
-        amount: 5000,
-        currency: 'XAF',
-        transactionRef: 'MTN-TXN-44556677',
-        screenshot: '/payment-proofs/req-009.jpg',
-        status: 'approved',
-        note: 'Monthly premium please.',
-        adminNote: 'Payment confirmed via MTN records.',
-        reviewedBy: 'Admin',
-        reviewedAt: '2025-06-13T10:00:00',
-        createdAt: '2025-06-13T08:30:00',
-        updatedAt: '2025-06-13T10:00:00',
-    },
-    {
-        id: 'REQ-010',
-        userId: 'USR-110',
-        userName: 'Alex Turner',
-        userEmail: 'alex.t@email.com',
-        userPhone: '+237 6XX XXX 010',
-        userAvatar: null,
-        plan: 'premium_monthly',
-        paymentMethod: 'orange_money',
-        amount: 5000,
-        currency: 'XAF',
-        transactionRef: 'OM-TXN-22113344',
-        screenshot: '/payment-proofs/req-010.jpg',
-        status: 'pending',
-        note: 'Orange Money payment done. Ref attached.',
-        adminNote: '',
-        reviewedBy: null,
-        reviewedAt: null,
-        createdAt: '2025-06-18T08:00:00',
-        updatedAt: '2025-06-18T08:00:00',
-    },
-];
+// ═══════════════════════════════════════════════════
+// ─── Component ───
+// ═══════════════════════════════════════════════════
 
 export default function PremiumRequestsPage() {
     // ─── State ───
-    const [requests, setRequests] = useState(INITIAL_REQUESTS);
+    const [requests, setRequests] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
+    const [actionLoading, setActionLoading] = useState(false);
+
     const [searchQuery, setSearchQuery] = useState('');
     const [activeTab, setActiveTab] = useState('all');
     const [methodFilter, setMethodFilter] = useState('all');
@@ -427,6 +242,64 @@ export default function PremiumRequestsPage() {
 
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
+    // ─── Fetch Data ───
+    const fetchRequests = useCallback(async (showRefresh = false) => {
+        try {
+            if (showRefresh) {
+                setRefreshing(true);
+            } else {
+                setLoading(true);
+            }
+
+            // Check which API method exists and use it
+            let response;
+            if (typeof adminApi.getPremiumRequests === 'function') {
+                response = await adminApi.getPremiumRequests();
+            } else if (typeof adminApi.getSubscriptions === 'function') {
+                response = await adminApi.getSubscriptions();
+            } else if (typeof adminApi.getPayments === 'function') {
+                response = await adminApi.getPayments();
+            } else {
+                // Fallback: try a generic endpoint
+                console.warn(
+                    'No premium requests API method found. Available adminApi methods:',
+                    Object.keys(adminApi).filter((k) => typeof adminApi[k] === 'function')
+                );
+                response = { data: [] };
+            }
+
+            const extractArray = (res) => {
+                if (Array.isArray(res)) return res;
+                if (Array.isArray(res?.data)) return res.data;
+                if (Array.isArray(res?.data?.results)) return res.data.results;
+                if (Array.isArray(res?.data?.requests)) return res.data.requests;
+                if (Array.isArray(res?.data?.subscriptions)) return res.data.subscriptions;
+                if (Array.isArray(res?.data?.payments)) return res.data.payments;
+                if (Array.isArray(res?.requests)) return res.requests;
+                if (Array.isArray(res?.subscriptions)) return res.subscriptions;
+                if (Array.isArray(res?.payments)) return res.payments;
+                return [];
+            };
+
+            setRequests(extractArray(response));
+        } catch (error) {
+            console.error('Failed to fetch premium requests:', error);
+            setSnackbar({
+                open: true,
+                message: 'Failed to load premium requests. Please try again.',
+                severity: 'error',
+            });
+        } finally {
+            setLoading(false);
+            setRefreshing(false);
+        }
+    }, []);
+
+
+    useEffect(() => {
+        fetchRequests();
+    }, [fetchRequests]);
+
     // ─── Stats ───
     const totalRequests = requests.length;
     const pendingRequests = requests.filter((r) => r.status === 'pending').length;
@@ -434,19 +307,19 @@ export default function PremiumRequestsPage() {
     const rejectedRequests = requests.filter((r) => r.status === 'rejected').length;
     const totalRevenue = requests
         .filter((r) => r.status === 'approved')
-        .reduce((sum, r) => sum + r.amount, 0);
+        .reduce((sum, r) => sum + (r.amount || 0), 0);
     const pendingRevenue = requests
         .filter((r) => r.status === 'pending')
-        .reduce((sum, r) => sum + r.amount, 0);
+        .reduce((sum, r) => sum + (r.amount || 0), 0);
 
     // ─── Filtered ───
     const filteredRequests = useMemo(() => {
         let result = requests.filter((r) => {
             const matchesSearch =
-                r.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                r.userEmail.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                r.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                r.transactionRef.toLowerCase().includes(searchQuery.toLowerCase());
+                (r.userName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                (r.userEmail || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                (r.id || '').toString().toLowerCase().includes(searchQuery.toLowerCase()) ||
+                (r.transactionRef || '').toLowerCase().includes(searchQuery.toLowerCase());
 
             const matchesTab = activeTab === 'all' || r.status === activeTab;
             const matchesMethod = methodFilter === 'all' || r.paymentMethod === methodFilter;
@@ -458,8 +331,8 @@ export default function PremiumRequestsPage() {
         result.sort((a, b) => {
             if (sortBy === 'newest') return new Date(b.createdAt) - new Date(a.createdAt);
             if (sortBy === 'oldest') return new Date(a.createdAt) - new Date(b.createdAt);
-            if (sortBy === 'amount_high') return b.amount - a.amount;
-            if (sortBy === 'amount_low') return a.amount - b.amount;
+            if (sortBy === 'amount_high') return (b.amount || 0) - (a.amount || 0);
+            if (sortBy === 'amount_low') return (a.amount || 0) - (b.amount || 0);
             return 0;
         });
 
@@ -478,29 +351,59 @@ export default function PremiumRequestsPage() {
         setApproveDialogOpen(true);
     };
 
-    const handleApproveConfirm = () => {
+    const handleApproveConfirm = async () => {
         if (!actionTarget) return;
-        setRequests((prev) =>
-            prev.map((r) =>
-                r.id === actionTarget.id
-                    ? {
-                        ...r,
-                        status: 'approved',
-                        adminNote: adminNote || 'Payment verified and approved.',
-                        reviewedBy: 'Admin',
-                        reviewedAt: new Date().toISOString(),
-                        updatedAt: new Date().toISOString(),
-                    }
-                    : r
-            )
-        );
-        setApproveDialogOpen(false);
-        setViewDialogOpen(false);
-        setSnackbar({
-            open: true,
-            message: `✅ Request ${actionTarget.id} approved! "${actionTarget.userName}" is now Premium.`,
-            severity: 'success',
-        });
+        setActionLoading(true);
+        try {
+            if (typeof adminApi.approvePremiumRequest === 'function') {
+                await adminApi.approvePremiumRequest(actionTarget.id, {
+                    adminNote: adminNote || 'Payment verified and approved.',
+                });
+            } else if (typeof adminApi.updateSubscription === 'function') {
+                await adminApi.updateSubscription(actionTarget.id, {
+                    status: 'approved',
+                    adminNote: adminNote || 'Payment verified and approved.',
+                });
+            } else if (typeof adminApi.updatePremiumRequest === 'function') {
+                await adminApi.updatePremiumRequest(actionTarget.id, {
+                    status: 'approved',
+                    adminNote: adminNote || 'Payment verified and approved.',
+                });
+            } else {
+                console.warn('No approve API method found');
+            }
+
+            setRequests((prev) =>
+                prev.map((r) =>
+                    r.id === actionTarget.id
+                        ? {
+                            ...r,
+                            status: 'approved',
+                            adminNote: adminNote || 'Payment verified and approved.',
+                            reviewedBy: 'Admin',
+                            reviewedAt: new Date().toISOString(),
+                            updatedAt: new Date().toISOString(),
+                        }
+                        : r
+                )
+            );
+            setApproveDialogOpen(false);
+            setViewDialogOpen(false);
+            setSnackbar({
+                open: true,
+                message: `✅ Request ${actionTarget.id} approved! "${actionTarget.userName}" is now Premium.`,
+                severity: 'success',
+            });
+        } catch (error) {
+            console.error('Approve failed:', error);
+            setSnackbar({
+                open: true,
+                message: `Failed to approve request. ${error?.response?.data?.message || 'Please try again.'}`,
+                severity: 'error',
+            });
+        } finally {
+            setActionLoading(false);
+        }
     };
 
     const handleRejectOpen = (request) => {
@@ -509,29 +412,59 @@ export default function PremiumRequestsPage() {
         setRejectDialogOpen(true);
     };
 
-    const handleRejectConfirm = () => {
+    const handleRejectConfirm = async () => {
         if (!actionTarget) return;
-        setRequests((prev) =>
-            prev.map((r) =>
-                r.id === actionTarget.id
-                    ? {
-                        ...r,
-                        status: 'rejected',
-                        adminNote: adminNote || 'Payment could not be verified.',
-                        reviewedBy: 'Admin',
-                        reviewedAt: new Date().toISOString(),
-                        updatedAt: new Date().toISOString(),
-                    }
-                    : r
-            )
-        );
-        setRejectDialogOpen(false);
-        setViewDialogOpen(false);
-        setSnackbar({
-            open: true,
-            message: `❌ Request ${actionTarget.id} rejected.`,
-            severity: 'error',
-        });
+        setActionLoading(true);
+        try {
+            if (typeof adminApi.rejectPremiumRequest === 'function') {
+                await adminApi.rejectPremiumRequest(actionTarget.id, {
+                    adminNote: adminNote || 'Payment could not be verified.',
+                });
+            } else if (typeof adminApi.updateSubscription === 'function') {
+                await adminApi.updateSubscription(actionTarget.id, {
+                    status: 'rejected',
+                    adminNote: adminNote || 'Payment could not be verified.',
+                });
+            } else if (typeof adminApi.updatePremiumRequest === 'function') {
+                await adminApi.updatePremiumRequest(actionTarget.id, {
+                    status: 'rejected',
+                    adminNote: adminNote || 'Payment could not be verified.',
+                });
+            } else {
+                console.warn('No reject API method found');
+            }
+
+            setRequests((prev) =>
+                prev.map((r) =>
+                    r.id === actionTarget.id
+                        ? {
+                            ...r,
+                            status: 'rejected',
+                            adminNote: adminNote || 'Payment could not be verified.',
+                            reviewedBy: 'Admin',
+                            reviewedAt: new Date().toISOString(),
+                            updatedAt: new Date().toISOString(),
+                        }
+                        : r
+                )
+            );
+            setRejectDialogOpen(false);
+            setViewDialogOpen(false);
+            setSnackbar({
+                open: true,
+                message: `❌ Request ${actionTarget.id} rejected.`,
+                severity: 'error',
+            });
+        } catch (error) {
+            console.error('Reject failed:', error);
+            setSnackbar({
+                open: true,
+                message: `Failed to reject request. ${error?.response?.data?.message || 'Please try again.'}`,
+                severity: 'error',
+            });
+        } finally {
+            setActionLoading(false);
+        }
     };
 
     const handleScreenshotOpen = (request) => {
@@ -540,9 +473,146 @@ export default function PremiumRequestsPage() {
     };
 
     const handleCopyRef = (ref) => {
+        if (!ref) return;
         navigator.clipboard?.writeText(ref);
         setSnackbar({ open: true, message: `Copied: ${ref}`, severity: 'info' });
     };
+
+    const handleRefresh = () => {
+        fetchRequests(true);
+    };
+
+    const handleExport = async () => {
+        try {
+            setSnackbar({ open: true, message: 'Exporting requests...', severity: 'info' });
+
+            const headers = [
+                'ID',
+                'User',
+                'Email',
+                'Plan',
+                'Payment Method',
+                'Amount',
+                'Currency',
+                'Transaction Ref',
+                'Status',
+                'Submitted',
+                'Reviewed By',
+                'Admin Note',
+            ];
+
+            const csvRows = [
+                headers.join(','),
+                ...requests.map((r) =>
+                    [
+                        `"${r.id || ''}"`,
+                        `"${r.userName || ''}"`,
+                        `"${r.userEmail || ''}"`,
+                        `"${r.plan || ''}"`,
+                        `"${r.paymentMethod || ''}"`,
+                        r.amount || 0,
+                        `"${r.currency || 'XAF'}"`,
+                        `"${r.transactionRef || ''}"`,
+                        `"${r.status || ''}"`,
+                        `"${r.createdAt || ''}"`,
+                        `"${r.reviewedBy || ''}"`,
+                        `"${(r.adminNote || '').replace(/"/g, '""')}"`,
+                    ].join(',')
+                ),
+            ];
+
+            const csvContent = csvRows.join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `premium-requests-${new Date().toISOString().split('T')[0]}.csv`;
+            link.click();
+            window.URL.revokeObjectURL(url);
+
+            setSnackbar({ open: true, message: 'Requests exported successfully!', severity: 'success' });
+        } catch (error) {
+            console.error('Export failed:', error);
+            setSnackbar({ open: true, message: 'Failed to export requests.', severity: 'error' });
+        }
+    };
+
+    // ─── Loading Skeleton ───
+    if (loading) {
+        return (
+            <Box sx={{ p: { xs: 2, md: 4 } }}>
+                <Box sx={{ mb: 4 }}>
+                    <Skeleton variant="text" width={300} height={40} />
+                    <Skeleton variant="text" width={400} height={24} />
+                </Box>
+
+                <Box
+                    sx={{
+                        display: 'grid',
+                        gridTemplateColumns: {
+                            xs: '1fr 1fr',
+                            sm: '1fr 1fr 1fr',
+                            md: 'repeat(6, 1fr)',
+                        },
+                        gap: 2,
+                        mb: 4,
+                    }}
+                >
+                    {[...Array(6)].map((_, i) => (
+                        <Skeleton
+                            key={i}
+                            variant="rounded"
+                            height={100}
+                            sx={{ borderRadius: 2.5 }}
+                        />
+                    ))}
+                </Box>
+
+                <Skeleton variant="rounded" height={48} sx={{ mb: 3, borderRadius: 2 }} />
+                <Skeleton variant="rounded" height={48} sx={{ mb: 3, borderRadius: 2 }} />
+
+                <Box
+                    sx={{
+                        bgcolor: '#ffffff',
+                        borderRadius: 3,
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                        overflow: 'hidden',
+                    }}
+                >
+                    <Skeleton variant="rectangular" height={48} />
+                    {[...Array(5)].map((_, i) => (
+                        <Box key={i} sx={{ p: 2, borderBottom: '1px solid #f1f5f9' }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                <Skeleton variant="circular" width={40} height={40} />
+                                <Box sx={{ flex: 1 }}>
+                                    <Skeleton variant="text" width="50%" height={20} />
+                                    <Skeleton variant="text" width="35%" height={16} />
+                                </Box>
+                                <Skeleton
+                                    variant="rounded"
+                                    width={80}
+                                    height={24}
+                                    sx={{ borderRadius: 2 }}
+                                />
+                                <Skeleton
+                                    variant="rounded"
+                                    width={70}
+                                    height={24}
+                                    sx={{ borderRadius: 2 }}
+                                />
+                                <Skeleton
+                                    variant="rounded"
+                                    width={60}
+                                    height={24}
+                                    sx={{ borderRadius: 2 }}
+                                />
+                            </Box>
+                        </Box>
+                    ))}
+                </Box>
+            </Box>
+        );
+    }
 
     return (
         <Box sx={{ p: { xs: 2, md: 4 } }}>
@@ -586,6 +656,7 @@ export default function PremiumRequestsPage() {
                     <Button
                         variant="outlined"
                         startIcon={<FileDownloadIcon />}
+                        onClick={handleExport}
                         sx={{
                             textTransform: 'none',
                             fontWeight: 600,
@@ -593,20 +664,38 @@ export default function PremiumRequestsPage() {
                             px: 3,
                             borderColor: '#e2e8f0',
                             color: '#64748b',
-                            '&:hover': { borderColor: '#667eea', color: '#667eea', bgcolor: '#667eea08' },
+                            '&:hover': {
+                                borderColor: '#667eea',
+                                color: '#667eea',
+                                bgcolor: '#667eea08',
+                            },
                         }}
                     >
                         Export
                     </Button>
                     <Tooltip title="Refresh">
                         <IconButton
+                            onClick={handleRefresh}
+                            disabled={refreshing}
                             sx={{
                                 bgcolor: '#ffffff',
                                 border: '1px solid #e2e8f0',
                                 '&:hover': { bgcolor: '#f8fafc' },
                             }}
                         >
-                            <RefreshIcon sx={{ fontSize: 20, color: '#64748b' }} />
+                            <RefreshIcon
+                                sx={{
+                                    fontSize: 20,
+                                    color: '#64748b',
+                                    animation: refreshing
+                                        ? 'spin 1s linear infinite'
+                                        : 'none',
+                                    '@keyframes spin': {
+                                        '0%': { transform: 'rotate(0deg)' },
+                                        '100%': { transform: 'rotate(360deg)' },
+                                    },
+                                }}
+                            />
                         </IconButton>
                     </Tooltip>
                 </Box>
@@ -616,7 +705,11 @@ export default function PremiumRequestsPage() {
             <Box
                 sx={{
                     display: 'grid',
-                    gridTemplateColumns: { xs: '1fr 1fr', sm: '1fr 1fr 1fr', md: 'repeat(6, 1fr)' },
+                    gridTemplateColumns: {
+                        xs: '1fr 1fr',
+                        sm: '1fr 1fr 1fr',
+                        md: 'repeat(6, 1fr)',
+                    },
                     gap: 2,
                     mb: 4,
                 }}
@@ -784,7 +877,15 @@ export default function PremiumRequestsPage() {
             </Tabs>
 
             {/* ─── Filters ─── */}
-            <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap', alignItems: 'center' }}>
+            <Box
+                sx={{
+                    display: 'flex',
+                    gap: 2,
+                    mb: 3,
+                    flexWrap: 'wrap',
+                    alignItems: 'center',
+                }}
+            >
                 <TextField
                     placeholder="Search by name, email, ID, or reference..."
                     size="small"
@@ -836,7 +937,9 @@ export default function PremiumRequestsPage() {
                                     }}
                                 >
                                     {cfg.icon}
-                                    <Typography variant="body2">{cfg.shortLabel}</Typography>
+                                    <Typography variant="body2">
+                                        {cfg.shortLabel}
+                                    </Typography>
                                 </Box>
                             </MenuItem>
                         ))}
@@ -844,7 +947,9 @@ export default function PremiumRequestsPage() {
                 </FormControl>
 
                 <FormControl size="small" sx={{ minWidth: 130 }}>
-                    <InputLabel sx={{ '&.Mui-focused': { color: '#667eea' } }}>Plan</InputLabel>
+                    <InputLabel sx={{ '&.Mui-focused': { color: '#667eea' } }}>
+                        Plan
+                    </InputLabel>
                     <Select
                         value={planFilter}
                         label="Plan"
@@ -869,7 +974,9 @@ export default function PremiumRequestsPage() {
                                     }}
                                 >
                                     {cfg.icon}
-                                    <Typography variant="body2">{cfg.shortLabel}</Typography>
+                                    <Typography variant="body2">
+                                        {cfg.shortLabel}
+                                    </Typography>
                                 </Box>
                             </MenuItem>
                         ))}
@@ -932,7 +1039,9 @@ export default function PremiumRequestsPage() {
                         boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
                     }}
                 >
-                    <WorkspacePremiumIcon sx={{ fontSize: 56, color: '#e2e8f0', mb: 2 }} />
+                    <WorkspacePremiumIcon
+                        sx={{ fontSize: 56, color: '#e2e8f0', mb: 2 }}
+                    />
                     <Typography variant="h6" fontWeight="600" color="#94a3b8">
                         No requests found
                     </Typography>
@@ -960,26 +1069,33 @@ export default function PremiumRequestsPage() {
                             borderBottom: '1px solid #e2e8f0',
                         }}
                     >
-                        {['USER', 'PAYMENT METHOD', 'AMOUNT', 'PLAN', 'STATUS', 'ACTIONS'].map(
-                            (h) => (
-                                <Typography
-                                    key={h}
-                                    variant="caption"
-                                    fontWeight="700"
-                                    color="#64748b"
-                                    letterSpacing="0.05em"
-                                >
-                                    {h}
-                                </Typography>
-                            )
-                        )}
+                        {[
+                            'USER',
+                            'PAYMENT METHOD',
+                            'AMOUNT',
+                            'PLAN',
+                            'STATUS',
+                            'ACTIONS',
+                        ].map((h) => (
+                            <Typography
+                                key={h}
+                                variant="caption"
+                                fontWeight="700"
+                                color="#64748b"
+                                letterSpacing="0.05em"
+                            >
+                                {h}
+                            </Typography>
+                        ))}
                     </Box>
 
                     {/* Rows */}
                     {filteredRequests.map((request, index) => {
-                        const statusCfg = STATUS_CONFIG[request.status];
+                        const statusCfg =
+                            STATUS_CONFIG[request.status] || STATUS_CONFIG.pending;
                         const methodCfg =
-                            PAYMENT_METHODS[request.paymentMethod] || PAYMENT_METHODS.mtn_momo;
+                            PAYMENT_METHODS[request.paymentMethod] ||
+                            PAYMENT_METHODS.mtn_momo;
                         const planCfg =
                             PLAN_CONFIG[request.plan] || PLAN_CONFIG.premium_monthly;
 
@@ -989,7 +1105,8 @@ export default function PremiumRequestsPage() {
                                 sx={{
                                     display: { xs: 'flex', md: 'grid' },
                                     flexDirection: { xs: 'column', md: 'unset' },
-                                    gridTemplateColumns: '2fr 1.2fr 1fr 1fr 0.8fr 1.5fr',
+                                    gridTemplateColumns:
+                                        '2fr 1.2fr 1fr 1fr 0.8fr 1.5fr',
                                     gap: { xs: 1.5, md: 2 },
                                     p: 2,
                                     alignItems: { md: 'center' },
@@ -1000,7 +1117,8 @@ export default function PremiumRequestsPage() {
                                     borderLeft: `3px solid ${statusCfg.color}`,
                                     transition: 'all 0.15s ease',
                                     '&:hover': { bgcolor: '#f8fafc' },
-                                    opacity: request.status === 'rejected' ? 0.7 : 1,
+                                    opacity:
+                                        request.status === 'rejected' ? 0.7 : 1,
                                 }}
                             >
                                 {/* User */}
@@ -1042,11 +1160,18 @@ export default function PremiumRequestsPage() {
                                             </Typography>
                                             {request.status === 'approved' && (
                                                 <VerifiedIcon
-                                                    sx={{ fontSize: 14, color: '#10b981' }}
+                                                    sx={{
+                                                        fontSize: 14,
+                                                        color: '#10b981',
+                                                    }}
                                                 />
                                             )}
                                         </Box>
-                                        <Typography variant="caption" color="#94a3b8" noWrap>
+                                        <Typography
+                                            variant="caption"
+                                            color="#94a3b8"
+                                            noWrap
+                                        >
                                             {request.userEmail}
                                         </Typography>
                                         <Box
@@ -1104,7 +1229,9 @@ export default function PremiumRequestsPage() {
                                             }}
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                handleCopyRef(request.transactionRef);
+                                                handleCopyRef(
+                                                    request.transactionRef
+                                                );
                                             }}
                                         >
                                             {request.transactionRef}
@@ -1114,8 +1241,15 @@ export default function PremiumRequestsPage() {
 
                                 {/* Amount */}
                                 <Box>
-                                    <Typography variant="body2" fontWeight="700" color="#1e293b">
-                                        {formatCurrency(request.amount, request.currency)}
+                                    <Typography
+                                        variant="body2"
+                                        fontWeight="700"
+                                        color="#1e293b"
+                                    >
+                                        {formatCurrency(
+                                            request.amount,
+                                            request.currency
+                                        )}
                                     </Typography>
                                     <Typography variant="caption" color="#94a3b8">
                                         {formatDate(request.createdAt)}
@@ -1171,72 +1305,94 @@ export default function PremiumRequestsPage() {
                                         flexWrap: 'wrap',
                                     }}
                                 >
-                                    {/* View */}
                                     <Tooltip title="View Details">
                                         <IconButton
                                             size="small"
-                                            onClick={() => handleViewOpen(request)}
+                                            onClick={() =>
+                                                handleViewOpen(request)
+                                            }
                                             sx={{
                                                 bgcolor: '#667eea10',
                                                 color: '#667eea',
-                                                '&:hover': { bgcolor: '#667eea20' },
+                                                '&:hover': {
+                                                    bgcolor: '#667eea20',
+                                                },
                                             }}
                                         >
-                                            <VisibilityIcon sx={{ fontSize: 18 }} />
+                                            <VisibilityIcon
+                                                sx={{ fontSize: 18 }}
+                                            />
                                         </IconButton>
                                     </Tooltip>
 
-                                    {/* Screenshot */}
                                     <Tooltip title="View Payment Proof">
                                         <IconButton
                                             size="small"
-                                            onClick={() => handleScreenshotOpen(request)}
+                                            onClick={() =>
+                                                handleScreenshotOpen(request)
+                                            }
                                             sx={{
                                                 bgcolor: '#06b6d410',
                                                 color: '#06b6d4',
-                                                '&:hover': { bgcolor: '#06b6d420' },
+                                                '&:hover': {
+                                                    bgcolor: '#06b6d420',
+                                                },
                                             }}
                                         >
                                             <ImageIcon sx={{ fontSize: 18 }} />
                                         </IconButton>
                                     </Tooltip>
 
-                                    {/* Approve / Reject (only for pending) */}
                                     {request.status === 'pending' && (
                                         <>
                                             <Tooltip title="Approve">
                                                 <IconButton
                                                     size="small"
-                                                    onClick={() => handleApproveOpen(request)}
+                                                    onClick={() =>
+                                                        handleApproveOpen(
+                                                            request
+                                                        )
+                                                    }
                                                     sx={{
                                                         bgcolor: '#10b98110',
                                                         color: '#10b981',
-                                                        '&:hover': { bgcolor: '#10b98125' },
+                                                        '&:hover': {
+                                                            bgcolor: '#10b98125',
+                                                        },
                                                     }}
                                                 >
-                                                    <ThumbUpIcon sx={{ fontSize: 18 }} />
+                                                    <ThumbUpIcon
+                                                        sx={{ fontSize: 18 }}
+                                                    />
                                                 </IconButton>
                                             </Tooltip>
                                             <Tooltip title="Reject">
                                                 <IconButton
                                                     size="small"
-                                                    onClick={() => handleRejectOpen(request)}
+                                                    onClick={() =>
+                                                        handleRejectOpen(
+                                                            request
+                                                        )
+                                                    }
                                                     sx={{
                                                         bgcolor: '#ef444410',
                                                         color: '#ef4444',
-                                                        '&:hover': { bgcolor: '#ef444425' },
+                                                        '&:hover': {
+                                                            bgcolor: '#ef444425',
+                                                        },
                                                     }}
                                                 >
-                                                    <ThumbDownIcon sx={{ fontSize: 18 }} />
+                                                    <ThumbDownIcon
+                                                        sx={{ fontSize: 18 }}
+                                                    />
                                                 </IconButton>
                                             </Tooltip>
                                         </>
                                     )}
 
-                                    {/* Already reviewed indicator */}
                                     {request.status !== 'pending' && (
                                         <Tooltip
-                                            title={`Reviewed by ${request.reviewedBy} on ${request.reviewedAt ? formatFullDate(request.reviewedAt) : 'N/A'}`}
+                                            title={`Reviewed by ${request.reviewedBy || 'N/A'} on ${request.reviewedAt ? formatFullDate(request.reviewedAt) : 'N/A'}`}
                                         >
                                             <Chip
                                                 icon={
@@ -1244,7 +1400,7 @@ export default function PremiumRequestsPage() {
                                                         sx={{ fontSize: 12 }}
                                                     />
                                                 }
-                                                label={`by ${request.reviewedBy}`}
+                                                label={`by ${request.reviewedBy || 'N/A'}`}
                                                 size="small"
                                                 sx={{
                                                     fontWeight: 500,
@@ -1277,12 +1433,15 @@ export default function PremiumRequestsPage() {
             >
                 {actionTarget &&
                     (() => {
-                        const statusCfg = STATUS_CONFIG[actionTarget.status];
+                        const statusCfg =
+                            STATUS_CONFIG[actionTarget.status] ||
+                            STATUS_CONFIG.pending;
                         const methodCfg =
                             PAYMENT_METHODS[actionTarget.paymentMethod] ||
                             PAYMENT_METHODS.mtn_momo;
                         const planCfg =
-                            PLAN_CONFIG[actionTarget.plan] || PLAN_CONFIG.premium_monthly;
+                            PLAN_CONFIG[actionTarget.plan] ||
+                            PLAN_CONFIG.premium_monthly;
 
                         return (
                             <>
@@ -1316,11 +1475,17 @@ export default function PremiumRequestsPage() {
                                             }}
                                         >
                                             <WorkspacePremiumIcon
-                                                sx={{ fontSize: 26, color: '#ffffff' }}
+                                                sx={{
+                                                    fontSize: 26,
+                                                    color: '#ffffff',
+                                                }}
                                             />
                                         </Box>
                                         <Box>
-                                            <Typography variant="h6" fontWeight="700">
+                                            <Typography
+                                                variant="h6"
+                                                fontWeight="700"
+                                            >
                                                 Premium Request
                                             </Typography>
                                             <Typography
@@ -1333,7 +1498,9 @@ export default function PremiumRequestsPage() {
                                         </Box>
                                     </Box>
                                     <IconButton
-                                        onClick={() => setViewDialogOpen(false)}
+                                        onClick={() =>
+                                            setViewDialogOpen(false)
+                                        }
                                         sx={{ color: '#ffffff' }}
                                     >
                                         <CloseIcon />
@@ -1381,7 +1548,9 @@ export default function PremiumRequestsPage() {
                                             label={actionTarget.id}
                                             size="small"
                                             icon={
-                                                <ContentCopyIcon sx={{ fontSize: 12 }} />
+                                                <ContentCopyIcon
+                                                    sx={{ fontSize: 12 }}
+                                                />
                                             }
                                             onClick={() =>
                                                 handleCopyRef(actionTarget.id)
@@ -1446,7 +1615,10 @@ export default function PremiumRequestsPage() {
                                             >
                                                 {actionTarget.userName}
                                             </Typography>
-                                            <Typography variant="caption" color="#94a3b8">
+                                            <Typography
+                                                variant="caption"
+                                                color="#94a3b8"
+                                            >
                                                 {actionTarget.userEmail}
                                             </Typography>
                                         </Box>
@@ -1493,7 +1665,7 @@ export default function PremiumRequestsPage() {
                                                 )}
                                             </Typography>
                                             {actionTarget.amount !==
-                                                (PLAN_CONFIG[actionTarget.plan]?.price || 0) && (
+                                                (planCfg?.price || 0) && (
                                                     <Alert
                                                         severity="warning"
                                                         sx={{
@@ -1507,7 +1679,7 @@ export default function PremiumRequestsPage() {
                                                     >
                                                         Expected:{' '}
                                                         {formatCurrency(
-                                                            PLAN_CONFIG[actionTarget.plan]?.price || 0,
+                                                            planCfg?.price || 0,
                                                             actionTarget.currency
                                                         )}
                                                     </Alert>
@@ -1599,10 +1771,17 @@ export default function PremiumRequestsPage() {
                                                 fontWeight="600"
                                                 color="#1e293b"
                                             >
-                                                {formatFullDate(actionTarget.createdAt)}
+                                                {formatFullDate(
+                                                    actionTarget.createdAt
+                                                )}
                                             </Typography>
-                                            <Typography variant="caption" color="#94a3b8">
-                                                {formatDate(actionTarget.createdAt)}
+                                            <Typography
+                                                variant="caption"
+                                                color="#94a3b8"
+                                            >
+                                                {formatDate(
+                                                    actionTarget.createdAt
+                                                )}
                                             </Typography>
                                         </Box>
                                     </Box>
@@ -1636,9 +1815,13 @@ export default function PremiumRequestsPage() {
                                                     variant="body2"
                                                     fontWeight="600"
                                                     color="#1e293b"
-                                                    sx={{ fontFamily: 'monospace' }}
+                                                    sx={{
+                                                        fontFamily: 'monospace',
+                                                    }}
                                                 >
-                                                    {actionTarget.transactionRef}
+                                                    {
+                                                        actionTarget.transactionRef
+                                                    }
                                                 </Typography>
                                             </Box>
                                             <Tooltip title="Copy Reference">
@@ -1746,9 +1929,13 @@ export default function PremiumRequestsPage() {
                                                 <Typography
                                                     variant="caption"
                                                     color="#94a3b8"
-                                                    sx={{ display: 'block', mt: 1 }}
+                                                    sx={{
+                                                        display: 'block',
+                                                        mt: 1,
+                                                    }}
                                                 >
-                                                    — {actionTarget.reviewedBy},{' '}
+                                                    —{' '}
+                                                    {actionTarget.reviewedBy},{' '}
                                                     {actionTarget.reviewedAt
                                                         ? formatFullDate(
                                                             actionTarget.reviewedAt
@@ -1778,23 +1965,46 @@ export default function PremiumRequestsPage() {
                                             },
                                         }}
                                     >
-                                        <ImageIcon
-                                            sx={{
-                                                fontSize: 40,
-                                                color: '#94a3b8',
-                                                mb: 1,
-                                            }}
-                                        />
-                                        <Typography
-                                            variant="body2"
-                                            fontWeight="600"
-                                            color="#667eea"
-                                        >
-                                            View Payment Proof
-                                        </Typography>
-                                        <Typography variant="caption" color="#94a3b8">
-                                            Click to view the uploaded screenshot
-                                        </Typography>
+                                        {actionTarget.screenshot &&
+                                            actionTarget.screenshot.startsWith(
+                                                'http'
+                                            ) ? (
+                                            <Box
+                                                component="img"
+                                                src={actionTarget.screenshot}
+                                                alt="Payment proof"
+                                                sx={{
+                                                    maxWidth: '100%',
+                                                    maxHeight: 200,
+                                                    borderRadius: 1,
+                                                    objectFit: 'contain',
+                                                }}
+                                            />
+                                        ) : (
+                                            <>
+                                                <ImageIcon
+                                                    sx={{
+                                                        fontSize: 40,
+                                                        color: '#94a3b8',
+                                                        mb: 1,
+                                                    }}
+                                                />
+                                                <Typography
+                                                    variant="body2"
+                                                    fontWeight="600"
+                                                    color="#667eea"
+                                                >
+                                                    View Payment Proof
+                                                </Typography>
+                                                <Typography
+                                                    variant="caption"
+                                                    color="#94a3b8"
+                                                >
+                                                    Click to view the uploaded
+                                                    screenshot
+                                                </Typography>
+                                            </>
+                                        )}
                                     </Box>
                                 </DialogContent>
 
@@ -1806,7 +2016,9 @@ export default function PremiumRequestsPage() {
                                     }}
                                 >
                                     <Button
-                                        onClick={() => setViewDialogOpen(false)}
+                                        onClick={() =>
+                                            setViewDialogOpen(false)
+                                        }
                                         sx={{
                                             textTransform: 'none',
                                             color: '#64748b',
@@ -1816,13 +2028,17 @@ export default function PremiumRequestsPage() {
                                     </Button>
 
                                     {actionTarget.status === 'pending' && (
-                                        <Box sx={{ display: 'flex', gap: 1 }}>
+                                        <Box
+                                            sx={{ display: 'flex', gap: 1 }}
+                                        >
                                             <Button
                                                 variant="outlined"
                                                 color="error"
                                                 startIcon={<ThumbDownIcon />}
                                                 onClick={() =>
-                                                    handleRejectOpen(actionTarget)
+                                                    handleRejectOpen(
+                                                        actionTarget
+                                                    )
                                                 }
                                                 sx={{
                                                     textTransform: 'none',
@@ -1836,14 +2052,18 @@ export default function PremiumRequestsPage() {
                                                 variant="contained"
                                                 startIcon={<ThumbUpIcon />}
                                                 onClick={() =>
-                                                    handleApproveOpen(actionTarget)
+                                                    handleApproveOpen(
+                                                        actionTarget
+                                                    )
                                                 }
                                                 sx={{
                                                     textTransform: 'none',
                                                     fontWeight: 600,
                                                     borderRadius: 2,
                                                     bgcolor: '#10b981',
-                                                    '&:hover': { bgcolor: '#059669' },
+                                                    '&:hover': {
+                                                        bgcolor: '#059669',
+                                                    },
                                                 }}
                                             >
                                                 Approve
@@ -1859,7 +2079,7 @@ export default function PremiumRequestsPage() {
             {/* ═══════════ APPROVE DIALOG ═══════════ */}
             <Dialog
                 open={approveDialogOpen}
-                onClose={() => setApproveDialogOpen(false)}
+                onClose={() => !actionLoading && setApproveDialogOpen(false)}
                 maxWidth="xs"
                 fullWidth
                 PaperProps={{ sx: { borderRadius: 3, p: 1 } }}
@@ -1878,7 +2098,11 @@ export default function PremiumRequestsPage() {
                 <DialogContent>
                     {actionTarget && (
                         <>
-                            <Typography variant="body2" color="#64748b" sx={{ mb: 2 }}>
+                            <Typography
+                                variant="body2"
+                                color="#64748b"
+                                sx={{ mb: 2 }}
+                            >
                                 Approve premium upgrade for{' '}
                                 <strong>{actionTarget.userName}</strong>?
                             </Typography>
@@ -1910,7 +2134,10 @@ export default function PremiumRequestsPage() {
                                         fontWeight="600"
                                         color="#1e293b"
                                     >
-                                        {PLAN_CONFIG[actionTarget.plan]?.label}
+                                        {(
+                                            PLAN_CONFIG[actionTarget.plan] ||
+                                            PLAN_CONFIG.premium_monthly
+                                        ).label}
                                     </Typography>
                                 </Box>
                                 <Box
@@ -1953,7 +2180,10 @@ export default function PremiumRequestsPage() {
                                         variant="body2"
                                         fontWeight="600"
                                         color="#1e293b"
-                                        sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}
+                                        sx={{
+                                            fontFamily: 'monospace',
+                                            fontSize: '0.75rem',
+                                        }}
                                     >
                                         {actionTarget.transactionRef}
                                     </Typography>
@@ -1967,9 +2197,11 @@ export default function PremiumRequestsPage() {
                                 <Typography variant="caption">
                                     This will:
                                     <br />
-                                    1️⃣ Update request status → <strong>Approved</strong>
+                                    1️⃣ Update request status →{' '}
+                                    <strong>Approved</strong>
                                     <br />
-                                    2️⃣ Update user subscription → <strong>Active</strong>
+                                    2️⃣ Update user subscription →{' '}
+                                    <strong>Active</strong>
                                 </Typography>
                             </Alert>
 
@@ -1981,6 +2213,7 @@ export default function PremiumRequestsPage() {
                                 placeholder="e.g. Payment verified via MTN dashboard. Transaction confirmed."
                                 value={adminNote}
                                 onChange={(e) => setAdminNote(e.target.value)}
+                                disabled={actionLoading}
                                 sx={{
                                     '& .MuiOutlinedInput-root': {
                                         borderRadius: 2,
@@ -2000,13 +2233,21 @@ export default function PremiumRequestsPage() {
                     <Button
                         onClick={() => setApproveDialogOpen(false)}
                         sx={{ textTransform: 'none', color: '#64748b' }}
+                        disabled={actionLoading}
                     >
                         Cancel
                     </Button>
                     <Button
                         variant="contained"
-                        startIcon={<CheckCircleIcon />}
+                        startIcon={
+                            actionLoading ? (
+                                <CircularProgress size={16} color="inherit" />
+                            ) : (
+                                <CheckCircleIcon />
+                            )
+                        }
                         onClick={handleApproveConfirm}
+                        disabled={actionLoading}
                         sx={{
                             textTransform: 'none',
                             fontWeight: 600,
@@ -2015,7 +2256,7 @@ export default function PremiumRequestsPage() {
                             '&:hover': { bgcolor: '#059669' },
                         }}
                     >
-                        Approve & Activate
+                        {actionLoading ? 'Approving...' : 'Approve & Activate'}
                     </Button>
                 </DialogActions>
             </Dialog>
@@ -2023,7 +2264,7 @@ export default function PremiumRequestsPage() {
             {/* ═══════════ REJECT DIALOG ═══════════ */}
             <Dialog
                 open={rejectDialogOpen}
-                onClose={() => setRejectDialogOpen(false)}
+                onClose={() => !actionLoading && setRejectDialogOpen(false)}
                 maxWidth="xs"
                 fullWidth
                 PaperProps={{ sx: { borderRadius: 3, p: 1 } }}
@@ -2042,7 +2283,11 @@ export default function PremiumRequestsPage() {
                 <DialogContent>
                     {actionTarget && (
                         <>
-                            <Typography variant="body2" color="#64748b" sx={{ mb: 2 }}>
+                            <Typography
+                                variant="body2"
+                                color="#64748b"
+                                sx={{ mb: 2 }}
+                            >
                                 Reject premium request from{' '}
                                 <strong>{actionTarget.userName}</strong>?
                             </Typography>
@@ -2096,7 +2341,10 @@ export default function PremiumRequestsPage() {
                                         variant="body2"
                                         fontWeight="600"
                                         color="#1e293b"
-                                        sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}
+                                        sx={{
+                                            fontFamily: 'monospace',
+                                            fontSize: '0.75rem',
+                                        }}
                                     >
                                         {actionTarget.transactionRef}
                                     </Typography>
@@ -2107,7 +2355,8 @@ export default function PremiumRequestsPage() {
                                 severity="warning"
                                 sx={{ mb: 2, borderRadius: 2 }}
                             >
-                                Please provide a reason for rejection so the user understands why.
+                                Please provide a reason for rejection so the
+                                user understands why.
                             </Alert>
 
                             <TextField
@@ -2119,6 +2368,7 @@ export default function PremiumRequestsPage() {
                                 value={adminNote}
                                 onChange={(e) => setAdminNote(e.target.value)}
                                 required
+                                disabled={actionLoading}
                                 sx={{
                                     '& .MuiOutlinedInput-root': {
                                         borderRadius: 2,
@@ -2138,22 +2388,29 @@ export default function PremiumRequestsPage() {
                     <Button
                         onClick={() => setRejectDialogOpen(false)}
                         sx={{ textTransform: 'none', color: '#64748b' }}
+                        disabled={actionLoading}
                     >
                         Cancel
                     </Button>
                     <Button
                         variant="contained"
                         color="error"
-                        startIcon={<CancelIcon />}
+                        startIcon={
+                            actionLoading ? (
+                                <CircularProgress size={16} color="inherit" />
+                            ) : (
+                                <CancelIcon />
+                            )
+                        }
                         onClick={handleRejectConfirm}
-                        disabled={!adminNote.trim()}
+                        disabled={!adminNote.trim() || actionLoading}
                         sx={{
                             textTransform: 'none',
                             fontWeight: 600,
                             borderRadius: 2,
                         }}
                     >
-                        Reject Request
+                        {actionLoading ? 'Rejecting...' : 'Reject Request'}
                     </Button>
                 </DialogActions>
             </Dialog>
@@ -2193,7 +2450,10 @@ export default function PremiumRequestsPage() {
                                     >
                                         Payment Proof
                                     </Typography>
-                                    <Typography variant="caption" color="#94a3b8">
+                                    <Typography
+                                        variant="caption"
+                                        color="#94a3b8"
+                                    >
                                         {actionTarget.userName} ·{' '}
                                         {actionTarget.id} ·{' '}
                                         {formatCurrency(
@@ -2204,7 +2464,9 @@ export default function PremiumRequestsPage() {
                                 </Box>
                             </Box>
                             <IconButton
-                                onClick={() => setScreenshotDialogOpen(false)}
+                                onClick={() =>
+                                    setScreenshotDialogOpen(false)
+                                }
                             >
                                 <CloseIcon />
                             </IconButton>
@@ -2217,49 +2479,62 @@ export default function PremiumRequestsPage() {
                                 alignItems: 'center',
                             }}
                         >
-                            {/* Placeholder for screenshot */}
-                            <Box
-                                sx={{
-                                    width: '100%',
-                                    minHeight: 400,
-                                    bgcolor: '#f1f5f9',
-                                    borderRadius: 2,
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    border: '2px dashed #e2e8f0',
-                                }}
-                            >
-                                <ImageIcon
+                            {/* Screenshot or placeholder */}
+                            {actionTarget.screenshot &&
+                                actionTarget.screenshot.startsWith('http') ? (
+                                <Box
+                                    component="img"
+                                    src={actionTarget.screenshot}
+                                    alt="Payment proof screenshot"
                                     sx={{
-                                        fontSize: 64,
-                                        color: '#cbd5e1',
-                                        mb: 2,
+                                        width: '100%',
+                                        maxHeight: 500,
+                                        objectFit: 'contain',
+                                        borderRadius: 2,
+                                        border: '1px solid #e2e8f0',
+                                    }}
+                                    onError={(e) => {
+                                        e.target.style.display = 'none';
                                     }}
                                 />
-                                <Typography
-                                    variant="body1"
-                                    fontWeight="600"
-                                    color="#94a3b8"
+                            ) : (
+                                <Box
+                                    sx={{
+                                        width: '100%',
+                                        minHeight: 400,
+                                        bgcolor: '#f1f5f9',
+                                        borderRadius: 2,
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        border: '2px dashed #e2e8f0',
+                                    }}
                                 >
-                                    Payment Screenshot
-                                </Typography>
-                                <Typography
-                                    variant="caption"
-                                    color="#cbd5e1"
-                                    sx={{ mt: 0.5 }}
-                                >
-                                    {actionTarget.screenshot}
-                                </Typography>
-                                <Typography
-                                    variant="caption"
-                                    color="#cbd5e1"
-                                    sx={{ mt: 1, fontStyle: 'italic' }}
-                                >
-                                    (In production, the actual uploaded image will be displayed here)
-                                </Typography>
-                            </Box>
+                                    <ImageIcon
+                                        sx={{
+                                            fontSize: 64,
+                                            color: '#cbd5e1',
+                                            mb: 2,
+                                        }}
+                                    />
+                                    <Typography
+                                        variant="body1"
+                                        fontWeight="600"
+                                        color="#94a3b8"
+                                    >
+                                        Payment Screenshot
+                                    </Typography>
+                                    <Typography
+                                        variant="caption"
+                                        color="#cbd5e1"
+                                        sx={{ mt: 0.5 }}
+                                    >
+                                        {actionTarget.screenshot ||
+                                            'No screenshot available'}
+                                    </Typography>
+                                </Box>
+                            )}
 
                             {/* Transaction info below screenshot */}
                             <Box
@@ -2308,8 +2583,11 @@ export default function PremiumRequestsPage() {
                                             fontWeight="600"
                                             color="#1e293b"
                                         >
-                                            {PAYMENT_METHODS[actionTarget.paymentMethod]
-                                                ?.label || actionTarget.paymentMethod}
+                                            {(
+                                                PAYMENT_METHODS[
+                                                actionTarget.paymentMethod
+                                                ] || PAYMENT_METHODS.mtn_momo
+                                            ).label}
                                         </Typography>
                                     </Box>
                                     <Box>
@@ -2341,8 +2619,13 @@ export default function PremiumRequestsPage() {
                             }}
                         >
                             <Button
-                                onClick={() => setScreenshotDialogOpen(false)}
-                                sx={{ textTransform: 'none', color: '#64748b' }}
+                                onClick={() =>
+                                    setScreenshotDialogOpen(false)
+                                }
+                                sx={{
+                                    textTransform: 'none',
+                                    color: '#64748b',
+                                }}
                             >
                                 Close
                             </Button>
@@ -2429,7 +2712,10 @@ export default function PremiumRequestsPage() {
                 <Box
                     sx={{
                         display: 'grid',
-                        gridTemplateColumns: { xs: '1fr', md: '1fr 1fr 1fr' },
+                        gridTemplateColumns: {
+                            xs: '1fr',
+                            md: '1fr 1fr 1fr',
+                        },
                         gap: 2,
                     }}
                 >
@@ -2448,7 +2734,9 @@ export default function PremiumRequestsPage() {
                             description:
                                 'Admin verifies the payment proof, checks the transaction reference in the payment system dashboard, and confirms the amount matches.',
                             color: '#f59e0b',
-                            icon: <VisibilityIcon sx={{ fontSize: 18 }} />,
+                            icon: (
+                                <VisibilityIcon sx={{ fontSize: 18 }} />
+                            ),
                         },
                         {
                             step: '3',

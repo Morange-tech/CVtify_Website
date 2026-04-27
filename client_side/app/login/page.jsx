@@ -220,9 +220,11 @@ export default function LoginPage() {
         signIn('linkedin', { callbackUrl: '/dashboard' });
     };
 
-    const { loginMutation, isAuthenticated } = useAuth();
+    const { loginMutation, isAuthenticated, user } = useAuth();
     const [showSuccess, setShowSuccess] = useState(false);
     const router = useRouter();
+    const isAdmin = user?.role === 'admin';
+
 
 
     const [showPassword, setShowPassword] = useState(false);
@@ -236,13 +238,13 @@ export default function LoginPage() {
     const [errors, setErrors] = useState({});
 
     useEffect(() => {
-        if (isAuthenticated && !loginMutation.isPending) {
-            router.push('/dashboard');
+        if (isAuthenticated && !loginMutation.isPending && user) {
+            router.push(getRedirectPath(user));
         }
-    }, [isAuthenticated, loginMutation.isPending]);
+    }, [isAuthenticated, loginMutation.isPending, user, router]);
 
     useEffect(() => {
-        if (loginMutation.isSuccess) {
+        if (loginMutation.isSuccess && user) {
             setShowSuccess(true);
 
             setTimeout(() => {
@@ -250,10 +252,12 @@ export default function LoginPage() {
             }, 1500);
 
             setTimeout(() => {
-                router.push('/dashboard');
+                router.push(getRedirectPath(user));
             }, 3000);
         }
-    }, [loginMutation.isSuccess, router]);
+    }, [loginMutation.isSuccess, user, router]);
+
+    console.log('Logged in user:', user);
 
     const handleChange = (e) => {
         const { name, value, checked } = e.target;
@@ -268,6 +272,10 @@ export default function LoginPage() {
                 [name]: '',
             }));
         }
+    };
+
+    const getRedirectPath = (user) => {
+        return user?.role === 'admin' ? '/admin' : '/dashboard';
     };
 
     const validateForm = () => {
@@ -587,9 +595,9 @@ export default function LoginPage() {
             <SuccessModal
                 open={showSuccess}
                 loading={redirecting}
-                loadingText="Redirecting to dashboard..."
+                loadingText={isAdmin ? "Redirecting to admin dashboard..." : "Redirecting to dashboard..."}
                 title="Login Successful!"
-                message="Welcome back! Redirecting to your dashboard..."
+                message={isAdmin ? "Welcome back! Redirecting to your admin dashboard..." : "Welcome back! Redirecting to your dashboard..."}
             />
         </PageContainer>
     );

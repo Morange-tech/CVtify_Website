@@ -27,43 +27,17 @@
                 ],
                 "summary": "Register a new user",
                 "operationId": "5d4fa5d5607ed675ba93907e1fc94534",
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "required": [
-                                    "name",
-                                    "email",
-                                    "password",
-                                    "password_confirmation"
-                                ],
-                                "properties": {
-                                    "name": {
-                                        "type": "string",
-                                        "example": "John Doe"
-                                    },
-                                    "email": {
-                                        "type": "string",
-                                        "format": "email",
-                                        "example": "john@example.com"
-                                    },
-                                    "password": {
-                                        "type": "string",
-                                        "format": "password",
-                                        "example": "password123"
-                                    },
-                                    "password_confirmation": {
-                                        "type": "string",
-                                        "format": "password",
-                                        "example": "password123"
-                                    }
-                                },
-                                "type": "object"
-                            }
+                "parameters": [
+                    {
+                        "name": "filter",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "example": "all"
                         }
                     }
-                },
+                ],
                 "responses": {
                     "201": {
                         "description": "Registration successful"
@@ -313,6 +287,141 @@
                     }
                 }
             }
+        },
+        "/api/templates": {
+            "get": {
+                "tags": [
+                    "Templates"
+                ],
+                "summary": "Get all templates",
+                "operationId": "e7bff3994948a3b495a185984da5e485",
+                "parameters": [
+                    {
+                        "name": "filter",
+                        "in": "query",
+                        "description": "Filter templates",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "all",
+                                "free",
+                                "premium",
+                                "popular"
+                            ],
+                            "example": "all"
+                        }
+                    },
+                    {
+                        "name": "category",
+                        "in": "query",
+                        "description": "Template category",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "creative",
+                                "professional",
+                                "simple"
+                            ],
+                            "example": "creative"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Templates retrieved successfully"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    }
+                }
+            }
+        },
+        "/api/templates/{template}": {
+            "get": {
+                "tags": [
+                    "Templates"
+                ],
+                "summary": "Get a single template",
+                "operationId": "ed6dce44f72216db9c0ab0a8daa9e37d",
+                "parameters": [
+                    {
+                        "name": "template",
+                        "in": "path",
+                        "description": "Template ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Template retrieved successfully"
+                    },
+                    "404": {
+                        "description": "Template not found"
+                    }
+                }
+            }
+        },
+        "/api/templates/{template}/wishlist": {
+            "post": {
+                "tags": [
+                    "Templates"
+                ],
+                "summary": "Toggle template wishlist",
+                "operationId": "9e19eb1670df54c7ee0922de6f1acae4",
+                "parameters": [
+                    {
+                        "name": "template",
+                        "in": "path",
+                        "description": "Template ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Wishlist updated"
+                    },
+                    "401": {
+                        "description": "Authentication required"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/user/wishlist": {
+            "get": {
+                "tags": [
+                    "Templates"
+                ],
+                "summary": "Get user's wishlisted templates",
+                "operationId": "98a7dbc0b6d2bd681a2025fb127c91be",
+                "responses": {
+                    "200": {
+                        "description": "Wishlist retrieved successfully"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
         }
     },
     "components": {
@@ -333,6 +442,10 @@
         {
             "name": "User",
             "description": "User endpoints"
+        },
+        {
+            "name": "Templates",
+            "description": "Template endpoints"
         }
     ]
 }
