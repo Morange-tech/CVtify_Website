@@ -2,6 +2,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useLanguage } from '../hooks/useLanguage';
 import {
     Box,
     Typography,
@@ -38,7 +39,7 @@ const PageContainer = styled(Box)({
 
 const LeftPanel = styled(Box)(({ theme }) => ({
     flex: 1,
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
     display: 'flex',
     flexDirection: 'column',
     justifyContent: 'center',
@@ -104,13 +105,13 @@ const StyledTextField = styled(TextField)(({ theme }) => ({
         '&.Mui-focused': {
             backgroundColor: '#ffffff',
             '& fieldset': {
-                borderColor: '#667eea',
+                borderColor: '#000000',
                 borderWidth: 2,
             },
         },
     },
     '& .MuiInputLabel-root.Mui-focused': {
-        color: '#667eea',
+        color: '#000000',
     },
 }));
 
@@ -120,11 +121,11 @@ const PrimaryButton = styled(Button)(({ theme }) => ({
     fontSize: '1rem',
     fontWeight: 600,
     textTransform: 'none',
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
+    background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
+    boxShadow: '0 4px 15px rgba(0, 0, 0, 0.4)',
     transition: 'all 0.3s ease',
     '&:hover': {
-        boxShadow: '0 6px 20px rgba(102, 126, 234, 0.5)',
+        boxShadow: '0 6px 20px rgba(0, 0, 0, 0.5)',
         transform: 'translateY(-2px)',
     },
     '&:disabled': {
@@ -144,7 +145,7 @@ const LogoIcon = styled(Box)(({ theme }) => ({
     width: 45,
     height: 45,
     borderRadius: theme.spacing(1.5),
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -164,7 +165,7 @@ const BackLink = styled(Link)(({ theme }) => ({
     fontSize: '0.9rem',
     transition: 'all 0.3s ease',
     '&:hover': {
-        color: '#667eea',
+        color: '#000000',
     },
 }));
 
@@ -172,7 +173,7 @@ const IconContainer = styled(Box)(({ theme }) => ({
     width: 80,
     height: 80,
     borderRadius: '50%',
-    background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%)',
+    background: 'linear-gradient(135deg, rgba(0, 0, 0, 0.1) 0%, rgba(26, 26, 26, 0.1) 100%)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -230,6 +231,7 @@ export default function ResetPasswordPage() {
     const theme = useTheme();
     const router = useRouter();
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+    const { t } = useLanguage();
 
     const [formData, setFormData] = useState({
         password: '',
@@ -246,13 +248,18 @@ export default function ResetPasswordPage() {
     const email = searchParams.get('email');
 
     // Password requirements
-    const requirements = [
-        { label: 'At least 8 characters', test: (pwd) => pwd.length >= 8 },
-        { label: 'One uppercase letter', test: (pwd) => /[A-Z]/.test(pwd) },
-        { label: 'One lowercase letter', test: (pwd) => /[a-z]/.test(pwd) },
-        { label: 'One number', test: (pwd) => /[0-9]/.test(pwd) },
-        { label: 'One special character (!@#$%^&*)', test: (pwd) => /[!@#$%^&*(),.?":{}|<>]/.test(pwd) },
+    const requirementTests = [
+        (pwd) => pwd.length >= 8,
+        (pwd) => /[A-Z]/.test(pwd),
+        (pwd) => /[a-z]/.test(pwd),
+        (pwd) => /[0-9]/.test(pwd),
+        (pwd) => /[!@#$%^&*(),.?":{}|<>]/.test(pwd),
     ];
+    const requirementLabels = t('resetPasswordPage.requirements');
+    const requirements = requirementLabels.map((label, index) => ({
+        label,
+        test: requirementTests[index],
+    }));
 
     // Calculate password strength
     const getPasswordStrength = () => {
@@ -263,10 +270,10 @@ export default function ResetPasswordPage() {
     const getStrengthLabel = () => {
         const strength = getPasswordStrength();
         if (strength === 0) return '';
-        if (strength <= 2) return 'Weak';
-        if (strength <= 3) return 'Fair';
-        if (strength <= 4) return 'Good';
-        return 'Strong';
+        if (strength <= 2) return t('resetPasswordPage.strengthWeak');
+        if (strength <= 3) return t('resetPasswordPage.strengthFair');
+        if (strength <= 4) return t('resetPasswordPage.strengthGood');
+        return t('resetPasswordPage.strengthStrong');
     };
 
     const getStrengthColor = () => {
@@ -292,12 +299,12 @@ export default function ResetPasswordPage() {
 
         // Validation
         if (getPasswordStrength() < 4) {
-            setError('Please create a stronger password');
+            setError(t('resetPasswordPage.weakPasswordError'));
             return;
         }
 
         if (formData.password !== formData.confirmPassword) {
-            setError('Passwords do not match');
+            setError(t('resetPasswordPage.passwordsDontMatchError'));
             return;
         }
 
@@ -321,13 +328,13 @@ export default function ResetPasswordPage() {
             const data = await response.json();
 
             if (!response.ok) {
-                throw new Error(data.message || data.error || 'Password reset failed');
+                throw new Error(data.message || data.error || t('resetPasswordPage.resetFailedError'));
             }
 
             setIsSuccess(true);
         } catch (error) {
             console.error('Error resetting password:', error);
-            setError(error.message || 'Password reset failed');
+            setError(error.message || t('resetPasswordPage.resetFailedError'));
         } finally {
             setIsLoading(false);
         }
@@ -372,9 +379,9 @@ export default function ResetPasswordPage() {
                         color="#ffffff"
                         sx={{ mb: 2, lineHeight: 1.2 }}
                     >
-                        Create a New
+                        {t('resetPasswordPage.heroHeadingLine1')}
                         <Box component="span" sx={{ color: '#EAB308', display: 'block' }}>
-                            Secure Password
+                            {t('resetPasswordPage.heroHeadingLine2')}
                         </Box>
                     </Typography>
 
@@ -382,8 +389,7 @@ export default function ResetPasswordPage() {
                         variant="body1"
                         sx={{ color: 'rgba(255, 255, 255, 0.8)', mb: 5, lineHeight: 1.7 }}
                     >
-                        Choose a strong password to protect your account.
-                        We recommend using a mix of letters, numbers, and symbols.
+                        {t('resetPasswordPage.heroSubtitle')}
                     </Typography>
 
                     {/* Security Tips */}
@@ -398,21 +404,21 @@ export default function ResetPasswordPage() {
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
                             <SecurityIcon sx={{ color: '#EAB308' }} />
                             <Typography variant="body1" fontWeight="600" color="#ffffff">
-                                Password Security Tips
+                                {t('resetPasswordPage.securityTipsHeading')}
                             </Typography>
                         </Box>
                         <Box component="ul" sx={{ pl: 2, m: 0, color: 'rgba(255, 255, 255, 0.8)' }}>
                             <Typography component="li" variant="body2" sx={{ mb: 1 }}>
-                                Don&apos;t reuse passwords from other sites
+                                {t('resetPasswordPage.securityTips.noReusePasswords')}
                             </Typography>
                             <Typography component="li" variant="body2" sx={{ mb: 1 }}>
-                                Avoid using personal information
+                                {t('resetPasswordPage.securityTips.avoidPersonalInfo')}
                             </Typography>
                             <Typography component="li" variant="body2" sx={{ mb: 1 }}>
-                                Consider using a password manager
+                                {t('resetPasswordPage.securityTips.usePasswordManager')}
                             </Typography>
                             <Typography component="li" variant="body2">
-                                Change your password regularly
+                                {t('resetPasswordPage.securityTips.changeRegularly')}
                             </Typography>
                         </Box>
                     </Box>
@@ -425,7 +431,7 @@ export default function ResetPasswordPage() {
                     {/* Back Link */}
                     <BackLink href="/login">
                         <ArrowBackIcon sx={{ fontSize: 18 }} />
-                        Back to Login
+                        {t('resetPasswordPage.backToLogin')}
                     </BackLink>
 
                     {/* Mobile Logo */}
@@ -444,7 +450,7 @@ export default function ResetPasswordPage() {
                         <>
                             {/* Icon */}
                             <IconContainer>
-                                <LockResetIcon sx={{ fontSize: 40, color: '#667eea' }} />
+                                <LockResetIcon sx={{ fontSize: 40, color: '#000000' }} />
                             </IconContainer>
 
                             {/* Header */}
@@ -455,10 +461,10 @@ export default function ResetPasswordPage() {
                                     color="#1e293b"
                                     gutterBottom
                                 >
-                                    Set New Password
+                                    {t('resetPasswordPage.setNewPasswordHeading')}
                                 </Typography>
                                 <Typography variant="body1" color="#64748b">
-                                    Create a strong password for your account
+                                    {t('resetPasswordPage.setNewPasswordSubtitle')}
                                 </Typography>
                             </Box>
 
@@ -477,7 +483,7 @@ export default function ResetPasswordPage() {
                             <form onSubmit={handleSubmit}>
                                 <StyledTextField
                                     fullWidth
-                                    label="New Password"
+                                    label={t('resetPasswordPage.newPasswordLabel')}
                                     name="password"
                                     type={showPassword ? 'text' : 'password'}
                                     value={formData.password}
@@ -511,7 +517,7 @@ export default function ResetPasswordPage() {
                                     <Box sx={{ mb: 2 }}>
                                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                                             <Typography variant="caption" color="#64748b">
-                                                Password Strength
+                                                {t('resetPasswordPage.passwordStrengthLabel')}
                                             </Typography>
                                             <Typography
                                                 variant="caption"
@@ -532,7 +538,7 @@ export default function ResetPasswordPage() {
                                 {/* Password Requirements */}
                                 <Box sx={{ mb: 3, p: 2, backgroundColor: '#f8fafc', borderRadius: 2 }}>
                                     <Typography variant="caption" color="#64748b" sx={{ mb: 1, display: 'block' }}>
-                                        Password must contain:
+                                        {t('resetPasswordPage.passwordMustContain')}
                                     </Typography>
                                     {requirements.map((req, index) => (
                                         <RequirementItem key={index} met={req.test(formData.password)}>
@@ -548,7 +554,7 @@ export default function ResetPasswordPage() {
 
                                 <StyledTextField
                                     fullWidth
-                                    label="Confirm New Password"
+                                    label={t('resetPasswordPage.confirmNewPasswordLabel')}
                                     name="confirmPassword"
                                     type={showConfirmPassword ? 'text' : 'password'}
                                     value={formData.confirmPassword}
@@ -561,7 +567,7 @@ export default function ResetPasswordPage() {
                                     helperText={
                                         formData.confirmPassword !== '' &&
                                             formData.password !== formData.confirmPassword
-                                            ? 'Passwords do not match'
+                                            ? t('resetPasswordPage.passwordsDontMatchError')
                                             : ''
                                     }
                                     InputProps={{
@@ -600,7 +606,7 @@ export default function ResetPasswordPage() {
                                     }
                                     sx={{ mt: 2 }}
                                 >
-                                    {isLoading ? 'Resetting...' : 'Reset Password'}
+                                    {isLoading ? t('resetPasswordPage.resettingButton') : t('resetPasswordPage.resetPasswordButton')}
                                 </PrimaryButton>
                             </form>
                         </>
@@ -618,11 +624,10 @@ export default function ResetPasswordPage() {
                                     color="#1e293b"
                                     gutterBottom
                                 >
-                                    Password Reset!
+                                    {t('resetPasswordPage.successHeading')}
                                 </Typography>
                                 <Typography variant="body1" color="#64748b">
-                                    Your password has been successfully reset.
-                                    You can now sign in with your new password.
+                                    {t('resetPasswordPage.successMessage')}
                                 </Typography>
                             </Box>
 
@@ -632,7 +637,7 @@ export default function ResetPasswordPage() {
                                 size="large"
                                 onClick={handleGoToLogin}
                             >
-                                Sign In Now
+                                {t('resetPasswordPage.signInNowButton')}
                             </PrimaryButton>
                         </>
                     )}

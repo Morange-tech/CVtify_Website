@@ -18,14 +18,10 @@ async function apiFetch(endpoint, options = {}) {
     ...options.headers,
   };
 
-
-  console.log('Sending token:', token);
-  console.log('Endpoint:', `${API_BASE_URL}${endpoint}`);
-
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     ...options,
     headers,
-    credentials: 'include', // Required for Sanctum cookies
+    credentials: 'include',
   });
 
   if (!response.ok) {
@@ -38,15 +34,9 @@ async function apiFetch(endpoint, options = {}) {
       errorData = { message: text || `HTTP ${response.status}` };
     }
 
-    if (response.status === 401) {
-      console.warn('Unauthorized request - user may need to log in');
-    }
-
     const error = new Error(errorData.message || `HTTP ${response.status}`);
     error.status = response.status;
     error.data = errorData;
-
-    console.error('API error response:', errorData);
 
     throw error;
   }
@@ -54,6 +44,50 @@ async function apiFetch(endpoint, options = {}) {
   return response.json();
 }
 
+
+export const userApi = {
+  /**
+   * Update the authenticated user's name/email
+   */
+  updateProfile: async ({ name, email }) => {
+    return apiFetch('/profile', {
+      method: 'PATCH',
+      body: JSON.stringify({ name, email }),
+    });
+  },
+
+  /**
+   * Change the authenticated user's password
+   */
+  changePassword: async ({ currentPassword, newPassword, newPasswordConfirmation }) => {
+    return apiFetch('/change-password', {
+      method: 'POST',
+      body: JSON.stringify({
+        current_password: currentPassword,
+        new_password: newPassword,
+        new_password_confirmation: newPasswordConfirmation,
+      }),
+    });
+  },
+
+  /**
+   * Permanently delete the authenticated user's own account
+   */
+  deleteAccount: async () => {
+    return apiFetch('/account', {
+      method: 'DELETE',
+    });
+  },
+
+  /**
+   * Cancel the authenticated user's premium subscription
+   */
+  cancelSubscription: async () => {
+    return apiFetch('/subscription/cancel', {
+      method: 'POST',
+    });
+  },
+};
 
 export const templateApi = {
   /**
@@ -118,6 +152,13 @@ export const motivationTemplateApi = {
     return apiFetch(`/motivation-templates/${templateId}/wishlist`, {
       method: 'POST',
     });
+  },
+
+  /**
+   * Get user's wishlisted motivation letter templates
+   */
+  getUserWishlist: async () => {
+    return apiFetch('/user/motivation-wishlist');
   },
 };
 
@@ -215,6 +256,53 @@ export const adminTemplateApi = {
 
   removeImage: async (id) => {
     return apiFetch(`/admin/templates/${id}/image`, { method: 'DELETE' });
+  },
+};
+
+export const adminResourceApi = {
+  getResources: async (type) => {
+    const query = type ? `?type=${type}` : '';
+    return apiFetch(`/admin/resources${query}`);
+  },
+
+  createResource: async (payload) => {
+    return apiFetch('/admin/resources', { method: 'POST', body: JSON.stringify(payload) });
+  },
+
+  updateResource: async (id, payload) => {
+    return apiFetch(`/admin/resources/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
+  },
+
+  deleteResource: async (id) => {
+    return apiFetch(`/admin/resources/${id}`, { method: 'DELETE' });
+  },
+
+  togglePublished: async (id) => {
+    return apiFetch(`/admin/resources/${id}/toggle-published`, { method: 'PATCH' });
+  },
+
+  toggleFeatured: async (id) => {
+    return apiFetch(`/admin/resources/${id}/toggle-featured`, { method: 'PATCH' });
+  },
+
+  getFaqs: async () => {
+    return apiFetch('/admin/resources/faqs');
+  },
+
+  createFaq: async (payload) => {
+    return apiFetch('/admin/resources/faqs', { method: 'POST', body: JSON.stringify(payload) });
+  },
+
+  updateFaq: async (id, payload) => {
+    return apiFetch(`/admin/resources/faqs/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
+  },
+
+  deleteFaq: async (id) => {
+    return apiFetch(`/admin/resources/faqs/${id}`, { method: 'DELETE' });
+  },
+
+  toggleFaqActive: async (id) => {
+    return apiFetch(`/admin/resources/faqs/${id}/toggle-active`, { method: 'PATCH' });
   },
 };
 

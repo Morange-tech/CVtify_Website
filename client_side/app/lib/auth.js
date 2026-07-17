@@ -1,7 +1,5 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 
-console.log('API_URL:', API_URL);
-
 // Get token from localStorage
 export const getToken = () => localStorage.getItem('token');
 
@@ -26,26 +24,21 @@ export async function registerUser(credentials) {
 
 // Login - No token needed
 export async function loginUser(credentials) {
-    try {
-        const response = await fetch(`${API_URL}/login`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
-            body: JSON.stringify(credentials)
-        });
+    const response = await fetch(`${API_URL}/login`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        },
+        body: JSON.stringify(credentials)
+    });
 
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.message || 'Login failed');
-        }
-
-        return response.json();
-    } catch (error) {
-        console.error('Login error:', error);
-        throw error;
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.message || 'Login failed');
     }
+
+    return response.json();
 }
 
 // Logout - Token required

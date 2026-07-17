@@ -22,6 +22,7 @@ import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import KeyboardArrowLeftIcon from '@mui/icons-material/KeyboardArrowLeft';
 import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
+import { useLanguage } from '../hooks/useLanguage';
 
 // Styled Components with shouldForwardProp to prevent DOM warnings
 const StyledSection = styled(Box)(({ theme }) => ({
@@ -42,7 +43,7 @@ const BackgroundDecoration = styled(Box)({
   width: '600px',
   height: '600px',
   borderRadius: '50%',
-  background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%)',
+  background: 'linear-gradient(135deg, rgba(0, 0, 0, 0.05) 0%, rgba(26, 26, 26, 0.05) 100%)',
   top: '-200px',
   right: '-200px',
   zIndex: 0,
@@ -225,13 +226,13 @@ const NavButton = styled(IconButton, {
   shouldForwardProp: (prop) => prop !== 'accentcolor',
 })(({ theme, accentcolor }) => ({
   backgroundColor: '#ffffff',
-  border: `2px solid ${accentcolor || '#667eea'}`,
-  color: accentcolor || '#667eea',
+  border: `2px solid ${accentcolor || '#000000'}`,
+  color: accentcolor || '#000000',
   width: 44,
   height: 44,
   boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
   '&:hover': {
-    backgroundColor: accentcolor || '#667eea',
+    backgroundColor: accentcolor || '#000000',
     color: '#ffffff',
   },
   '&.Mui-disabled': {
@@ -256,6 +257,7 @@ const DotIndicator = styled(Box, {
 const WhoItsForSection = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const { t } = useLanguage();
   const [selectedPersona, setSelectedPersona] = useState(null);
   const [activeStep, setActiveStep] = useState(0);
   const touchStartX = useRef(0);
@@ -265,18 +267,13 @@ const WhoItsForSection = () => {
     {
       id: 'students',
       icon: <SchoolIcon />,
-      title: 'Students & Fresh Graduates',
-      shortTitle: 'Students',
-      description: 'Just starting your career journey? We help you stand out even without years of experience.',
+      title: t('whoItsFor.personas.students.title'),
+      shortTitle: t('whoItsFor.personas.students.shortTitle'),
+      description: t('whoItsFor.personas.students.description'),
       accentColor: '#10b981',
       gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-      badge: 'Most Popular',
-      features: [
-        'Highlight academic achievements',
-        'Showcase internships & projects',
-        'Entry-level optimized templates',
-        'Skills-focused layouts',
-      ],
+      badge: t('whoItsFor.personas.students.badge'),
+      features: t('whoItsFor.personas.students.features'),
       stats: {
         users: '50K+',
         success: '89%',
@@ -285,18 +282,13 @@ const WhoItsForSection = () => {
     {
       id: 'professionals',
       icon: <BusinessCenterIcon />,
-      title: 'Working Professionals',
-      shortTitle: 'Professionals',
-      description: 'Ready for your next big opportunity? Present your experience in the most impactful way.',
-      accentColor: '#667eea',
-      gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      title: t('whoItsFor.personas.professionals.title'),
+      shortTitle: t('whoItsFor.personas.professionals.shortTitle'),
+      description: t('whoItsFor.personas.professionals.description'),
+      accentColor: '#000000',
+      gradient: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
       badge: null,
-      features: [
-        'Achievement-focused content',
-        'Executive-level templates',
-        'ATS-optimized formatting',
-        'Industry-specific designs',
-      ],
+      features: t('whoItsFor.personas.professionals.features'),
       stats: {
         users: '120K+',
         success: '94%',
@@ -305,18 +297,13 @@ const WhoItsForSection = () => {
     {
       id: 'switchers',
       icon: <SyncAltIcon />,
-      title: 'Career Switchers',
-      shortTitle: 'Career Changers',
-      description: 'Changing industries? We help you translate your skills and experience to your new field.',
+      title: t('whoItsFor.personas.switchers.title'),
+      shortTitle: t('whoItsFor.personas.switchers.shortTitle'),
+      description: t('whoItsFor.personas.switchers.description'),
       accentColor: '#f59e0b',
       gradient: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-      badge: 'Trending',
-      features: [
-        'Transferable skills highlight',
-        'Functional CV formats',
-        'Career change cover letters',
-        'Skills translation guides',
-      ],
+      badge: t('whoItsFor.personas.switchers.badge'),
+      features: t('whoItsFor.personas.switchers.features'),
       stats: {
         users: '35K+',
         success: '87%',
@@ -325,18 +312,13 @@ const WhoItsForSection = () => {
     {
       id: 'international',
       icon: <PublicIcon />,
-      title: 'International Applicants',
-      shortTitle: 'Global Talent',
-      description: 'Applying abroad? Get region-specific formats that meet international hiring standards.',
-      accentColor: '#8b5cf6',
-      gradient: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+      title: t('whoItsFor.personas.international.title'),
+      shortTitle: t('whoItsFor.personas.international.shortTitle'),
+      description: t('whoItsFor.personas.international.description'),
+      accentColor: '#eab308',
+      gradient: 'linear-gradient(135deg, #eab308 0%, #000000 100%)',
       badge: null,
-      features: [
-        'Multi-region formats (US, UK, EU)',
-        'Visa-friendly templates',
-        'Language optimization',
-        'Global ATS compatibility',
-      ],
+      features: t('whoItsFor.personas.international.features'),
       stats: {
         users: '45K+',
         success: '91%',
@@ -440,13 +422,13 @@ const WhoItsForSection = () => {
         <StatItem>
           <AutoAwesomeIcon sx={{ fontSize: 16, color: persona.accentColor }} />
           <Typography variant="body2" fontWeight="600" color="text.primary" sx={{ fontSize: '0.8rem' }}>
-            {persona.stats.users} users
+            {persona.stats.users} {t('whoItsFor.users')}
           </Typography>
         </StatItem>
         <StatItem>
           <TrendingUpIcon sx={{ fontSize: 16, color: persona.accentColor }} />
           <Typography variant="body2" fontWeight="600" color="text.primary" sx={{ fontSize: '0.8rem' }}>
-            {persona.stats.success} success rate
+            {persona.stats.success} {t('whoItsFor.successRate')}
           </Typography>
         </StatItem>
       </StatsBox>
@@ -472,7 +454,7 @@ const WhoItsForSection = () => {
           },
         }}
       >
-        Get Started
+        {t('whoItsFor.getStarted')}
       </Button>
     </CardContent>
   );
@@ -484,7 +466,7 @@ const WhoItsForSection = () => {
       <Container maxWidth="lg">
         {/* Header */}
         <Box mb={6} textAlign="center" position="relative" zIndex={1}>
-          <HighlightChip>Who It&apos;s For</HighlightChip>
+          <HighlightChip>{t('whoItsFor.badge')}</HighlightChip>
 
           <Typography
             variant={isMobile ? 'h4' : 'h3'}
@@ -494,7 +476,7 @@ const WhoItsForSection = () => {
             gutterBottom
             sx={{ mb: 2 }}
           >
-            Built for
+            {t('whoItsFor.headingLine1')}
             <Box
               component="span"
               sx={{
@@ -506,7 +488,7 @@ const WhoItsForSection = () => {
                 ml: { xs: 0, sm: 1 },
               }}
             >
-              Every Career Stage
+              {t('whoItsFor.headingLine2')}
             </Box>
           </Typography>
 
@@ -520,7 +502,7 @@ const WhoItsForSection = () => {
               lineHeight: 1.6,
             }}
           >
-            Whether you&apos;re just starting out or leveling up, we have the perfect tools to help you succeed.
+            {t('whoItsFor.subheading')}
           </Typography>
         </Box>
 
@@ -606,7 +588,7 @@ const WhoItsForSection = () => {
           mt={8}
           textAlign="center"
           sx={{
-            background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%)',
+            background: 'linear-gradient(135deg, rgba(0, 0, 0, 0.05) 0%, rgba(26, 26, 26, 0.05) 100%)',
             borderRadius: 4,
             py: 5,
             px: 3,
@@ -635,7 +617,7 @@ const WhoItsForSection = () => {
             endIcon={<ArrowForwardIcon />}
             sx={{
               borderColor: '#EAB308',
-              color: '#667eea',
+              color: '#000000',
               fontWeight: 600,
               textTransform: 'none',
               borderRadius: 3,

@@ -21,23 +21,26 @@ import {
   Tabs,
   Tab,
   ListItemIcon,
+  Skeleton,
 } from '@mui/material';
-import SearchIcon from '@mui/icons-material/Search';
-import DownloadIcon from '@mui/icons-material/Download';
-import DeleteIcon from '@mui/icons-material/Delete';
-import DescriptionIcon from '@mui/icons-material/Description';
-import MailOutlineIcon from '@mui/icons-material/MailOutline';
-import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
-import ImageIcon from '@mui/icons-material/Image';
-import ArticleIcon from '@mui/icons-material/Article';
-import SortIcon from '@mui/icons-material/Sort';
-import MoreVertIcon from '@mui/icons-material/MoreVert';
-import FileDownloadIcon from '@mui/icons-material/FileDownload';
-import FileDownloadOffIcon from '@mui/icons-material/FileDownloadOff';
-import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
-import StorageIcon from '@mui/icons-material/Storage';
-import LockIcon from '@mui/icons-material/Lock';
-import StarIcon from '@mui/icons-material/Star';
+import {
+  Search,
+  Download,
+  Trash2,
+  FileText,
+  Mail,
+  FileType,
+  Image as ImageIcon,
+  ArrowUpDown,
+  MoreVertical,
+  FileX,
+  Calendar,
+  HardDrive,
+  Lock,
+  Star,
+  Droplet,
+  Sparkles,
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../hooks/useAuth'; // adjust path
 import useDownloads from '../../hooks/useDownloads';
@@ -107,23 +110,23 @@ export default function DownloadsPage() {
   const getFormatIcon = (format) => {
     switch (format) {
       case 'PDF':
-        return <PictureAsPdfIcon sx={{ fontSize: 18, color: '#ef4444' }} />;
+        return <FileType size={18} color="#ef4444" />;
       case 'DOCX':
-        return <ArticleIcon sx={{ fontSize: 18, color: '#2563eb' }} />;
+        return <FileText size={18} color="#2563eb" />;
       case 'PNG':
       case 'JPG':
-        return <ImageIcon sx={{ fontSize: 18, color: '#10b981' }} />;
+        return <ImageIcon size={18} color="#10b981" />;
       default:
-        return <DescriptionIcon sx={{ fontSize: 18, color: '#64748b' }} />;
+        return <FileText size={18} color="#64748b" />;
     }
   };
 
   // Type icon helper
   const getTypeIcon = (type) => {
     return type === 'cv' ? (
-      <DescriptionIcon sx={{ fontSize: 20, color: '#667eea' }} />
+      <FileText size={20} color="#000000" />
     ) : (
-      <MailOutlineIcon sx={{ fontSize: 20, color: '#8b5cf6' }} />
+      <Mail size={20} color="#eab308" />
     );
   };
 
@@ -243,25 +246,25 @@ export default function DownloadsPage() {
           {
             label: 'Total Downloads',
             value: totalDownloads,
-            icon: <FileDownloadIcon />,
-            color: '#667eea',
+            icon: <Download size={20} />,
+            color: '#000000',
           },
           {
             label: 'CVs Downloaded',
             value: cvDownloads,
-            icon: <DescriptionIcon />,
+            icon: <FileText size={20} />,
             color: '#10b981',
           },
           {
             label: 'Letters Downloaded',
             value: letterDownloads,
-            icon: <MailOutlineIcon />,
-            color: '#8b5cf6',
+            icon: <Mail size={20} />,
+            color: '#eab308',
           },
           {
             label: isPremium ? 'Quality' : 'Total Size',
             value: isPremium ? 'High Quality' : totalSize,
-            icon: isPremium ? <StarIcon /> : <StorageIcon />,
+            icon: isPremium ? <Star size={20} /> : <HardDrive size={20} />,
             color: isPremium ? '#EAB308' : '#f59e0b',
           },
         ].map((stat, index) => (
@@ -318,10 +321,10 @@ export default function DownloadsPage() {
         </Typography>
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
           {[
-            { format: 'PDF', icon: <PictureAsPdfIcon />, color: '#ef4444', free: true },
-            { format: 'DOCX', icon: <ArticleIcon />, color: '#2563eb', free: false },
-            { format: 'PNG', icon: <ImageIcon />, color: '#10b981', free: false },
-            { format: 'JPG', icon: <ImageIcon />, color: '#f59e0b', free: false },
+            { format: 'PDF', icon: <FileType size={20} />, color: '#ef4444', free: true },
+            { format: 'DOCX', icon: <FileText size={20} />, color: '#2563eb', free: false },
+            { format: 'PNG', icon: <ImageIcon size={20} />, color: '#10b981', free: false },
+            { format: 'JPG', icon: <ImageIcon size={20} />, color: '#f59e0b', free: false },
           ].map((fmt) => (
             <Box
               key={fmt.format}
@@ -349,10 +352,10 @@ export default function DownloadsPage() {
                 </Typography>
               </Box>
               {!fmt.free && !isPremium && (
-                <LockIcon sx={{ fontSize: 14, color: '#94a3b8', ml: 1 }} />
+                <Lock size={14} color="#94a3b8" style={{ marginLeft: 8 }} />
               )}
               {!fmt.free && isPremium && (
-                <StarIcon sx={{ fontSize: 14, color: '#EAB308', ml: 1 }} />
+                <Star size={14} color="#EAB308" style={{ marginLeft: 8 }} />
               )}
             </Box>
           ))}
@@ -367,12 +370,12 @@ export default function DownloadsPage() {
               mt: 2,
               p: 2,
               borderRadius: 2,
-              bgcolor: '#667eea08',
-              border: '1px solid #667eea20',
+              bgcolor: '#00000008',
+              border: '1px solid #00000020',
             }}
           >
-            <Typography variant="body2" color="#64748b">
-              🔒 Unlock DOCX, PNG, and JPG formats with Premium
+            <Typography variant="body2" color="#64748b" sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+              <Lock size={14} /> Unlock DOCX, PNG, and JPG formats with Premium
             </Typography>
             <Button
               size="small"
@@ -380,8 +383,8 @@ export default function DownloadsPage() {
               sx={{
                 textTransform: 'none',
                 fontWeight: 600,
-                color: '#667eea',
-                '&:hover': { bgcolor: '#667eea10' },
+                color: '#000000',
+                '&:hover': { bgcolor: '#00000010' },
               }}
             >
               Upgrade →
@@ -403,9 +406,9 @@ export default function DownloadsPage() {
             border: '1px solid #10b98120',
           }}
         >
-          <StarIcon sx={{ fontSize: 18, color: '#EAB308' }} />
-          <Typography variant="body2" color="#064e3b" fontWeight="600">
-            ✨ Premium benefits active:
+          <Star size={18} color="#EAB308" />
+          <Typography variant="body2" color="#064e3b" fontWeight="600" sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+            <Sparkles size={16} /> Premium benefits active:
           </Typography>
           <Chip
             label="High Quality"
@@ -466,7 +469,7 @@ export default function DownloadsPage() {
                 justifyContent: 'center',
               }}
             >
-              <Typography fontSize="1.2rem">💧</Typography>
+              <Droplet size={18} color="#f59e0b" />
             </Box>
             <Box>
               <Typography variant="body2" fontWeight="600" color="#92400e">
@@ -507,8 +510,8 @@ export default function DownloadsPage() {
             fontSize: '0.9rem',
             minHeight: 40,
           },
-          '& .Mui-selected': { color: '#667eea' },
-          '& .MuiTabs-indicator': { backgroundColor: '#667eea' },
+          '& .Mui-selected': { color: '#000000' },
+          '& .MuiTabs-indicator': { backgroundColor: '#000000' },
         }}
       >
         <Tab label={`All (${totalDownloads})`} value="all" />
@@ -536,13 +539,13 @@ export default function DownloadsPage() {
             '& .MuiOutlinedInput-root': {
               borderRadius: 2,
               bgcolor: '#ffffff',
-              '&.Mui-focused fieldset': { borderColor: '#667eea' },
+              '&.Mui-focused fieldset': { borderColor: '#000000' },
             },
           }}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
-                <SearchIcon sx={{ color: '#94a3b8' }} />
+                <Search size={18} color="#94a3b8" />
               </InputAdornment>
             ),
           }}
@@ -550,7 +553,7 @@ export default function DownloadsPage() {
 
         <Button
           size="small"
-          startIcon={<SortIcon />}
+          startIcon={<ArrowUpDown size={16} />}
           onClick={(e) => setSortAnchorEl(e.currentTarget)}
           sx={{
             textTransform: 'none',
@@ -591,7 +594,46 @@ export default function DownloadsPage() {
       </Box>
 
       {/* Download List */}
-      {filteredDownloads.length === 0 ? (
+      {loading ? (
+        /* Loading Skeleton */
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          {[0, 1].map((groupIdx) => (
+            <Box key={groupIdx}>
+              <Skeleton variant="text" width={140} height={24} sx={{ mb: 1.5 }} />
+              <Box
+                sx={{
+                  bgcolor: '#ffffff',
+                  borderRadius: 3,
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                  overflow: 'hidden',
+                }}
+              >
+                {[0, 1, 2].map((rowIdx) => (
+                  <Box
+                    key={rowIdx}
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 2,
+                      p: 2,
+                      borderBottom: rowIdx < 2 ? '1px solid #f1f5f9' : 'none',
+                      opacity: 1 - groupIdx * 0.2 - rowIdx * 0.1,
+                    }}
+                  >
+                    <Skeleton variant="rounded" width={44} height={44} sx={{ borderRadius: 2, flexShrink: 0 }} />
+                    <Box sx={{ flex: 1 }}>
+                      <Skeleton variant="text" width="50%" height={20} />
+                      <Skeleton variant="text" width="25%" height={16} />
+                    </Box>
+                    <Skeleton variant="rounded" width={60} height={28} sx={{ borderRadius: 2, display: { xs: 'none', sm: 'block' } }} />
+                    <Skeleton variant="circular" width={32} height={32} />
+                  </Box>
+                ))}
+              </Box>
+            </Box>
+          ))}
+        </Box>
+      ) : filteredDownloads.length === 0 ? (
         /* Empty State */
         <Box
           sx={{
@@ -607,7 +649,7 @@ export default function DownloadsPage() {
               width: 80,
               height: 80,
               borderRadius: '50%',
-              bgcolor: '#667eea15',
+              bgcolor: '#00000015',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -615,7 +657,7 @@ export default function DownloadsPage() {
               mb: 3,
             }}
           >
-            <FileDownloadOffIcon sx={{ fontSize: 40, color: '#667eea' }} />
+            <FileX size={40} color="#000000" />
           </Box>
           <Typography variant="h6" fontWeight="600" color="#1e293b" gutterBottom>
             {searchQuery ? 'No downloads found' : 'No downloads yet'}
@@ -635,7 +677,7 @@ export default function DownloadsPage() {
                 borderRadius: 2,
                 px: 4,
                 py: 1.2,
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
               }}
             >
               Go to My CVs
@@ -649,7 +691,7 @@ export default function DownloadsPage() {
             <Box key={date}>
               {/* Date Header */}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-                <CalendarTodayIcon sx={{ fontSize: 14, color: '#94a3b8' }} />
+                <Calendar size={14} color="#94a3b8" />
                 <Typography variant="body2" fontWeight="600" color="#94a3b8">
                   {date}
                 </Typography>
@@ -689,7 +731,7 @@ export default function DownloadsPage() {
                           width: 44,
                           height: 44,
                           borderRadius: 2,
-                          bgcolor: download.type === 'cv' ? '#667eea12' : '#8b5cf612',
+                          bgcolor: download.type === 'cv' ? '#00000012' : '#eab30812',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
@@ -712,8 +754,8 @@ export default function DownloadsPage() {
                               height: 20,
                               fontSize: '0.65rem',
                               fontWeight: 600,
-                              bgcolor: download.type === 'cv' ? '#667eea15' : '#8b5cf615',
-                              color: download.type === 'cv' ? '#667eea' : '#8b5cf6',
+                              bgcolor: download.type === 'cv' ? '#00000015' : '#eab30815',
+                              color: download.type === 'cv' ? '#000000' : '#eab308',
                             }}
                           />
                           {download.template && (
@@ -777,18 +819,18 @@ export default function DownloadsPage() {
                             handleRedownload();
                           }}
                           sx={{
-                            color: '#667eea',
-                            '&:hover': { bgcolor: '#667eea10' },
+                            color: '#000000',
+                            '&:hover': { bgcolor: '#00000010' },
                           }}
                         >
-                          <DownloadIcon fontSize="small" />
+                          <Download size={18} />
                         </IconButton>
                       </Tooltip>
                       <IconButton
                         size="small"
                         onClick={(e) => handleMenuOpen(e, download)}
                       >
-                        <MoreVertIcon fontSize="small" sx={{ color: '#94a3b8' }} />
+                        <MoreVertical size={18} color="#94a3b8" />
                       </IconButton>
                     </Box>
                   </Box>
@@ -813,9 +855,9 @@ export default function DownloadsPage() {
           sx={{ py: 1 }}
         >
           <ListItemIcon>
-            <DownloadIcon fontSize="small" sx={{ color: '#667eea' }} />
+            <Download size={18} color="#000000" />
           </ListItemIcon>
-          <Typography variant="body2" color="#667eea">
+          <Typography variant="body2" color="#000000">
             Download Again
           </Typography>
         </MenuItem>
@@ -855,7 +897,7 @@ export default function DownloadsPage() {
               sx={{ py: 1 }}
             >
               <ListItemIcon>
-                <LockIcon fontSize="small" sx={{ color: '#EAB308' }} />
+                <Lock size={18} color="#EAB308" />
               </ListItemIcon>
               <Typography variant="body2" color="#EAB308" fontWeight="600">
                 More Formats (Premium)
@@ -871,7 +913,7 @@ export default function DownloadsPage() {
           sx={{ py: 1, '&:hover': { bgcolor: '#ef444410' } }}
         >
           <ListItemIcon>
-            <DeleteIcon fontSize="small" sx={{ color: '#ef4444' }} />
+            <Trash2 size={18} color="#ef4444" />
           </ListItemIcon>
           <Typography variant="body2" color="#ef4444">
             Remove from History

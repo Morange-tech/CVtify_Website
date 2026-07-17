@@ -3,39 +3,16 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Document; // ⚠️ Add this
-use Illuminate\Http\Request;
+use App\Models\Cv;
 
 class AdminCvController extends Controller
 {
     public function index()
     {
-        $cvs = Document::with(['user', 'template'])
-            ->cvs() // use the scope to get only CVs
+        $cvs = Cv::with('user')
             ->latest()
             ->get()
-            ->map(function ($cv) {
-                return [
-                    'id' => $cv->id,
-                    'title' => $cv->title ?? 'Untitled CV',
-                    'status' => $cv->status ?? 'draft',
-                    'downloads' => $cv->downloads ?? 0,
-                    'pages' => $cv->pages ?? 1,
-                    'sections' => is_array($cv->sections)
-                        ? $cv->sections
-                        : (json_decode($cv->sections ?? '[]', true) ?: []),
-                    'templateId' => $cv->template_id ?? $cv->template?->id,
-                    'template' => $cv->template?->name ?? 'Unknown Template',
-                    'createdAt' => $cv->created_at,
-                    'lastEdited' => optional($cv->updated_at)?->diffForHumans(),
-                    'user' => [
-                        'id' => $cv->user?->id,
-                        'name' => $cv->user?->name ?? 'Unknown User',
-                        'email' => $cv->user?->email ?? '',
-                        'plan' => $cv->user?->plan ?? 'free',
-                    ],
-                ];
-            });
+            ->map(fn ($cv) => $this->formatCv($cv));
 
         return response()->json([
             'data' => $cvs,
@@ -44,35 +21,16 @@ class AdminCvController extends Controller
 
     public function show($id)
     {
-        $cv = Document::cvs()->with(['user', 'template'])->findOrFail($id);
+        $cv = Cv::with('user')->findOrFail($id);
 
         return response()->json([
-            'data' => [
-                'id' => $cv->id,
-                'title' => $cv->title ?? 'Untitled CV',
-                'status' => $cv->status ?? 'draft',
-                'downloads' => $cv->downloads ?? 0,
-                'pages' => $cv->pages ?? 1,
-                'sections' => is_array($cv->sections)
-                    ? $cv->sections
-                    : (json_decode($cv->sections ?? '[]', true) ?: []),
-                'templateId' => $cv->template_id ?? $cv->template?->id,
-                'template' => $cv->template?->name ?? 'Unknown Template',
-                'createdAt' => $cv->created_at,
-                'lastEdited' => optional($cv->updated_at)?->diffForHumans(),
-                'user' => [
-                    'id' => $cv->user?->id,
-                    'name' => $cv->user?->name ?? 'Unknown User',
-                    'email' => $cv->user?->email ?? '',
-                    'plan' => $cv->user?->plan ?? 'free',
-                ],
-            ]
+            'data' => $this->formatCv($cv),
         ]);
     }
 
     public function destroy($id)
     {
-        $cv = Document::cvs()->findOrFail($id);
+        $cv = Cv::findOrFail($id);
         $cv->delete();
 
         return response()->json([
@@ -84,10 +42,42 @@ class AdminCvController extends Controller
     {
         $ids = request()->input('ids', []);
 
-        Document::cvs()->whereIn('id', $ids)->delete();
+        Cv::whereIn('id', $ids)->delete();
 
         return response()->json([
             'message' => 'Selected CVs deleted successfully',
         ]);
+    }
+
+    private function formatCv(Cv $cv): array
+    {
+        $content = $cv->content ?? [];
+
+        return [
+            'id' => $cv->id,
+            'title' => $cv->title ?: 'Untitled CV',
+            'status' => 'complete', // the CV builder has no draft/complete concept
+            'downloads' => (int) $cv->downloads,
+            'pages' => 1, // page count isn't tracked server-side
+            'sections' => $this->filledSections($content),
+            'templateId' => $content['template_id'] ?? null,
+            'template' => $cv->template_name ?: 'Unknown Template',
+            'createdAt' => optional($cv->created_at)?->toISOString(),
+            'lastEdited' => optional($cv->updated_at)?->diffForHumans(),
+            'user' => [
+                'id' => $cv->user?->id,
+                'name' => $cv->user?->name ?? 'Unknown User',
+                'email' => $cv->user?->email ?? '',
+                'plan' => $cv->user?->plan ?? 'free',
+            ],
+        ];
+    }
+
+    private function filledSections(array $content): array
+    {
+        return array_values(array_filter(
+            array_keys($content),
+            fn ($key) => $key !== 'template_id' && !empty($content[$key])
+        ));
     }
 }

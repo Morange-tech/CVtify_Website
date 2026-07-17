@@ -35,6 +35,7 @@ class MotivationTemplateController extends Controller
                 $request->filled('category'),
                 fn($q) => $q->byCategory($request->category)
             )
+            ->with('wishlistedBy:id')
             ->orderByDesc('rating')
             ->orderByDesc('created_at')
             ->get();
@@ -75,5 +76,16 @@ class MotivationTemplateController extends Controller
             'message' => $message,
             'is_wishlisted' => $isWishlisted,
         ]);
+    }
+
+    public function userWishlist(Request $request): MotivationTemplateCollection
+    {
+        $templates = $request->user()
+            ->wishlistedMotivationTemplates()
+            ->published()
+            ->orderByDesc('motivation_template_wishlists.created_at')
+            ->get();
+
+        return new MotivationTemplateCollection($templates);
     }
 }

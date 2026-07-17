@@ -34,10 +34,22 @@ export function useCvBuilderApi() {
 
       const url = joinUrl(baseURL, path);
 
+      // ✅ ALWAYS read fresh token from localStorage
+      const token = localStorage.getItem("token");
+
+      console.log("TOKEN FROM STORAGE:", token);
+
+      if (!token) {
+        throw new Error("No authentication token found");
+      }
+
       const res = await fetch(url, {
-        // If you use Laravel Sanctum (cookies), keep credentials include:
-        credentials: "include",
         ...options,
+        headers: {
+          Accept: "application/json",
+          ...(options.headers || {}),
+          Authorization: `Bearer ${token}`,
+        },
       });
 
       return parseResponse(res);
@@ -45,11 +57,11 @@ export function useCvBuilderApi() {
     [baseURL]
   );
 
-  const getCv = useCallback((id) => request(`/cvs/${id}/`), [request]);
+  const getCv = useCallback((id) => request(`/cvs/${id}`), [request]);
 
   const createCv = useCallback(
     (payload) =>
-      request(`/cvs/`, {
+      request(`/cvs`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -59,7 +71,7 @@ export function useCvBuilderApi() {
 
   const updateCv = useCallback(
     (id, payload) =>
-      request(`/cvs/${id}/`, {
+      request(`/cvs/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

@@ -26,6 +26,7 @@ import PhoneIcon from '@mui/icons-material/Phone';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import DescriptionIcon from '@mui/icons-material/Description';
+import { useLanguage } from '../hooks/useLanguage';
 
 // Styled Components
 const FooterWrapper = styled(Box)(({ theme }) => ({
@@ -55,7 +56,7 @@ const BackgroundDecoration = styled(Box)({
   width: '500px',
   height: '500px',
   borderRadius: '50%',
-  background: 'radial-gradient(circle, rgba(102, 126, 234, 0.1) 0%, transparent 70%)',
+  background: 'radial-gradient(circle, rgba(0, 0, 0, 0.1) 0%, transparent 70%)',
   top: '-200px',
   right: '-100px',
   zIndex: 0,
@@ -66,7 +67,7 @@ const BackgroundDecoration2 = styled(Box)({
   width: '400px',
   height: '400px',
   borderRadius: '50%',
-  background: 'radial-gradient(circle, rgba(118, 75, 162, 0.08) 0%, transparent 70%)',
+  background: 'radial-gradient(circle, rgba(26, 26, 26, 0.08) 0%, transparent 70%)',
   bottom: '-150px',
   left: '-100px',
   zIndex: 0,
@@ -83,7 +84,7 @@ const LogoIcon = styled(Box)(({ theme }) => ({
   width: 45,
   height: 45,
   borderRadius: theme.spacing(1.5),
-  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+  background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -146,7 +147,7 @@ const ContactItem = styled(Box)(({ theme }) => ({
   fontSize: '0.9rem',
   '& .MuiSvgIcon-root': {
     fontSize: '1.2rem',
-    color: '#667eea',
+    color: '#000000',
     marginTop: 2,
   },
 }));
@@ -158,7 +159,7 @@ const SocialButton = styled(IconButton)(({ theme }) => ({
   height: 40,
   transition: 'all 0.3s ease',
   '&:hover': {
-    backgroundColor: '#667eea',
+    backgroundColor: '#000000',
     color: '#ffffff',
     transform: 'translateY(-3px)',
   },
@@ -183,14 +184,14 @@ const StyledTextField = styled(TextField)(({ theme }) => ({
       borderColor: 'rgba(255, 255, 255, 0.2)',
     },
     '&.Mui-focused fieldset': {
-      borderColor: '#667eea',
+      borderColor: '#000000',
     },
   },
   '& .MuiInputLabel-root': {
     color: '#64748b',
   },
   '& .MuiInputLabel-root.Mui-focused': {
-    color: '#667eea',
+    color: '#000000',
   },
   '& input::placeholder': {
     color: '#64748b',
@@ -199,7 +200,7 @@ const StyledTextField = styled(TextField)(({ theme }) => ({
 }));
 
 const SubscribeButton = styled(Button)(({ theme }) => ({
-  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+  background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
   color: '#ffffff',
   fontWeight: 600,
   textTransform: 'none',
@@ -208,7 +209,7 @@ const SubscribeButton = styled(Button)(({ theme }) => ({
   marginTop: theme.spacing(2),
   '&:hover': {
     background: 'linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%)',
-    boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
+    boxShadow: '0 4px 15px rgba(0, 0, 0, 0.4)',
   },
 }));
 
@@ -228,28 +229,29 @@ const Footer = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.down('md'));
+  const { t } = useLanguage();
 
   const quickLinks = [
-    { label: 'Home', href: '/' },
-    { label: 'Templates', href: '/templates' },
-    { label: 'Pricing', href: '/pricing' },
-    { label: 'Examples', href: '/examples' },
-    { label: 'Blog', href: '/blog' },
+    { label: t('footer.links.home'), href: '/' },
+    { label: t('footer.links.templates'), href: '/templates' },
+    { label: t('footer.links.pricing'), href: '/pricing' },
+    { label: t('footer.links.examples'), href: '/examples' },
+    { label: t('footer.links.blog'), href: '/blog' },
   ];
 
   const resourceLinks = [
-    { label: 'CV Writing Guide', href: '/guides/cv-writing' },
-    { label: 'Cover Letter Tips', href: '/guides/cover-letter' },
-    { label: 'Interview Prep', href: '/guides/interview' },
-    { label: 'Career Advice', href: '/blog/career' },
-    { label: 'FAQ', href: '/faq' },
+    { label: t('footer.links.cvWritingGuide'), href: '/guides/cv-writing' },
+    { label: t('footer.links.coverLetterTips'), href: '/guides/cover-letter' },
+    { label: t('footer.links.interviewPrep'), href: '/guides/interview' },
+    { label: t('footer.links.careerAdvice'), href: '/blog/career' },
+    { label: t('footer.links.faq'), href: '/faq' },
   ];
 
   const legalLinks = [
-    { label: 'Privacy Policy', href: '/privacy' },
-    { label: 'Terms of Service', href: '/terms' },
-    { label: 'Cookie Policy', href: '/cookies' },
-    { label: 'GDPR', href: '/gdpr' },
+    { label: t('footer.links.privacyPolicy'), href: '/privacy' },
+    { label: t('footer.links.termsOfService'), href: '/terms' },
+    { label: t('footer.links.cookiePolicy'), href: '/cookies' },
+    { label: t('footer.links.gdpr'), href: '/gdpr' },
   ];
 
   const socialLinks = [
@@ -283,8 +285,7 @@ const Footer = () => {
                 variant="body2"
                 sx={{ color: '#94a3b8', lineHeight: 1.7, mb: 3, maxWidth: 280 }}
               >
-                Create professional, ATS-friendly CVs and cover letters in minutes. 
-                Land your dream job with our smart resume builder.
+                {t('footer.tagline')}
               </Typography>
 
               <BadgeChip>
@@ -296,7 +297,7 @@ const Footer = () => {
                     backgroundColor: '#10b981',
                   }}
                 />
-                Trusted by 250K+ users
+                {t('footer.trustedBadge')}
               </BadgeChip>
 
               {/* Social Links */}
@@ -317,7 +318,7 @@ const Footer = () => {
 
             {/* Quick Links */}
             <Grid item xs={6} sm={3} md={2}>
-              <FooterTitle>Quick Links</FooterTitle>
+              <FooterTitle>{t('footer.quickLinksTitle')}</FooterTitle>
               <Stack spacing={1} sx={{ mt: 4 }}>
                 {quickLinks.map((link, index) => (
                   <FooterLink key={index} href={link.href}>
@@ -330,7 +331,7 @@ const Footer = () => {
 
             {/* Resources */}
             <Grid item xs={6} sm={3} md={2}>
-              <FooterTitle>Resources</FooterTitle>
+              <FooterTitle>{t('footer.resourcesTitle')}</FooterTitle>
               <Stack spacing={1} sx={{ mt: 4 }}>
                 {resourceLinks.map((link, index) => (
                   <FooterLink key={index} href={link.href}>
@@ -343,18 +344,18 @@ const Footer = () => {
 
             {/* Newsletter */}
             <Grid item xs={12} md={4}>
-              <FooterTitle>Stay Updated</FooterTitle>
+              <FooterTitle>{t('footer.newsletterTitle')}</FooterTitle>
               <NewsletterWrapper sx={{ mt: 4 }}>
                 <Typography
                   variant="body2"
                   sx={{ color: '#94a3b8', mb: 2, lineHeight: 1.6 }}
                 >
-                  Subscribe to our newsletter for career tips, resume advice, and exclusive offers.
+                  {t('footer.newsletterText')}
                 </Typography>
 
                 <StyledTextField
                   fullWidth
-                  placeholder="Enter your email"
+                  placeholder={t('footer.emailPlaceholder')}
                   variant="outlined"
                   size="small"
                   InputProps={{
@@ -365,14 +366,14 @@ const Footer = () => {
                 />
 
                 <SubscribeButton fullWidth endIcon={<SendIcon />}>
-                  Subscribe
+                  {t('footer.subscribe')}
                 </SubscribeButton>
 
                 <Typography
                   variant="caption"
                   sx={{ color: '#64748b', display: 'block', mt: 1.5, fontSize: '0.7rem' }}
                 >
-                  By subscribing, you agree to our Privacy Policy. Unsubscribe anytime.
+                  {t('footer.newsletterDisclaimer')}
                 </Typography>
               </NewsletterWrapper>
             </Grid>
@@ -392,11 +393,11 @@ const Footer = () => {
                   <EmailIcon />
                   <Box>
                     <Typography variant="body2" sx={{ color: '#ffffff', fontWeight: 600, mb: 0.5 }}>
-                      Email Us
+                      {t('footer.emailUs')}
                     </Typography>
                     <Link
                       href="mailto:support@cvbuilder.com"
-                      sx={{ color: '#94a3b8', textDecoration: 'none', '&:hover': { color: '#667eea' } }}
+                      sx={{ color: '#94a3b8', textDecoration: 'none', '&:hover': { color: '#000000' } }}
                     >
                       baesara803@gmail.com
                     </Link>
@@ -409,11 +410,11 @@ const Footer = () => {
                   <PhoneIcon />
                   <Box>
                     <Typography variant="body2" sx={{ color: '#ffffff', fontWeight: 600, mb: 0.5 }}>
-                      Call Us
+                      {t('footer.callUs')}
                     </Typography>
                     <Link
                       href="tel:+1234567890"
-                      sx={{ color: '#94a3b8', textDecoration: 'none', '&:hover': { color: '#667eea' } }}
+                      sx={{ color: '#94a3b8', textDecoration: 'none', '&:hover': { color: '#000000' } }}
                     >
                       +237 680 526 194
                     </Link>
@@ -426,10 +427,10 @@ const Footer = () => {
                   <LocationOnIcon />
                   <Box>
                     <Typography variant="body2" sx={{ color: '#ffffff', fontWeight: 600, mb: 0.5 }}>
-                      Location
+                      {t('footer.location')}
                     </Typography>
                     <Typography variant="body2" sx={{ color: '#94a3b8' }}>
-                      Douala, Cameroon
+                      {t('footer.locationValue')}
                     </Typography>
                   </Box>
                 </ContactItem>
@@ -450,7 +451,7 @@ const Footer = () => {
                   fontSize: '0.85rem',
                 }}
               >
-                © {new Date().getFullYear()} CVtify. All rights reserved.
+                © {new Date().getFullYear()} CVtify. {t('footer.rightsReserved')}
               </Typography>
             </Grid>
 
@@ -472,7 +473,7 @@ const Footer = () => {
                       fontSize: '0.85rem',
                       transition: 'color 0.3s ease',
                       '&:hover': {
-                        color: '#667eea',
+                        color: '#000000',
                       },
                     }}
                   >

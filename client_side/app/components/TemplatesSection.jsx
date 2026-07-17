@@ -38,6 +38,7 @@ import Link from 'next/link';
 import useTemplates from '../hooks/useTemplate';
 import LockIcon from '@mui/icons-material/Lock';
 import { useAuth } from '../hooks/useAuth';
+import { useLanguage } from '../hooks/useLanguage';
 
 
 // ─── Styled Components ──────────────────────────────────────────
@@ -72,8 +73,8 @@ const TemplateCard = styled(Card)(({ theme }) => ({
   cursor: 'pointer',
   '&:hover': {
     transform: 'translateY(-8px)',
-    boxShadow: '0 25px 50px rgba(102, 126, 234, 0.2)',
-    borderColor: '#667eea',
+    boxShadow: '0 25px 50px rgba(0, 0, 0, 0.2)',
+    borderColor: '#000000',
     '& .overlay': { opacity: 1 },
     '& .template-image': { transform: 'scale(1.05)' },
   },
@@ -100,7 +101,7 @@ const Overlay = styled(Box)(({ theme }) => ({
   right: 0,
   bottom: 0,
   background:
-    'linear-gradient(135deg, rgba(102,126,234,0.9) 0%, rgba(118,75,162,0.9) 100%)',
+    'linear-gradient(135deg, rgba(0, 0, 0,0.9) 0%, rgba(26, 26, 26,0.9) 100%)',
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
@@ -131,7 +132,7 @@ const StyledChip = styled(Chip)(({ badgetype }) => {
       color: '#ffffff',
     },
     premium: {
-      background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+      background: 'linear-gradient(135deg, #eab308 0%, #000000 100%)',
       color: '#ffffff',
     },
     new: {
@@ -299,6 +300,7 @@ const TemplatesSection = () => {
   const theme = useTheme();
   const router = useRouter();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const { t } = useLanguage();
 
   // Backend data via custom hook
   const {
@@ -331,6 +333,9 @@ const TemplatesSection = () => {
 
   // Compute active tab index from activeFilter
   const activeTab = tabFilters.findIndex((f) => f.value === activeFilter);
+
+  // Homepage only teases a handful of templates — link to the full list otherwise
+  const displayedTemplates = templates.slice(0, 3);
 
   // Modal state
   const [modalOpen, setModalOpen] = useState(false);
@@ -391,13 +396,13 @@ const TemplatesSection = () => {
   // ─── Badge Helper ─────────────────────────────────────────
   const getBadgeLabel = (badge) => {
     const labels = {
-      popular: { label: 'Most Popular', icon: <StarIcon sx={{ fontSize: 14 }} /> },
-      free: { label: 'Free', icon: null },
+      popular: { label: t('templatesSection.badges.mostPopular'), icon: <StarIcon sx={{ fontSize: 14 }} /> },
+      free: { label: t('templatesSection.badges.free'), icon: null },
       premium: {
-        label: 'Premium',
+        label: t('templatesSection.badges.premium'),
         icon: <WorkspacePremiumIcon sx={{ fontSize: 14 }} />,
       },
-      new: { label: 'New', icon: null },
+      new: { label: t('templatesSection.badges.new'), icon: null },
     };
     return labels[badge] || { label: badge, icon: null };
   };
@@ -463,7 +468,7 @@ const TemplatesSection = () => {
       {/* Navigation Loading Overlay */}
       {isNavigating && (
         <LoadingOverlay>
-          <CircularProgress size={60} sx={{ color: '#667eea' }} />
+          <CircularProgress size={60} sx={{ color: '#000000' }} />
           <Typography variant="h6" color="text.primary" fontWeight={600}>
             Loading {navigatingTemplateName}...
           </Typography>
@@ -494,7 +499,7 @@ const TemplatesSection = () => {
         <Container maxWidth="lg">
           {/* ── Header ───────────────────────────────────── */}
           <Box mb={4} textAlign="center">
-            <HighlightChip>Templates</HighlightChip>
+            <HighlightChip>{t('templatesSection.badge')}</HighlightChip>
 
             <Typography
               variant={isMobile ? 'h4' : 'h3'}
@@ -504,7 +509,7 @@ const TemplatesSection = () => {
               gutterBottom
               sx={{ mb: 2 }}
             >
-              Choose Your Perfect
+              {t('templatesSection.headingLine1')}
               <Box
                 component="span"
                 sx={{
@@ -515,7 +520,7 @@ const TemplatesSection = () => {
                   display: 'block',
                 }}
               >
-                CV Template
+                {t('templatesSection.headingLine2')}
               </Box>
             </Typography>
 
@@ -524,8 +529,7 @@ const TemplatesSection = () => {
               color="text.secondary"
               sx={{ maxWidth: 600, margin: '0 auto', fontWeight: 400, mb: 4 }}
             >
-              Professionally designed templates that help you stand out and get
-              hired faster.
+              {t('templatesSection.subheading')}
             </Typography>
           </Box>
 
@@ -556,7 +560,7 @@ const TemplatesSection = () => {
                     onClick={refresh}
                     startIcon={<RefreshIcon />}
                   >
-                    Retry
+                    {t('templatesSection.retry')}
                   </Button>
                 }
                 sx={{ maxWidth: 600, width: '100%' }}
@@ -576,9 +580,9 @@ const TemplatesSection = () => {
           )}
 
           {/* ── Templates Grid ───────────────────────────── */}
-          {!loading && !error && templates.length > 0 && (
+          {!loading && !error && displayedTemplates.length > 0 && (
             <TemplatesGrid>
-              {templates.map((template) => (
+              {displayedTemplates.map((template) => (
                 <TemplateCard
                   key={template.id}
                   onClick={() => handleCardClick(template)}
@@ -646,7 +650,7 @@ const TemplatesSection = () => {
                         size="small"
                         sx={{
                           bgcolor: '#ffffff',
-                          color: '#667eea',
+                          color: '#000000',
                           fontWeight: 600,
                           textTransform: 'none',
                           borderRadius: 2,
@@ -715,7 +719,7 @@ const TemplatesSection = () => {
                         onClick={(e) => handleUseTemplate(template, e)}
                         sx={{
                           background: '#ffffff',
-                          color: '#667eea',
+                          color: '#000000',
                           fontWeight: 600,
                           textTransform: 'none',
                           borderRadius: 3,
@@ -727,7 +731,7 @@ const TemplatesSection = () => {
                           },
                         }}
                       >
-                        Start with this template
+                        {t('templatesSection.startWithTemplate')}
                       </Button>
                       <Button
                         variant="outlined"
@@ -748,7 +752,7 @@ const TemplatesSection = () => {
                           },
                         }}
                       >
-                        Preview
+                        {t('templatesSection.preview')}
                       </Button>
                     </Overlay>
                   </ImageWrapper>
@@ -766,19 +770,19 @@ const TemplatesSection = () => {
                       <Box display="flex" alignItems="center" gap={0.5}>
                         <StarIcon sx={{ fontSize: 16, color: '#f59e0b' }} />
                         <Typography variant="body2" color="text.secondary">
-                          {template.rating} • {template.uses} uses
+                          {template.rating} • {template.uses} {t('templatesSection.uses')}
                         </Typography>
                       </Box>
                     </Box>
                     <Chip
-                      label={template.isFree ? 'Free' : 'Pro'}
+                      label={template.isFree ? t('templatesSection.free') : t('templatesSection.pro')}
                       size="small"
                       sx={{
                         fontWeight: 600,
                         fontSize: '0.75rem',
                         background: template.isFree
                           ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
-                          : 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+                          : 'linear-gradient(135deg, #eab308 0%, #000000 100%)',
                         color: '#ffffff',
                       }}
                     />
@@ -789,45 +793,47 @@ const TemplatesSection = () => {
           )}
 
           {/* ── Empty State ──────────────────────────────── */}
-          {!loading && !error && templates.length === 0 && (
+          {!loading && !error && displayedTemplates.length === 0 && (
             <NoResults>
               <Typography variant="h6" gutterBottom>
-                No templates found
+                {t('templatesSection.noTemplatesFound')}
               </Typography>
               <Typography variant="body2">
-                Try selecting a different filter.
+                {t('templatesSection.tryDifferentFilter')}
               </Typography>
             </NoResults>
           )}
 
-          {/* ── View All Button ──────────────────────────── */}
-          <Box display="flex" justifyContent="center" mt={6}>
-            <Link href="/cvs" passHref>
-              <Button
-                variant="outlined"
-                size="large"
-                endIcon={<ArrowForwardIcon />}
-                sx={{
-                  borderColor: '#EAB308',
-                  color: '#667eea',
-                  fontWeight: 600,
-                  textTransform: 'none',
-                  borderRadius: 3,
-                  px: 5,
-                  py: 1.5,
-                  borderWidth: 2,
-                  '&:hover': {
-                    borderWidth: 2,
+          {/* ── View All Button (only when the teaser is full) ── */}
+          {displayedTemplates.length === 3 && (
+            <Box display="flex" justifyContent="center" mt={6}>
+              <Link href="/cvs" passHref>
+                <Button
+                  variant="outlined"
+                  size="large"
+                  endIcon={<ArrowForwardIcon />}
+                  sx={{
                     borderColor: '#EAB308',
-                    background: 'linear-gradient(135deg, #EAB308)',
-                    color: '#ffffff',
-                  },
-                }}
-              >
-                View All Templates
-              </Button>
-            </Link>
-          </Box>
+                    color: '#000000',
+                    fontWeight: 600,
+                    textTransform: 'none',
+                    borderRadius: 3,
+                    px: 5,
+                    py: 1.5,
+                    borderWidth: 2,
+                    '&:hover': {
+                      borderWidth: 2,
+                      borderColor: '#EAB308',
+                      background: 'linear-gradient(135deg, #EAB308)',
+                      color: '#ffffff',
+                    },
+                  }}
+                >
+                  {t('templatesSection.viewAllTemplates')}
+                </Button>
+              </Link>
+            </Box>
+          )}
         </Container>
 
         {/* ── Preview Modal ────────────────────────────── */}
@@ -860,10 +866,10 @@ const TemplatesSection = () => {
                         <StarIcon sx={{ fontSize: 16, color: '#f59e0b' }} />
                         <Typography variant="body2" color="text.secondary">
                           {selectedTemplate.rating} •{' '}
-                          {selectedTemplate.uses} uses
+                          {selectedTemplate.uses} {t('templatesSection.uses')}
                         </Typography>
                         <Chip
-                          label={selectedTemplate.isFree ? 'Free' : 'Pro'}
+                          label={selectedTemplate.isFree ? t('templatesSection.free') : t('templatesSection.pro')}
                           size="small"
                           sx={{
                             fontWeight: 600,
@@ -871,7 +877,7 @@ const TemplatesSection = () => {
                             height: '20px',
                             background: selectedTemplate.isFree
                               ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
-                              : 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+                              : 'linear-gradient(135deg, #eab308 0%, #000000 100%)',
                             color: '#ffffff',
                           }}
                         />
@@ -887,7 +893,7 @@ const TemplatesSection = () => {
                         }
                         sx={{
                           background:
-                            'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                            'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
                           color: '#ffffff',
                           fontWeight: 600,
                           textTransform: 'none',
@@ -900,7 +906,7 @@ const TemplatesSection = () => {
                           display: { xs: 'none', sm: 'flex' },
                         }}
                       >
-                        Use Template
+                        {t('templatesSection.useTemplate')}
                       </Button>
                       <IconButton
                         onClick={handleCloseModal}
@@ -965,7 +971,7 @@ const TemplatesSection = () => {
                               color: '#94a3b8',
                             }}
                           >
-                            No Preview Available
+                            {t('templatesSection.noPreviewAvailable')}
                           </Box>
                         )}
                       </Box>
@@ -993,13 +999,13 @@ const TemplatesSection = () => {
                       step={5}
                       sx={{
                         width: { xs: 100, sm: 200 },
-                        color: '#667eea',
+                        color: '#000000',
                         '& .MuiSlider-thumb': {
                           width: 16,
                           height: 16,
                           '&:hover': {
                             boxShadow:
-                              '0 0 0 8px rgba(102, 126, 234, 0.16)',
+                              '0 0 0 8px rgba(0, 0, 0, 0.16)',
                           },
                         },
                         '& .MuiSlider-track': { height: 4 },
@@ -1049,7 +1055,7 @@ const TemplatesSection = () => {
                       }
                       sx={{
                         background:
-                          'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                          'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
                         color: '#ffffff',
                         fontWeight: 600,
                         textTransform: 'none',

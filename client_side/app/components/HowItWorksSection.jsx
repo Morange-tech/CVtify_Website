@@ -14,6 +14,7 @@ import { styled } from '@mui/material/styles';
 import DescriptionIcon from '@mui/icons-material/Description';
 import EditNoteIcon from '@mui/icons-material/EditNote';
 import DownloadIcon from '@mui/icons-material/Download';
+import { useLanguage } from '../hooks/useLanguage';
 
 // Styled components
 const StyledSection = styled(Box)(({ theme }) => ({
@@ -92,7 +93,7 @@ const StepAvatar = styled(Avatar)(({ theme }) => ({
   marginBottom: theme.spacing(2),
   fontSize: '1.25rem',
   fontWeight: 'bold',
-  boxShadow: '0 5px 15px rgba(102, 126, 234, 0.4)',
+  boxShadow: '0 5px 15px rgba(0, 0, 0, 0.4)',
 }));
 
 const IconWrapper = styled(Box)(({ theme }) => ({
@@ -106,25 +107,26 @@ const IconWrapper = styled(Box)(({ theme }) => ({
 const HowItWorksSection = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const { t } = useLanguage();
 
   const steps = [
     {
       number: '1',
       icon: <DescriptionIcon />,
-      title: 'Choose a Template',
-      description: 'Select from our collection of professionally designed CV templates.',
+      title: t('howItWorks.steps.chooseTemplate.title'),
+      description: t('howItWorks.steps.chooseTemplate.description'),
     },
     {
       number: '2',
       icon: <EditNoteIcon />,
-      title: 'Fill in Your Details',
-      description: 'Enter your personal information, work experience, and skills.',
+      title: t('howItWorks.steps.fillDetails.title'),
+      description: t('howItWorks.steps.fillDetails.description'),
     },
     {
       number: '3',
       icon: <DownloadIcon />,
-      title: 'Download & Apply',
-      description: 'Download your professional CV in PDF format and start applying.',
+      title: t('howItWorks.steps.downloadApply.title'),
+      description: t('howItWorks.steps.downloadApply.description'),
     },
   ];
 
@@ -140,14 +142,14 @@ const HowItWorksSection = () => {
             color="black"
             gutterBottom
           >
-            How It Works
+            {t('howItWorks.heading')}
           </Typography>
           <Typography
             variant={isMobile ? 'body1' : 'h6'}
             color="black"
             sx={{ opacity: 0.9 }}
           >
-            Create your professional CV in just 3 simple steps
+            {t('howItWorks.subheading')}
           </Typography>
         </Box>
 

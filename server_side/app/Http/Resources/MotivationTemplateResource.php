@@ -10,6 +10,8 @@ class MotivationTemplateResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        $user = $request->user();
+
         return [
             'id' => $this->id,
             'templateId' => $this->id,
@@ -29,7 +31,9 @@ class MotivationTemplateResource extends JsonResource
                 $this->is_premium ? 'premium' : 'free',
                 $this->uses > 50 ? 'popular' : null,
             ])),
-            'isWishlisted' => false,
+            'isWishlisted' => $user
+                ? $this->wishlistedBy->contains('id', $user->id)
+                : false,
         ];
     }
 }

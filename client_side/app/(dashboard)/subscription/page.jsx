@@ -18,34 +18,37 @@ import {
   Tooltip,
   Switch,
 } from '@mui/material';
-import StarIcon from '@mui/icons-material/Star';
-import CreditCardIcon from '@mui/icons-material/CreditCard';
-import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
-import ReceiptIcon from '@mui/icons-material/Receipt';
-import DownloadIcon from '@mui/icons-material/Download';
-import AutorenewIcon from '@mui/icons-material/Autorenew';
-import CancelIcon from '@mui/icons-material/Cancel';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import AllInclusiveIcon from '@mui/icons-material/AllInclusive';
-import HighQualityIcon from '@mui/icons-material/HighQuality';
-import BlockIcon from '@mui/icons-material/Block';
-import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
-import BrushIcon from '@mui/icons-material/Brush';
-import FolderIcon from '@mui/icons-material/Folder';
-import HistoryIcon from '@mui/icons-material/History';
-import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
-import InsightsIcon from '@mui/icons-material/Insights';
-import SupportAgentIcon from '@mui/icons-material/SupportAgent';
-import PaymentIcon from '@mui/icons-material/Payment';
-import EditIcon from '@mui/icons-material/Edit';
-import ShieldIcon from '@mui/icons-material/Shield';
-import TrendingUpIcon from '@mui/icons-material/TrendingUp';
-import DescriptionIcon from '@mui/icons-material/Description';
-import MailOutlineIcon from '@mui/icons-material/MailOutline';
+import {
+  Star,
+  CreditCard,
+  Calendar,
+  Receipt,
+  Download,
+  RefreshCw,
+  XCircle,
+  CheckCircle2,
+  AlertTriangle,
+  ArrowLeft,
+  Infinity as InfinityIcon,
+  BadgeCheck,
+  Ban,
+  FileType,
+  Paintbrush,
+  Folder,
+  History,
+  Wand2,
+  LineChart,
+  Headset,
+  Wallet,
+  Pencil,
+  ShieldCheck,
+  FileText,
+  Mail,
+  Gem,
+  Rocket,
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '../../../hooks/useAuth'; // adjust path
+import { useAuth } from '../../hooks/useAuth'; // adjust path
 
 // ─── Section Card (defined outside to prevent re-render focus issues) ───
 function SectionCard({ children, title, icon, action, borderColor }) {
@@ -75,11 +78,11 @@ function SectionCard({ children, title, icon, action, borderColor }) {
               width: 36,
               height: 36,
               borderRadius: 2,
-              bgcolor: '#667eea12',
+              bgcolor: '#00000012',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: '#667eea',
+              color: '#000000',
             }}
           >
             {icon}
@@ -164,7 +167,7 @@ export default function SubscriptionPage() {
     setRenewDialogOpen(false);
     setSnackbar({
       open: true,
-      message: 'Subscription renewed successfully! 🎉',
+      message: 'Subscription renewed successfully!',
       severity: 'success',
     });
   };
@@ -183,7 +186,7 @@ export default function SubscriptionPage() {
     return (
       <Box sx={{ p: { xs: 2, md: 4 }, maxWidth: 800, mx: 'auto' }}>
         <Button
-          startIcon={<ArrowBackIcon />}
+          startIcon={<ArrowLeft size={18} />}
           onClick={() => router.back()}
           sx={{ textTransform: 'none', color: '#64748b', mb: 3 }}
         >
@@ -204,7 +207,7 @@ export default function SubscriptionPage() {
               width: 80,
               height: 80,
               borderRadius: '50%',
-              bgcolor: '#667eea15',
+              bgcolor: '#00000015',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -212,7 +215,7 @@ export default function SubscriptionPage() {
               mb: 3,
             }}
           >
-            <StarIcon sx={{ fontSize: 40, color: '#667eea' }} />
+            <Star size={40} color="#000000" />
           </Box>
           <Typography variant="h5" fontWeight="700" color="#1e293b" gutterBottom>
             No Active Subscription
@@ -222,6 +225,7 @@ export default function SubscriptionPage() {
           </Typography>
           <Button
             variant="contained"
+            startIcon={<Rocket size={18} />}
             onClick={() => router.push('/upgrade')}
             sx={{
               textTransform: 'none',
@@ -229,11 +233,11 @@ export default function SubscriptionPage() {
               borderRadius: 2,
               px: 4,
               py: 1.2,
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
+              background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
+              boxShadow: '0 4px 15px rgba(0, 0, 0, 0.4)',
             }}
           >
-            🚀 Upgrade to Premium
+            Upgrade to Premium
           </Button>
         </Box>
       </Box>
@@ -245,8 +249,22 @@ export default function SubscriptionPage() {
       {/* Header */}
       <Box sx={{ mb: 4 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 40,
+              height: 40,
+              borderRadius: 2,
+              background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
+              color: '#fff',
+            }}
+          >
+            <Gem size={20} />
+          </Box>
           <Typography variant="h4" fontWeight="700" color="#1e293b">
-            💎 Subscription
+            Subscription
           </Typography>
           <Chip
             label={isCancelled ? 'Cancelled' : 'Active'}
@@ -269,7 +287,7 @@ export default function SubscriptionPage() {
       {/* ═══════════════════════════════════════════ */}
       <Box
         sx={{
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
           borderRadius: 4,
           p: { xs: 3, md: 4 },
           color: '#ffffff',
@@ -306,7 +324,7 @@ export default function SubscriptionPage() {
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2 }}>
             <Box>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                <StarIcon sx={{ fontSize: 24 }} />
+                <Star size={24} />
                 <Typography variant="h5" fontWeight="800">
                   Premium Plan
                 </Typography>
@@ -319,11 +337,11 @@ export default function SubscriptionPage() {
             {isCancelled ? (
               <Button
                 variant="contained"
-                startIcon={<AutorenewIcon />}
+                startIcon={<RefreshCw size={18} />}
                 onClick={() => setRenewDialogOpen(true)}
                 sx={{
                   bgcolor: '#ffffff',
-                  color: '#667eea',
+                  color: '#000000',
                   fontWeight: 700,
                   textTransform: 'none',
                   borderRadius: 2,
@@ -335,7 +353,7 @@ export default function SubscriptionPage() {
               </Button>
             ) : (
               <Chip
-                icon={<CheckCircleIcon sx={{ color: '#ffffff !important', fontSize: 16 }} />}
+                icon={<CheckCircle2 size={16} color="#ffffff" />}
                 label="Active"
                 sx={{
                   bgcolor: 'rgba(255,255,255,0.2)',
@@ -390,10 +408,10 @@ export default function SubscriptionPage() {
             }}
           >
             {[
-              { label: 'CVs Created', value: usageStats.cvsCreated, icon: <DescriptionIcon sx={{ fontSize: 18 }} /> },
-              { label: 'Letters', value: usageStats.lettersCreated, icon: <MailOutlineIcon sx={{ fontSize: 18 }} /> },
-              { label: 'Downloads', value: usageStats.totalDownloads, icon: <DownloadIcon sx={{ fontSize: 18 }} /> },
-              { label: 'Templates', value: usageStats.templatesUsed, icon: <BrushIcon sx={{ fontSize: 18 }} /> },
+              { label: 'CVs Created', value: usageStats.cvsCreated, icon: <FileText size={18} /> },
+              { label: 'Letters', value: usageStats.lettersCreated, icon: <Mail size={18} /> },
+              { label: 'Downloads', value: usageStats.totalDownloads, icon: <Download size={18} /> },
+              { label: 'Templates', value: usageStats.templatesUsed, icon: <Paintbrush size={18} /> },
             ].map((stat, index) => (
               <Box
                 key={index}
@@ -421,7 +439,7 @@ export default function SubscriptionPage() {
       {isCancelled && (
         <Alert
           severity="warning"
-          icon={<WarningAmberIcon />}
+          icon={<AlertTriangle size={20} />}
           sx={{ mb: 3, borderRadius: 2 }}
           action={
             <Button
@@ -443,7 +461,7 @@ export default function SubscriptionPage() {
       {/* ═══════════════════════════════════════════ */}
       <SectionCard
         title="Plan Features"
-        icon={<StarIcon fontSize="small" />}
+        icon={<Star size={18} />}
       >
         <Box
           sx={{
@@ -453,16 +471,16 @@ export default function SubscriptionPage() {
           }}
         >
           {[
-            { text: 'Unlimited CVs & Letters', icon: <AllInclusiveIcon sx={{ fontSize: 18 }} /> },
-            { text: 'No Watermark', icon: <BlockIcon sx={{ fontSize: 18 }} /> },
-            { text: 'High-Quality Exports (300 DPI)', icon: <HighQualityIcon sx={{ fontSize: 18 }} /> },
-            { text: 'PDF, DOCX, PNG, JPG', icon: <PictureAsPdfIcon sx={{ fontSize: 18 }} /> },
-            { text: 'All Premium Templates', icon: <BrushIcon sx={{ fontSize: 18 }} /> },
-            { text: 'Folders & Organization', icon: <FolderIcon sx={{ fontSize: 18 }} /> },
-            { text: 'Version History', icon: <HistoryIcon sx={{ fontSize: 18 }} /> },
-            { text: 'AI-Powered Suggestions', icon: <AutoAwesomeIcon sx={{ fontSize: 18 }} /> },
-            { text: 'Advanced Analytics', icon: <InsightsIcon sx={{ fontSize: 18 }} /> },
-            { text: 'Priority Support', icon: <SupportAgentIcon sx={{ fontSize: 18 }} /> },
+            { text: 'Unlimited CVs & Letters', icon: <InfinityIcon size={18} /> },
+            { text: 'No Watermark', icon: <Ban size={18} /> },
+            { text: 'High-Quality Exports (300 DPI)', icon: <BadgeCheck size={18} /> },
+            { text: 'PDF, DOCX, PNG, JPG', icon: <FileType size={18} /> },
+            { text: 'All Premium Templates', icon: <Paintbrush size={18} /> },
+            { text: 'Folders & Organization', icon: <Folder size={18} /> },
+            { text: 'Version History', icon: <History size={18} /> },
+            { text: 'AI-Powered Suggestions', icon: <Wand2 size={18} /> },
+            { text: 'Advanced Analytics', icon: <LineChart size={18} /> },
+            { text: 'Priority Support', icon: <Headset size={18} /> },
           ].map((feature, index) => (
             <Box
               key={index}
@@ -476,7 +494,7 @@ export default function SubscriptionPage() {
                 '&:hover': { bgcolor: '#f8fafc' },
               }}
             >
-              <Box sx={{ color: '#667eea' }}>{feature.icon}</Box>
+              <Box sx={{ color: '#000000' }}>{feature.icon}</Box>
               <Typography variant="body2" color="#1e293b" fontWeight="500">
                 {feature.text}
               </Typography>
@@ -490,13 +508,13 @@ export default function SubscriptionPage() {
       {/* ═══════════════════════════════════════════ */}
       <SectionCard
         title="Payment Method"
-        icon={<CreditCardIcon fontSize="small" />}
+        icon={<CreditCard size={18} />}
         action={
           <Button
             size="small"
-            startIcon={<EditIcon />}
+            startIcon={<Pencil size={16} />}
             onClick={() => setUpdatePaymentDialogOpen(true)}
-            sx={{ textTransform: 'none', color: '#667eea', fontWeight: 600 }}
+            sx={{ textTransform: 'none', color: '#000000', fontWeight: 600 }}
           >
             Update
           </Button>
@@ -526,7 +544,7 @@ export default function SubscriptionPage() {
                 justifyContent: 'center',
               }}
             >
-              <PaymentIcon sx={{ color: '#ffffff', fontSize: 22 }} />
+              <Wallet size={22} color="#ffffff" />
             </Box>
             <Box>
               <Typography variant="body1" fontWeight="600" color="#1e293b">
@@ -543,8 +561,8 @@ export default function SubscriptionPage() {
             sx={{
               fontWeight: 600,
               fontSize: '0.65rem',
-              bgcolor: '#667eea15',
-              color: '#667eea',
+              bgcolor: '#00000015',
+              color: '#000000',
             }}
           />
         </Box>
@@ -573,9 +591,9 @@ export default function SubscriptionPage() {
             checked={autoRenew}
             onChange={(e) => setAutoRenew(e.target.checked)}
             sx={{
-              '& .MuiSwitch-switchBase.Mui-checked': { color: '#667eea' },
+              '& .MuiSwitch-switchBase.Mui-checked': { color: '#000000' },
               '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                backgroundColor: '#667eea',
+                backgroundColor: '#000000',
               },
             }}
           />
@@ -590,11 +608,11 @@ export default function SubscriptionPage() {
             mt: 2,
             p: 2,
             borderRadius: 2,
-            bgcolor: '#667eea08',
-            border: '1px solid #667eea20',
+            bgcolor: '#00000008',
+            border: '1px solid #00000020',
           }}
         >
-          <CalendarTodayIcon sx={{ fontSize: 18, color: '#667eea' }} />
+          <Calendar size={18} color="#000000" />
           <Typography variant="body2" color="#64748b">
             {isCancelled ? (
               <>Access expires on <strong>{subscription.currentPeriodEnd}</strong></>
@@ -610,7 +628,7 @@ export default function SubscriptionPage() {
       {/* ═══════════════════════════════════════════ */}
       <SectionCard
         title="Billing History"
-        icon={<ReceiptIcon fontSize="small" />}
+        icon={<Receipt size={18} />}
         action={
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Typography variant="body2" color="#64748b">
@@ -621,8 +639,8 @@ export default function SubscriptionPage() {
               size="small"
               sx={{
                 fontWeight: 700,
-                bgcolor: '#667eea15',
-                color: '#667eea',
+                bgcolor: '#00000015',
+                color: '#000000',
               }}
             />
           </Box>
@@ -679,7 +697,7 @@ export default function SubscriptionPage() {
           >
             {/* Date */}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <CalendarTodayIcon sx={{ fontSize: 14, color: '#94a3b8' }} />
+              <Calendar size={14} color="#94a3b8" />
               <Typography variant="body2" color="#1e293b" fontWeight="500">
                 {entry.date}
               </Typography>
@@ -720,11 +738,11 @@ export default function SubscriptionPage() {
                   size="small"
                   onClick={() => handleDownloadInvoice(entry.invoice)}
                   sx={{
-                    color: '#667eea',
-                    '&:hover': { bgcolor: '#667eea10' },
+                    color: '#000000',
+                    '&:hover': { bgcolor: '#00000010' },
                   }}
                 >
-                  <DownloadIcon fontSize="small" />
+                  <Download size={18} />
                 </IconButton>
               </Tooltip>
             </Box>
@@ -735,12 +753,12 @@ export default function SubscriptionPage() {
         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
           <Button
             size="small"
-            startIcon={<DownloadIcon />}
+            startIcon={<Download size={16} />}
             sx={{
               textTransform: 'none',
-              color: '#667eea',
+              color: '#000000',
               fontWeight: 600,
-              '&:hover': { bgcolor: '#667eea10' },
+              '&:hover': { bgcolor: '#00000010' },
             }}
           >
             Download All Invoices
@@ -753,8 +771,8 @@ export default function SubscriptionPage() {
       {/* ═══════════════════════════════════════════ */}
       <SectionCard
         title={isCancelled ? 'Renew Subscription' : 'Cancel Subscription'}
-        icon={isCancelled ? <AutorenewIcon fontSize="small" /> : <CancelIcon fontSize="small" />}
-        borderColor={isCancelled ? '#667eea40' : '#ef444430'}
+        icon={isCancelled ? <RefreshCw size={18} /> : <XCircle size={18} />}
+        borderColor={isCancelled ? '#00000040' : '#ef444430'}
       >
         {isCancelled ? (
           /* ─── Renew State ─── */
@@ -777,7 +795,7 @@ export default function SubscriptionPage() {
                 'Priority support',
               ].map((feature, i) => (
                 <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <CheckCircleIcon sx={{ fontSize: 16, color: '#667eea' }} />
+                  <CheckCircle2 size={16} color="#000000" />
                   <Typography variant="body2" color="#1e293b">{feature}</Typography>
                 </Box>
               ))}
@@ -786,17 +804,17 @@ export default function SubscriptionPage() {
             <Button
               variant="contained"
               size="large"
-              startIcon={<AutorenewIcon />}
+              startIcon={<RefreshCw size={18} />}
               onClick={() => setRenewDialogOpen(true)}
               sx={{
                 textTransform: 'none',
                 fontWeight: 700,
                 borderRadius: 2,
                 px: 4,
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
+                background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
+                boxShadow: '0 4px 15px rgba(0, 0, 0, 0.4)',
                 '&:hover': {
-                  boxShadow: '0 6px 20px rgba(102, 126, 234, 0.5)',
+                  boxShadow: '0 6px 20px rgba(0, 0, 0, 0.5)',
                 },
               }}
             >
@@ -831,7 +849,7 @@ export default function SubscriptionPage() {
                 'Version history & analytics',
               ].map((item, i) => (
                 <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.3 }}>
-                  <CancelIcon sx={{ fontSize: 14, color: '#f59e0b' }} />
+                  <XCircle size={14} color="#f59e0b" />
                   <Typography variant="body2" color="#92400e">{item}</Typography>
                 </Box>
               ))}
@@ -862,7 +880,7 @@ export default function SubscriptionPage() {
                 }}
                 sx={{
                   textTransform: 'none',
-                  color: '#667eea',
+                  color: '#000000',
                   fontWeight: 600,
                 }}
               >
@@ -887,7 +905,7 @@ export default function SubscriptionPage() {
       >
         <DialogTitle sx={{ fontWeight: 700, color: '#ef4444' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <WarningAmberIcon />
+            <AlertTriangle size={20} />
             Cancel Premium Subscription?
           </Box>
         </DialogTitle>
@@ -906,7 +924,7 @@ export default function SubscriptionPage() {
               'Standard quality exports only',
             ].map((item, i) => (
               <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.5 }}>
-                <CancelIcon sx={{ fontSize: 16, color: '#ef4444' }} />
+                <XCircle size={16} color="#ef4444" />
                 <Typography variant="body2" color="#64748b">{item}</Typography>
               </Box>
             ))}
@@ -924,7 +942,7 @@ export default function SubscriptionPage() {
               textTransform: 'none',
               fontWeight: 600,
               borderRadius: 2,
-              bgcolor: '#667eea',
+              bgcolor: '#000000',
               '&:hover': { bgcolor: '#5a6fd6' },
             }}
           >
@@ -948,7 +966,7 @@ export default function SubscriptionPage() {
       >
         <DialogTitle sx={{ fontWeight: 700 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <AutorenewIcon sx={{ color: '#667eea' }} />
+            <RefreshCw size={20} color="#000000" />
             Renew Premium
           </Box>
         </DialogTitle>
@@ -961,8 +979,8 @@ export default function SubscriptionPage() {
             sx={{
               p: 2.5,
               borderRadius: 2,
-              bgcolor: '#667eea08',
-              border: '1px solid #667eea20',
+              bgcolor: '#00000008',
+              border: '1px solid #00000020',
               mb: 2,
             }}
           >
@@ -975,14 +993,14 @@ export default function SubscriptionPage() {
                   Billed {subscription.cycle}
                 </Typography>
               </Box>
-              <Typography variant="h5" fontWeight="800" color="#667eea">
+              <Typography variant="h5" fontWeight="800" color="#000000">
                 {subscription.price}
               </Typography>
             </Box>
           </Box>
 
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <CreditCardIcon sx={{ fontSize: 16, color: '#94a3b8' }} />
+            <CreditCard size={16} color="#94a3b8" />
             <Typography variant="caption" color="#94a3b8">
               Charged to {subscription.paymentMethod.type} ••••{subscription.paymentMethod.last4}
             </Typography>
@@ -997,15 +1015,16 @@ export default function SubscriptionPage() {
           </Button>
           <Button
             variant="contained"
+            startIcon={<RefreshCw size={16} />}
             onClick={handleRenewSubscription}
             sx={{
               textTransform: 'none',
               fontWeight: 700,
               borderRadius: 2,
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
             }}
           >
-            🚀 Renew Now — {subscription.price}
+            Renew Now — {subscription.price}
           </Button>
         </DialogActions>
       </Dialog>
@@ -1031,7 +1050,7 @@ export default function SubscriptionPage() {
               textAlign: 'center',
             }}
           >
-            <ShieldIcon sx={{ fontSize: 40, color: '#10b981', mb: 1 }} />
+            <ShieldCheck size={40} color="#10b981" style={{ marginBottom: 8 }} />
             <Typography variant="body2" fontWeight="600" color="#1e293b">
               Secure Payment
             </Typography>
@@ -1058,7 +1077,7 @@ export default function SubscriptionPage() {
               textTransform: 'none',
               fontWeight: 600,
               borderRadius: 2,
-              bgcolor: '#667eea',
+              bgcolor: '#000000',
               '&:hover': { bgcolor: '#5a6fd6' },
             }}
           >

@@ -150,9 +150,9 @@ class MotivationLetterTemplate extends Model
     {
         return $this->belongsToMany(
             \App\Models\User::class,
-            'motivation_template_user_wishlist',
+            'motivation_template_wishlists',
             'motivation_template_id',
             'user_id'
-        );
+        )->withTimestamps();
     }
 }

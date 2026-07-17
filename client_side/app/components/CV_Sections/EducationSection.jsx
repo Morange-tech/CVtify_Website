@@ -22,6 +22,7 @@ import {
     Card,
     CardContent,
     Collapse,
+    CircularProgress,
     styled,
     keyframes
 } from '@mui/material';
@@ -30,6 +31,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import AddIcon from '@mui/icons-material/Add';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import { useAiAssist } from '../../hooks/useAiAssist';
 
 const ReactQuill = dynamic(
     () => import("react-quill-new"),
@@ -114,6 +116,11 @@ const EducationSection = ({
     const [descriptionCharCount, setDescriptionCharCount] = useState(0);
     const [isDescriptionOverLimit, setIsDescriptionOverLimit] = useState(false);
     const [isShaking, setIsShaking] = useState(false);
+    const { generateText, isGenerating } = useAiAssist();
+
+    const now = new Date();
+    const currentMonth = String(now.getMonth() + 1).padStart(2, "0");
+    const currentYear = now.getFullYear();
 
     const lastValidDescriptionRef = useRef('');
 
@@ -157,6 +164,22 @@ const EducationSection = ({
     const countCharacters = useCallback((html) => {
         return getPlainText(html).length;
     }, [getPlainText]);
+
+    const handleAiGenerate = async () => {
+        const existingText = getPlainText(currentEducation.description);
+        const html = await generateText({
+            contentType: 'education',
+            mode: existingText ? 'improve' : 'generate',
+            existingText,
+            context: {
+                school: currentEducation.school,
+                degree: currentEducation.education,
+                city: currentEducation.city,
+            },
+            maxLength: MAX_DESCRIPTION_CHARS,
+        });
+        setCurrentEducation(prev => ({ ...prev, description: html }));
+    };
 
     // Update character count when description changes (for display only)
     useEffect(() => {
@@ -334,7 +357,7 @@ const EducationSection = ({
                         </Typography>
                         <Grid container spacing={1}>
                             <Grid item xs={6}>
-                                <FormControl fullWidth  size="small">
+                                <FormControl fullWidth size="small">
                                     <InputLabel>Month</InputLabel>
                                     <Select
                                         value={currentEducation.startMonth || ""}
@@ -533,9 +556,11 @@ const EducationSection = ({
 
                 {/* Action Buttons */}
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    {/* <Button
+                    <Button
                         variant="contained"
-                        startIcon={<AutoFixHighIcon />}
+                        startIcon={isGenerating ? <CircularProgress size={16} color="inherit" /> : <AutoFixHighIcon />}
+                        onClick={handleAiGenerate}
+                        disabled={isGenerating}
                         sx={{
                             '& .MuiButton-startIcon': {
                                 transition: 'transform 0.3s ease',
@@ -545,8 +570,8 @@ const EducationSection = ({
                             },
                         }}
                     >
-                        AI Suggestions
-                    </Button> */}
+                        {isGenerating ? 'Génération...' : 'AI Suggestions'}
+                    </Button>
 
                     <Stack direction="row" spacing={2} alignItems="center">
                         <IconButton
@@ -590,7 +615,7 @@ const EducationSection = ({
                             <Typography variant="body2" color="text.secondary">
                                 {edu.startMonth && `${edu.startMonth}/`}{edu.startYear || 'Start'}
                                 {' - '}
-                                {edu.isPresent ? 'Present' : `${edu.endMonth && `${edu.endMonth}/`}${edu.endYear || 'End'}`}
+                                {edu.isPresent ? `${currentMonth}/${currentYear}` : `${edu.endMonth && `${edu.endMonth}/`}${edu.endYear || 'End'}`}
                             </Typography>
                         </>
                     )}

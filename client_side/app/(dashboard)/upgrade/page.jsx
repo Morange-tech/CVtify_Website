@@ -10,25 +10,25 @@ import {
   Divider,
   IconButton,
 } from '@mui/material';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import CancelIcon from '@mui/icons-material/Cancel';
-import StarIcon from '@mui/icons-material/Star';
-import LockOpenIcon from '@mui/icons-material/LockOpen';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import DescriptionIcon from '@mui/icons-material/Description';
-import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
-import ArticleIcon from '@mui/icons-material/Article';
-import ImageIcon from '@mui/icons-material/Image';
-import HighQualityIcon from '@mui/icons-material/HighQuality';
-import BlockIcon from '@mui/icons-material/Block';
-import FolderIcon from '@mui/icons-material/Folder';
-import HistoryIcon from '@mui/icons-material/History';
-import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
-import SupportAgentIcon from '@mui/icons-material/SupportAgent';
-import AllInclusiveIcon from '@mui/icons-material/AllInclusive';
-import BrushIcon from '@mui/icons-material/Brush';
-import InsightsIcon from '@mui/icons-material/Insights';
-import ShieldIcon from '@mui/icons-material/Shield';
+import {
+  CheckCircle2,
+  XCircle,
+  Star,
+  ArrowLeft,
+  ArrowRight,
+  FileType,
+  BadgeCheck,
+  Ban,
+  Folder,
+  History,
+  Headset,
+  Infinity as InfinityIcon,
+  Paintbrush,
+  LineChart,
+  ShieldCheck,
+  Sparkles,
+  Rocket,
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../hooks/useAuth'; // adjust path
 import useUpgradeContent from '../../hooks/useUpgradeContent';
@@ -63,7 +63,7 @@ export default function UpgradePage() {
     return (
       <Box sx={{ p: { xs: 2, md: 4 }, maxWidth: 800, mx: 'auto' }}>
         <Button
-          startIcon={<ArrowBackIcon />}
+          startIcon={<ArrowLeft size={18} />}
           onClick={() => router.back()}
           sx={{ textTransform: 'none', color: '#64748b', mb: 3 }}
         >
@@ -84,7 +84,7 @@ export default function UpgradePage() {
               width: 80,
               height: 80,
               borderRadius: '50%',
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -92,7 +92,7 @@ export default function UpgradePage() {
               mb: 3,
             }}
           >
-            <StarIcon sx={{ fontSize: 40, color: '#ffffff' }} />
+            <Star size={40} color="#ffffff" />
           </Box>
           <Typography variant="h4" fontWeight="800" color="#1e293b" gutterBottom>
             You&apos;re Already Premium! 🎉
@@ -109,7 +109,7 @@ export default function UpgradePage() {
               borderRadius: 2,
               px: 4,
               py: 1.2,
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
             }}
           >
             Go to Dashboard
@@ -131,7 +131,7 @@ export default function UpgradePage() {
     <Box sx={{ p: { xs: 2, md: 4 }, maxWidth: 1100, mx: 'auto' }}>
       {/* Back Button */}
       <Button
-        startIcon={<ArrowBackIcon />}
+        startIcon={<ArrowLeft size={18} />}
         onClick={() => router.back()}
         sx={{ textTransform: 'none', color: '#64748b', mb: 3 }}
       >
@@ -145,8 +145,8 @@ export default function UpgradePage() {
           mb: 6,
           p: { xs: 3, md: 5 },
           borderRadius: 4,
-          background: 'linear-gradient(135deg, #667eea08 0%, #764ba208 100%)',
-          border: '1px solid #667eea20',
+          background: 'linear-gradient(135deg, #00000008 0%, #1a1a1a08 100%)',
+          border: '1px solid #00000020',
         }}
       >
         {/* Watermark Preview */}
@@ -211,8 +211,8 @@ export default function UpgradePage() {
                 </Typography>
               </Box>
             </Box>
-            <Typography variant="caption" color="#ef4444" fontWeight="600" sx={{ mt: 1, display: 'block' }}>
-              ❌ With Watermark
+            <Typography variant="caption" color="#ef4444" fontWeight="600" sx={{ mt: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+              <XCircle size={14} /> With Watermark
             </Typography>
           </Box>
 
@@ -221,10 +221,10 @@ export default function UpgradePage() {
             sx={{
               display: 'flex',
               alignItems: 'center',
-              fontSize: '2rem',
+              color: '#94a3b8',
             }}
           >
-            →
+            <ArrowRight size={32} />
           </Box>
 
           {/* Premium Version Preview */}
@@ -235,8 +235,8 @@ export default function UpgradePage() {
                 height: { xs: 198, md: 254 },
                 bgcolor: '#ffffff',
                 borderRadius: 2,
-                border: '2px solid #667eea40',
-                boxShadow: '0 4px 20px rgba(102, 126, 234, 0.15)',
+                border: '2px solid #00000040',
+                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
                 position: 'relative',
                 overflow: 'hidden',
                 display: 'flex',
@@ -246,11 +246,11 @@ export default function UpgradePage() {
               }}
             >
               {/* Fake CV lines - cleaner */}
-              <Box sx={{ width: '60%', height: 8, bgcolor: '#667eea30', borderRadius: 1 }} />
+              <Box sx={{ width: '60%', height: 8, bgcolor: '#00000030', borderRadius: 1 }} />
               <Box sx={{ width: '80%', height: 5, bgcolor: '#f1f5f9', borderRadius: 1 }} />
               <Box sx={{ width: '70%', height: 5, bgcolor: '#f1f5f9', borderRadius: 1 }} />
               <Box sx={{ width: '90%', height: 5, bgcolor: '#f1f5f9', borderRadius: 1 }} />
-              <Box sx={{ width: '50%', height: 8, bgcolor: '#667eea30', borderRadius: 1, mt: 1 }} />
+              <Box sx={{ width: '50%', height: 8, bgcolor: '#00000030', borderRadius: 1, mt: 1 }} />
               <Box sx={{ width: '85%', height: 5, bgcolor: '#f1f5f9', borderRadius: 1 }} />
               <Box sx={{ width: '75%', height: 5, bgcolor: '#f1f5f9', borderRadius: 1 }} />
               <Box sx={{ width: '65%', height: 5, bgcolor: '#f1f5f9', borderRadius: 1 }} />
@@ -263,11 +263,11 @@ export default function UpgradePage() {
                   right: 8,
                 }}
               >
-                <StarIcon sx={{ fontSize: 16, color: '#EAB308' }} />
+                <Star size={16} color="#EAB308" />
               </Box>
             </Box>
-            <Typography variant="caption" color="#10b981" fontWeight="600" sx={{ mt: 1, display: 'block' }}>
-              ✅ Clean & Professional
+            <Typography variant="caption" color="#10b981" fontWeight="600" sx={{ mt: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+              <CheckCircle2 size={14} /> Clean & Professional
             </Typography>
           </Box>
         </Box>
@@ -277,7 +277,7 @@ export default function UpgradePage() {
           <Box
             component="span"
             sx={{
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
               backgroundClip: 'text',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
@@ -314,10 +314,10 @@ export default function UpgradePage() {
           onChange={() => setBillingCycle(billingCycle === 'monthly' ? 'yearly' : 'monthly')}
           sx={{
             '& .MuiSwitch-switchBase.Mui-checked': {
-              color: '#667eea',
+              color: '#000000',
             },
             '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-              backgroundColor: '#667eea',
+              backgroundColor: '#000000',
             },
           }}
         />
@@ -424,12 +424,12 @@ export default function UpgradePage() {
               >
                 {feature.included ? (
                   feature.negative ? (
-                    <CancelIcon sx={{ fontSize: 18, color: '#f59e0b' }} />
+                    <XCircle size={18} color="#f59e0b" />
                   ) : (
-                    <CheckCircleIcon sx={{ fontSize: 18, color: '#10b981' }} />
+                    <CheckCircle2 size={18} color="#10b981" />
                   )
                 ) : (
-                  <CancelIcon sx={{ fontSize: 18, color: '#e2e8f0' }} />
+                  <XCircle size={18} color="#e2e8f0" />
                 )}
                 <Typography
                   variant="body2"
@@ -452,16 +452,16 @@ export default function UpgradePage() {
           sx={{
             bgcolor: '#ffffff',
             borderRadius: 4,
-            border: '2px solid #667eea',
+            border: '2px solid #000000',
             overflow: 'hidden',
             position: 'relative',
-            boxShadow: '0 8px 30px rgba(102, 126, 234, 0.2)',
+            boxShadow: '0 8px 30px rgba(0, 0, 0, 0.2)',
           }}
         >
           {/* Recommended Badge */}
           <Box
             sx={{
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
               color: '#ffffff',
               textAlign: 'center',
               py: 1,
@@ -469,13 +469,17 @@ export default function UpgradePage() {
               fontSize: '0.8rem',
               letterSpacing: '1px',
               textTransform: 'uppercase',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 0.5,
             }}
           >
-            ⭐ Recommended
+            <Sparkles size={14} /> Recommended
           </Box>
 
           <Box sx={{ p: 4 }}>
-            <Typography variant="overline" color="#667eea" fontWeight="700">
+            <Typography variant="overline" color="#000000" fontWeight="700">
               Premium Plan
             </Typography>
             <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mt: 1, mb: 1 }}>
@@ -508,15 +512,15 @@ export default function UpgradePage() {
                 borderRadius: 2,
                 py: 1.5,
                 fontSize: '1rem',
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
+                background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
+                boxShadow: '0 4px 15px rgba(0, 0, 0, 0.4)',
                 '&:hover': {
-                  boxShadow: '0 6px 20px rgba(102, 126, 234, 0.5)',
+                  boxShadow: '0 6px 20px rgba(0, 0, 0, 0.5)',
                   transform: 'translateY(-1px)',
                 },
               }}
             >
-              🚀 Get Premium Now
+              <Rocket size={18} style={{ marginRight: 8 }} /> Get Premium Now
             </Button>
           </Box>
 
@@ -527,15 +531,15 @@ export default function UpgradePage() {
               Everything in Free, plus:
             </Typography>
             {[
-              { text: 'Unlimited CVs & Letters', icon: <AllInclusiveIcon sx={{ fontSize: 18 }} /> },
-              { text: 'No Watermark', icon: <BlockIcon sx={{ fontSize: 18 }} /> },
-              { text: 'High-Quality Exports', icon: <HighQualityIcon sx={{ fontSize: 18 }} /> },
-              { text: 'PDF, DOCX, PNG, JPG formats', icon: <PictureAsPdfIcon sx={{ fontSize: 18 }} /> },
-              { text: 'All Premium Templates', icon: <BrushIcon sx={{ fontSize: 18 }} /> },
-              { text: 'Folders & Organization', icon: <FolderIcon sx={{ fontSize: 18 }} /> },
-              { text: 'Version History', icon: <HistoryIcon sx={{ fontSize: 18 }} /> },
-              { text: 'Advanced Analytics', icon: <InsightsIcon sx={{ fontSize: 18 }} /> },
-              { text: 'Priority Support', icon: <SupportAgentIcon sx={{ fontSize: 18 }} /> },
+              { text: 'Unlimited CVs & Letters', icon: <InfinityIcon size={18} /> },
+              { text: 'No Watermark', icon: <Ban size={18} /> },
+              { text: 'High-Quality Exports', icon: <BadgeCheck size={18} /> },
+              { text: 'PDF, DOCX, PNG, JPG formats', icon: <FileType size={18} /> },
+              { text: 'All Premium Templates', icon: <Paintbrush size={18} /> },
+              { text: 'Folders & Organization', icon: <Folder size={18} /> },
+              { text: 'Version History', icon: <History size={18} /> },
+              { text: 'Advanced Analytics', icon: <LineChart size={18} /> },
+              { text: 'Priority Support', icon: <Headset size={18} /> },
             ].map((feature, index) => (
               <Box
                 key={index}
@@ -546,7 +550,7 @@ export default function UpgradePage() {
                   py: 0.8,
                 }}
               >
-                <Box sx={{ color: '#667eea' }}>{feature.icon}</Box>
+                <Box sx={{ color: '#000000' }}>{feature.icon}</Box>
                 <Typography variant="body2" color="#1e293b" fontWeight="500">
                   {feature.text}
                 </Typography>
@@ -595,8 +599,8 @@ export default function UpgradePage() {
               <Typography variant="body2" fontWeight="700" color="#64748b" textAlign="center">
                 FREE
               </Typography>
-              <Typography variant="body2" fontWeight="700" color="#667eea" textAlign="center">
-                PREMIUM ⭐
+              <Typography variant="body2" fontWeight="700" color="#000000" textAlign="center" sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+                PREMIUM <Star size={14} />
               </Typography>
             </Box>
 
@@ -626,13 +630,13 @@ export default function UpgradePage() {
                 </Typography>
                 <Box sx={{ textAlign: 'center' }}>
                   {row.free ? (
-                    <CheckCircleIcon sx={{ fontSize: 20, color: '#10b981' }} />
+                    <CheckCircle2 size={20} color="#10b981" />
                   ) : (
-                    <CancelIcon sx={{ fontSize: 20, color: '#e2e8f0' }} />
+                    <XCircle size={20} color="#e2e8f0" />
                   )}
                 </Box>
                 <Box sx={{ textAlign: 'center' }}>
-                  <CheckCircleIcon sx={{ fontSize: 20, color: '#667eea' }} />
+                  <CheckCircle2 size={20} color="#000000" />
                 </Box>
               </Box>
             ))}
@@ -678,7 +682,7 @@ export default function UpgradePage() {
           textAlign: 'center',
           p: { xs: 4, md: 6 },
           borderRadius: 4,
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
           color: '#ffffff',
           mb: 4,
         }}
@@ -699,7 +703,7 @@ export default function UpgradePage() {
           }}
           sx={{
             bgcolor: '#ffffff',
-            color: '#667eea',
+            color: '#000000',
             fontWeight: 700,
             textTransform: 'none',
             borderRadius: 3,
@@ -713,7 +717,7 @@ export default function UpgradePage() {
             },
           }}
         >
-          🚀 Get Premium — ${perMonth}/mo
+          <Rocket size={18} style={{ marginRight: 8 }} /> Get Premium — ${perMonth}/mo
         </Button>
 
         <Box sx={{ display: 'flex', justifyContent: 'center', gap: 3, mt: 3, flexWrap: 'wrap' }}>
@@ -722,7 +726,7 @@ export default function UpgradePage() {
               key={text}
               sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
             >
-              <ShieldIcon sx={{ fontSize: 14, opacity: 0.8 }} />
+              <ShieldCheck size={14} style={{ opacity: 0.8 }} />
               <Typography variant="caption" sx={{ opacity: 0.9 }}>
                 {text}
               </Typography>

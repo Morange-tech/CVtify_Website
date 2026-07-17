@@ -1,6 +1,6 @@
 'use client';
 
-// components/filteredTemplatesSection.jsx
+// app/(dashboard)/templates/page.jsx
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -17,23 +17,29 @@ import {
   useMediaQuery,
   Fade,
   Backdrop,
-  CircularProgress
+  CircularProgress,
+  Alert,
+  Skeleton,
+  Snackbar,
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import StarIcon from '@mui/icons-material/Star';
-import WorkspacePremiumIcon from '@mui/icons-material/WorkspacePremium';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import CloseIcon from '@mui/icons-material/Close';
-import ZoomInIcon from '@mui/icons-material/ZoomIn';
-import ZoomOutIcon from '@mui/icons-material/ZoomOut';
-import RestartAltIcon from '@mui/icons-material/RestartAlt';
-import Image from 'next/image';
-import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
-import FavoriteIcon from '@mui/icons-material/Favorite';
-import Link from 'next/link';
-import { useAuth } from '../../hooks/useAuth'; // adjust path
-import LockIcon from '@mui/icons-material/Lock';
+import {
+  ArrowRight,
+  Star,
+  Crown,
+  Eye,
+  X,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw,
+  Heart,
+  Lock,
+  List as ListIcon,
+  Sparkles,
+  RefreshCw,
+} from 'lucide-react';
+import { useAuth } from '../../hooks/useAuth';
+import { useTemplates } from '../../hooks/useTemplate';
 
 
 
@@ -73,8 +79,8 @@ const TemplateCard = styled(Card)(({ theme }) => ({
   cursor: 'pointer',
   '&:hover': {
     transform: 'translateY(-8px)',
-    boxShadow: '0 25px 50px rgba(102, 126, 234, 0.2)',
-    borderColor: '#667eea',
+    boxShadow: '0 25px 50px rgba(0, 0, 0, 0.2)',
+    borderColor: '#000000',
     '& .overlay': {
       opacity: 1,
     },
@@ -104,7 +110,7 @@ const Overlay = styled(Box)(({ theme }) => ({
   left: 0,
   right: 0,
   bottom: 0,
-  background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.9) 0%, rgba(118, 75, 162, 0.9) 100%)',
+  background: 'linear-gradient(135deg, rgba(0, 0, 0, 0.9) 0%, rgba(26, 26, 26, 0.9) 100%)',
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
@@ -135,7 +141,7 @@ const StyledChip = styled(Chip)(({ badgetype }) => {
       color: '#ffffff',
     },
     premium: {
-      background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+      background: 'linear-gradient(135deg, #eab308 0%, #000000 100%)',
       color: '#ffffff',
     },
     new: {
@@ -275,12 +281,50 @@ const LoadingOverlay = styled(Box)({
   gap: 16,
 });
 
+// ─── Skeleton Loader ────────────────────────────────────────────
+const TemplateCardSkeleton = () => (
+  <Card
+    sx={{
+      borderRadius: 2,
+      overflow: 'hidden',
+      border: '1px solid #e2e8f0',
+      boxShadow: 'none',
+    }}
+  >
+    <Skeleton variant="rectangular" sx={{ aspectRatio: '3/4', width: '100%' }} />
+    <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between' }}>
+      <Box>
+        <Skeleton variant="text" width={120} height={24} />
+        <Skeleton variant="text" width={80} height={18} />
+      </Box>
+      <Skeleton variant="rounded" width={50} height={24} />
+    </Box>
+  </Card>
+);
+
+const FILTER_ICONS = {
+  all: ListIcon,
+  free: Sparkles,
+  premium: Crown,
+  popular: Star,
+};
+
 const FilteredTemplatesSection = () => {
   const theme = useTheme();
   const router = useRouter();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const [activeFilter, setActiveFilter] = useState('all');
 
+  // Backend data via shared templates hook
+  const {
+    templates,
+    tabFilters,
+    activeFilter,
+    loading,
+    error,
+    changeFilter,
+    toggleWishlist,
+    refresh,
+  } = useTemplates();
 
   // Modal state
   const [modalOpen, setModalOpen] = useState(false);
@@ -294,111 +338,36 @@ const FilteredTemplatesSection = () => {
   const [isNavigating, setIsNavigating] = useState(false);
   const [navigatingTemplateName, setNavigatingTemplateName] = useState('');
 
-  const [wishlist, setWishlist] = useState([]);
+  // Snackbar state
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
-  const handleToggleWishlist = (templateId, e) => {
-    e.stopPropagation();
-    setWishlist((prev) =>
-      prev.includes(templateId)
-        ? prev.filter((id) => id !== templateId)
-        : [...prev, templateId]
-    );
+  const showSnackbar = (message, severity = 'success') => {
+    setSnackbar({ open: true, message, severity });
   };
 
-  const isInWishlist = (templateId) => wishlist.includes(templateId);
+  const handleCloseSnackbar = () => {
+    setSnackbar((prev) => ({ ...prev, open: false }));
+  };
 
-
-
-  // filteredTemplates with real images - Now with proper template IDs that match CV Builder
-  const templates = [
-    {
-      id: 1,
-      name: 'Modern Creative',
-      category: 'creative',
-      image: '/templates/template4.png',
-      badges: ['popular'],
-      rating: 4.9,
-      uses: '12.5k',
-      isFree: true,
-      templateId: 4, // Maps to Template4 in CV Builder
-    },
-    {
-      id: 2,
-      name: 'Professional',
-      category: 'professional',
-      image: '/templates/template1.png',
-      badges: ['premium'],
-      rating: 4.8,
-      uses: '8.2k',
-      isFree: false,
-      templateId: 1, // Maps to Template1 in CV Builder
-    },
-    {
-      id: 3,
-      name: 'Minimal Clean',
-      category: 'ats-optimized',  // ✅ updated
-      image: '/templates/template5.png',
-      badges: ['free'],
-      rating: 4.7,
-      uses: '15.3k',
-      isFree: true,
-      templateId: 5, // Maps to Template5 in CV Builder
-    },
-    {
-      id: 4,
-      name: 'Executive',
-      category: 'executive',  // ✅ updated
-      image: '/templates/template2.png',
-      badges: ['popular', 'premium'],
-      rating: 4.9,
-      uses: '9.8k',
-      isFree: false,
-      templateId: 2, // Maps to Template2 in CV Builder
-    },
-    {
-      id: 5,
-      name: 'Fresh Graduate',
-      category: 'ats-optimized',  // ✅ updated
-      image: '/templates/template6.png',
-      badges: ['free', 'new'],
-      rating: 4.6,
-      uses: '6.1k',
-      isFree: true,
-      templateId: 6, // Maps to Template6 in CV Builder
-    },
-    {
-      id: 6,
-      name: 'Tech Pro',
-      category: 'professional',
-      image: '/templates/template3.png',
-      badges: ['premium'],
-      rating: 4.8,
-      uses: '7.4k',
-      isFree: false,
-      templateId: 3, // Maps to Template3 in CV Builder
-    },
-  ];
-
-
-
-  // ✅ Filter filteredTemplates for premium users
-  // Filtered result:
-  const displayedTemplates = isPremium
-    ? activeFilter === 'all'
-      ? templates
-      : templates.filter((t) => t.category === activeFilter)
-    : templates;
-
-
-  // const handleTabChange = (event, newValue) => {
-  //   setActiveTab(newValue);
-  // };
+  const handleToggleWishlist = async (templateId, e) => {
+    e.stopPropagation();
+    try {
+      const result = await toggleWishlist(templateId);
+      if (result?.error === 'auth_required') {
+        showSnackbar('Please log in to save templates to your wishlist', 'warning');
+        return;
+      }
+      showSnackbar(result.is_wishlisted ? 'Added to wishlist!' : 'Removed from wishlist', 'success');
+    } catch {
+      showSnackbar('Failed to update wishlist', 'error');
+    }
+  };
 
   const getBadgeLabel = (badge) => {
     const labels = {
-      popular: { label: 'Most Popular', icon: <StarIcon sx={{ fontSize: 14 }} /> },
+      popular: { label: 'Most Popular', icon: <Star size={14} /> },
       free: { label: 'Free', icon: null },
-      premium: { label: 'Premium', icon: <WorkspacePremiumIcon sx={{ fontSize: 14 }} /> },
+      premium: { label: 'Premium', icon: <Crown size={14} /> },
       new: { label: 'New', icon: null },
     };
     return labels[badge] || { label: badge, icon: null };
@@ -443,7 +412,6 @@ const FilteredTemplatesSection = () => {
 
   /**
    * Navigate to CV Builder with selected template
-   * This passes the template ID as a URL parameter
    */
   const handleUseTemplate = (template, e) => {
     e?.stopPropagation();
@@ -454,36 +422,28 @@ const FilteredTemplatesSection = () => {
       return;
     }
 
-    // Show loading state
     setIsNavigating(true);
     setNavigatingTemplateName(template.name);
 
-    // Close modal if open
     if (modalOpen) {
       handleCloseModal();
     }
 
-    // Store template selection in localStorage for persistence
-    const filteredTemplateselection = {
-      templateId: template.templateId,
-      templateName: template.name,
-      selectedAt: new Date().toISOString(),
-    };
-    localStorage.setItem('selectedTemplate', JSON.stringify(filteredTemplateselection));
+    localStorage.setItem(
+      'selectedTemplate',
+      JSON.stringify({
+        templateId: template.templateId,
+        templateName: template.name,
+        selectedAt: new Date().toISOString(),
+      })
+    );
 
-    // Navigate to CV Builder with template parameter
-    // The template parameter will be read by CV Builder to set the initial template
     setTimeout(() => {
       router.push(`/CV_Builder?template=${template.templateId}`);
-    }, 500); // Small delay for visual feedback
+    }, 500);
   };
 
-  /**
-   * Handle clicking on a template card (not the buttons)
-   * This opens the preview modal
-   */
   const handleCardClick = (template) => {
-
     // ✅ If free user clicks locked template → upgrade
     if (!isPremium && !template.isFree) {
       router.push('/upgrade');
@@ -500,12 +460,7 @@ const FilteredTemplatesSection = () => {
       {/* Loading Overlay during navigation */}
       {isNavigating && (
         <LoadingOverlay>
-          <CircularProgress
-            size={60}
-            sx={{
-              color: '#667eea',
-            }}
-          />
+          <CircularProgress size={60} sx={{ color: '#000000' }} />
           <Typography variant="h6" color="text.primary" fontWeight={600}>
             Loading {navigatingTemplateName}...
           </Typography>
@@ -514,6 +469,18 @@ const FilteredTemplatesSection = () => {
           </Typography>
         </LoadingOverlay>
       )}
+
+      {/* Snackbar for notifications */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={3000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} variant="filled" sx={{ width: '100%' }}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
 
       <StyledSection>
         <Container maxWidth="lg">
@@ -545,28 +512,25 @@ const FilteredTemplatesSection = () => {
             </Typography>
           </Box>
 
-          {/* ✅ Premium: Category Filters */}
-          {isPremium && (
-            <Box
-              sx={{
-                display: 'flex',
-                justifyContent: 'center',
-                flexWrap: 'wrap',
-                gap: 1.5,
-                mb: 4,
-              }}
-            >
-              {[
-                { label: 'All Templates', value: 'all', icon: '📋' },
-                { label: 'Professional', value: 'professional', icon: '💼' },
-                { label: 'Creative', value: 'creative', icon: '🎨' },
-                { label: 'Executive', value: 'executive', icon: '👔' },
-                { label: 'ATS-Optimized', value: 'ats-optimized', icon: '🎯' },
-              ].map((filter) => (
+          {/* Filters (backed by real templates from the API) */}
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'center',
+              flexWrap: 'wrap',
+              gap: 1.5,
+              mb: 4,
+            }}
+          >
+            {tabFilters.map((filter) => {
+              const FilterIcon = FILTER_ICONS[filter.value] || ListIcon;
+              return (
                 <Chip
                   key={filter.value}
-                  label={`${filter.icon} ${filter.label}`}
-                  onClick={() => setActiveFilter(filter.value)}
+                  icon={<FilterIcon size={14} />}
+                  label={filter.label}
+                  onClick={() => changeFilter(filter.value)}
+                  disabled={loading}
                   sx={{
                     fontWeight: 600,
                     fontSize: '0.85rem',
@@ -577,25 +541,25 @@ const FilteredTemplatesSection = () => {
                     transition: 'all 0.2s ease',
                     ...(activeFilter === filter.value
                       ? {
-                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
                         color: '#ffffff',
-                        boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)',
+                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
                       }
                       : {
                         bgcolor: '#f8fafc',
                         color: '#64748b',
                         border: '1px solid #e2e8f0',
                         '&:hover': {
-                          bgcolor: '#667eea10',
-                          borderColor: '#667eea',
-                          color: '#667eea',
+                          bgcolor: '#00000010',
+                          borderColor: '#000000',
+                          color: '#000000',
                         },
                       }),
                   }}
                 />
-              ))}
-            </Box>
-          )}
+              );
+            })}
+          </Box>
 
           {/* ✅ Free user: Info text */}
           {!isPremium && (
@@ -608,18 +572,18 @@ const FilteredTemplatesSection = () => {
                 mb: 4,
                 p: 2,
                 borderRadius: 2,
-                bgcolor: '#667eea08',
-                border: '1px solid #667eea20',
+                bgcolor: '#00000008',
+                border: '1px solid #00000020',
               }}
             >
-              <LockIcon sx={{ fontSize: 18, color: '#667eea' }} />
+              <Lock size={18} color="#000000" />
               <Typography variant="body2" color="#64748b">
                 Premium Templates are locked.{' '}
                 <Box
                   component="span"
                   onClick={() => router.push('/upgrade')}
                   sx={{
-                    color: '#667eea',
+                    color: '#000000',
                     fontWeight: 600,
                     cursor: 'pointer',
                     '&:hover': { textDecoration: 'underline' },
@@ -631,228 +595,226 @@ const FilteredTemplatesSection = () => {
             </Box>
           )}
 
-          {/* filteredTemplates Grid */}
-          <FilteredTemplatesGrid>
-            {displayedTemplates.map((template) => (
-              <TemplateCard
-                key={template.id}
-                onClick={() => handleCardClick(template)}
+          {/* ── Error State ──────────────────────────────── */}
+          {error && (
+            <Box display="flex" justifyContent="center" mb={4}>
+              <Alert
+                severity="error"
+                action={
+                  <Button color="inherit" size="small" onClick={refresh} startIcon={<RefreshCw size={16} />}>
+                    Retry
+                  </Button>
+                }
+                sx={{ maxWidth: 600, width: '100%' }}
               >
-                {/* Badges */}
-                <BadgeWrapper>
-                  {template.badges.map((badge, idx) => {
-                    const { label, icon } = getBadgeLabel(badge);
-                    return (
-                      <StyledChip
-                        key={idx}
-                        label={label}
-                        icon={icon}
-                        badgetype={badge}
-                        size="small"
-                      />
-                    );
-                  })}
-                </BadgeWrapper>
+                {error}
+              </Alert>
+            </Box>
+          )}
 
-                {/* ✅ Lock overlay for free users on premium templates */}
-                {!isPremium && !template.isFree && (
-                  <Box
-                    sx={{
-                      position: 'absolute',
-                      inset: 0,
-                      zIndex: 4,
-                      bgcolor: 'rgba(0, 0, 0, 0.45)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 1.5,
-                      cursor: 'pointer',
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      router.push('/upgrade');
-                    }}
-                  >
+          {/* ── Loading Skeletons ────────────────────────── */}
+          {loading && (
+            <FilteredTemplatesGrid>
+              {[...Array(6)].map((_, i) => (
+                <TemplateCardSkeleton key={i} />
+              ))}
+            </FilteredTemplatesGrid>
+          )}
+
+          {/* Templates Grid */}
+          {!loading && !error && templates.length > 0 && (
+            <FilteredTemplatesGrid>
+              {templates.map((template) => (
+                <TemplateCard key={template.id} onClick={() => handleCardClick(template)}>
+                  {/* Badges */}
+                  <BadgeWrapper>
+                    {(template.badges || []).map((badge, idx) => {
+                      const { label, icon } = getBadgeLabel(badge);
+                      return (
+                        <StyledChip key={idx} label={label} icon={icon} badgetype={badge} size="small" />
+                      );
+                    })}
+                  </BadgeWrapper>
+
+                  {/* ✅ Lock overlay for free users on premium templates */}
+                  {!isPremium && !template.isFree && (
                     <Box
                       sx={{
-                        width: 60,
-                        height: 60,
-                        borderRadius: '50%',
-                        bgcolor: 'rgba(255,255,255,0.15)',
-                        backdropFilter: 'blur(8px)',
+                        position: 'absolute',
+                        inset: 0,
+                        zIndex: 4,
+                        bgcolor: 'rgba(0, 0, 0, 0.45)',
                         display: 'flex',
+                        flexDirection: 'column',
                         alignItems: 'center',
                         justifyContent: 'center',
+                        gap: 1.5,
+                        cursor: 'pointer',
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        router.push('/upgrade');
                       }}
                     >
-                      <LockIcon sx={{ fontSize: 30, color: '#ffffff' }} />
+                      <Box
+                        sx={{
+                          width: 60,
+                          height: 60,
+                          borderRadius: '50%',
+                          bgcolor: 'rgba(255,255,255,0.15)',
+                          backdropFilter: 'blur(8px)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <Lock size={30} color="#ffffff" />
+                      </Box>
+                      <Typography variant="body2" fontWeight="700" color="#ffffff" sx={{ textAlign: 'center' }}>
+                        Premium Template
+                      </Typography>
+                      <Button
+                        variant="contained"
+                        size="small"
+                        sx={{
+                          bgcolor: '#ffffff',
+                          color: '#000000',
+                          fontWeight: 600,
+                          textTransform: 'none',
+                          borderRadius: 2,
+                          px: 3,
+                          '&:hover': {
+                            bgcolor: '#f0f0ff',
+                          },
+                        }}
+                      >
+                        Upgrade to Unlock
+                      </Button>
                     </Box>
-                    <Typography
-                      variant="body2"
-                      fontWeight="700"
-                      color="#ffffff"
-                      sx={{ textAlign: 'center' }}
-                    >
-                      Premium Template
-                    </Typography>
-                    <Button
-                      variant="contained"
+                  )}
+
+                  {/* Image Area */}
+                  <ImageWrapper>
+                    {/* Wishlist Button */}
+                    <WishlistButton onClick={(e) => handleToggleWishlist(template.id, e)} size="small">
+                      {template.isWishlisted ? (
+                        <Heart size={20} color="#ef4444" fill="#ef4444" />
+                      ) : (
+                        <Heart size={20} color="#64748b" />
+                      )}
+                    </WishlistButton>
+                    <TemplateImageBox className="template-image">
+                      {template.image ? (
+                        <Box
+                          component="img"
+                          src={template.image}
+                          alt={`${template.name} CV Template`}
+                          sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                        />
+                      ) : (
+                        <Box
+                          sx={{
+                            width: '100%',
+                            height: '100%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#94a3b8',
+                            fontSize: 14,
+                          }}
+                        >
+                          No Image
+                        </Box>
+                      )}
+                    </TemplateImageBox>
+
+                    {/* Hover Overlay */}
+                    <Overlay className="overlay">
+                      <Button
+                        variant="contained"
+                        size="large"
+                        endIcon={<ArrowRight size={18} />}
+                        onClick={(e) => handleUseTemplate(template, e)}
+                        sx={{
+                          background: '#ffffff',
+                          color: '#000000',
+                          fontWeight: 600,
+                          textTransform: 'none',
+                          borderRadius: 3,
+                          px: 4,
+                          py: 1.5,
+                          '&:hover': {
+                            background: '#f8fafc',
+                            transform: 'scale(1.05)',
+                          },
+                        }}
+                      >
+                        Start with this template
+                      </Button>
+                      <Button
+                        variant="outlined"
+                        size="medium"
+                        startIcon={<Eye size={18} />}
+                        onClick={(e) => handleOpenPreview(template, e)}
+                        sx={{
+                          borderColor: '#ffffff',
+                          color: '#ffffff',
+                          fontWeight: 500,
+                          textTransform: 'none',
+                          borderRadius: 3,
+                          px: 3,
+                          py: 1,
+                          '&:hover': {
+                            borderColor: '#ffffff',
+                            background: 'rgba(255,255,255,0.1)',
+                          },
+                        }}
+                      >
+                        Preview
+                      </Button>
+                    </Overlay>
+                  </ImageWrapper>
+
+                  {/* Card Footer */}
+                  <CardFooter>
+                    <Box>
+                      <Typography variant="subtitle1" fontWeight="700" color="text.primary">
+                        {template.name}
+                      </Typography>
+                      <Box display="flex" alignItems="center" gap={0.5}>
+                        <Star size={16} color="#f59e0b" />
+                        <Typography variant="body2" color="text.secondary">
+                          {template.rating} • {template.uses} uses
+                        </Typography>
+                      </Box>
+                    </Box>
+                    <Chip
+                      label={template.isFree ? 'Free' : 'Pro'}
                       size="small"
                       sx={{
-                        bgcolor: '#ffffff',
-                        color: '#667eea',
                         fontWeight: 600,
-                        textTransform: 'none',
-                        borderRadius: 2,
-                        px: 3,
-                        '&:hover': {
-                          bgcolor: '#f0f0ff',
-                        },
-                      }}
-                    >
-                      Upgrade to Unlock
-                    </Button>
-                  </Box>
-                )}
-
-                {/* Image Area */}
-                <ImageWrapper>
-                  {/* Wishlist Button */}
-                  <WishlistButton
-                    onClick={(e) => handleToggleWishlist(template.id, e)}
-                    size="small"
-                  >
-                    {isInWishlist(template.id) ? (
-                      <FavoriteIcon sx={{ color: '#ef4444', fontSize: 20 }} />
-                    ) : (
-                      <FavoriteBorderIcon sx={{ color: '#64748b', fontSize: 20 }} />
-                    )}
-                  </WishlistButton>
-                  <TemplateImageBox className="template-image">
-                    <Image
-                      src={template.image}
-                      alt={`${template.name} CV Template`}
-                      fill
-                      style={{
-                        objectFit: 'cover',
-                        objectPosition: 'top'
-                      }}
-                      sizes="(max-width: 600px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                      priority={template.id <= 3}
-                    />
-                  </TemplateImageBox>
-
-                  {/* Hover Overlay */}
-                  <Overlay className="overlay">
-                    <Button
-                      variant="contained"
-                      size="large"
-                      endIcon={<ArrowForwardIcon />}
-                      onClick={(e) => handleUseTemplate(template, e)}
-                      sx={{
-                        background: '#ffffff',
-                        color: '#667eea',
-                        fontWeight: 600,
-                        textTransform: 'none',
-                        borderRadius: 3,
-                        px: 4,
-                        py: 1.5,
-                        '&:hover': {
-                          background: '#f8fafc',
-                          transform: 'scale(1.05)',
-                        },
-                      }}
-                    >
-                      Start with this template
-                    </Button>
-                    <Button
-                      variant="outlined"
-                      size="medium"
-                      startIcon={<VisibilityIcon />}
-                      onClick={(e) => handleOpenPreview(template, e)}
-                      sx={{
-                        borderColor: '#ffffff',
+                        fontSize: '0.75rem',
+                        background: template.isFree
+                          ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                          : 'linear-gradient(135deg, #eab308 0%, #000000 100%)',
                         color: '#ffffff',
-                        fontWeight: 500,
-                        textTransform: 'none',
-                        borderRadius: 3,
-                        px: 3,
-                        py: 1,
-                        '&:hover': {
-                          borderColor: '#ffffff',
-                          background: 'rgba(255,255,255,0.1)',
-                        },
                       }}
-                    >
-                      Preview
-                    </Button>
-                  </Overlay>
-                </ImageWrapper>
+                    />
+                  </CardFooter>
+                </TemplateCard>
+              ))}
+            </FilteredTemplatesGrid>
+          )}
 
-                {/* Card Footer */}
-                <CardFooter>
-                  <Box>
-                    <Typography
-                      variant="subtitle1"
-                      fontWeight="700"
-                      color="text.primary"
-                    >
-                      {template.name}
-                    </Typography>
-                    <Box display="flex" alignItems="center" gap={0.5}>
-                      <StarIcon sx={{ fontSize: 16, color: '#f59e0b' }} />
-                      <Typography variant="body2" color="text.secondary">
-                        {template.rating} • {template.uses} uses
-                      </Typography>
-                    </Box>
-                  </Box>
-                  <Chip
-                    label={template.isFree ? 'Free' : 'Pro'}
-                    size="small"
-                    sx={{
-                      fontWeight: 600,
-                      fontSize: '0.75rem',
-                      background: template.isFree
-                        ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
-                        : 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
-                      color: '#ffffff',
-                    }}
-                  />
-                </CardFooter>
-              </TemplateCard>
-            ))}
-          </FilteredTemplatesGrid>
-
-
-          {/* View All Button */}
-          <Box display="flex" justifyContent="center" mt={6}>
-            <Link href="/cvs" passHref>
-              <Button
-                variant="outlined"
-                size="large"
-                endIcon={<ArrowForwardIcon />}
-                sx={{
-                  borderColor: '#EAB308',
-                  color: '#667eea',
-                  fontWeight: 600,
-                  textTransform: 'none',
-                  borderRadius: 3,
-                  px: 5,
-                  py: 1.5,
-                  borderWidth: 2,
-                  '&:hover': {
-                    borderWidth: 2,
-                    borderColor: '#EAB308',
-                    background: 'linear-gradient(135deg, #EAB308)',
-                    color: '#ffffff',
-                  },
-                }}
-              >
-                View All Templates
-              </Button>
-            </Link>
-          </Box>
+          {/* ── Empty State ──────────────────────────────── */}
+          {!loading && !error && templates.length === 0 && (
+            <NoResults>
+              <Typography variant="h6" gutterBottom>
+                No templates found
+              </Typography>
+              <Typography variant="body2">Try selecting a different filter.</Typography>
+            </NoResults>
+          )}
         </Container>
 
         {/* Preview Modal */}
@@ -881,7 +843,7 @@ const FilteredTemplatesSection = () => {
                         {selectedTemplate.name}
                       </Typography>
                       <Box display="flex" alignItems="center" gap={1}>
-                        <StarIcon sx={{ fontSize: 16, color: '#f59e0b' }} />
+                        <Star size={16} color="#f59e0b" />
                         <Typography variant="body2" color="text.secondary">
                           {selectedTemplate.rating} • {selectedTemplate.uses} uses
                         </Typography>
@@ -894,7 +856,7 @@ const FilteredTemplatesSection = () => {
                             height: '20px',
                             background: selectedTemplate.isFree
                               ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
-                              : 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+                              : 'linear-gradient(135deg, #eab308 0%, #000000 100%)',
                             color: '#ffffff',
                           }}
                         />
@@ -904,10 +866,10 @@ const FilteredTemplatesSection = () => {
                       <Button
                         variant="contained"
                         size="small"
-                        endIcon={<ArrowForwardIcon />}
+                        endIcon={<ArrowRight size={18} />}
                         onClick={(e) => handleUseTemplate(selectedTemplate, e)}
                         sx={{
-                          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                          background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
                           color: '#ffffff',
                           fontWeight: 600,
                           textTransform: 'none',
@@ -931,7 +893,7 @@ const FilteredTemplatesSection = () => {
                           },
                         }}
                       >
-                        <CloseIcon />
+                        <X size={20} />
                       </IconButton>
                     </Box>
                   </ModalHeader>
@@ -962,16 +924,27 @@ const FilteredTemplatesSection = () => {
                           backgroundColor: '#ffffff',
                         }}
                       >
-                        <Image
-                          src={selectedTemplate.image}
-                          alt={`${selectedTemplate.name} CV Template Preview`}
-                          fill
-                          style={{
-                            objectFit: 'contain',
-                          }}
-                          quality={100}
-                          priority
-                        />
+                        {selectedTemplate.image ? (
+                          <Box
+                            component="img"
+                            src={selectedTemplate.image}
+                            alt={`${selectedTemplate.name} CV Template Preview`}
+                            sx={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
+                          />
+                        ) : (
+                          <Box
+                            sx={{
+                              width: '100%',
+                              height: '100%',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: '#94a3b8',
+                            }}
+                          >
+                            No Preview Available
+                          </Box>
+                        )}
                       </Box>
                     </Box>
                   </ModalImageContainer>
@@ -989,7 +962,7 @@ const FilteredTemplatesSection = () => {
                         },
                       }}
                     >
-                      <ZoomOutIcon />
+                      <ZoomOut size={20} />
                     </IconButton>
 
                     <Slider
@@ -1000,12 +973,12 @@ const FilteredTemplatesSection = () => {
                       step={5}
                       sx={{
                         width: { xs: 100, sm: 200 },
-                        color: '#667eea',
+                        color: '#000000',
                         '& .MuiSlider-thumb': {
                           width: 16,
                           height: 16,
                           '&:hover': {
-                            boxShadow: '0 0 0 8px rgba(102, 126, 234, 0.16)',
+                            boxShadow: '0 0 0 8px rgba(0, 0, 0, 0.16)',
                           },
                         },
                         '& .MuiSlider-track': {
@@ -1029,7 +1002,7 @@ const FilteredTemplatesSection = () => {
                         },
                       }}
                     >
-                      <ZoomInIcon />
+                      <ZoomIn size={20} />
                     </IconButton>
 
                     <Typography
@@ -1054,7 +1027,7 @@ const FilteredTemplatesSection = () => {
                         },
                       }}
                     >
-                      <RestartAltIcon />
+                      <RotateCcw size={20} />
                     </IconButton>
 
                     {/* Mobile Use Template Button */}
@@ -1063,7 +1036,7 @@ const FilteredTemplatesSection = () => {
                       size="small"
                       onClick={(e) => handleUseTemplate(selectedTemplate, e)}
                       sx={{
-                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
                         color: '#ffffff',
                         fontWeight: 600,
                         textTransform: 'none',

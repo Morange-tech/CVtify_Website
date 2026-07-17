@@ -18,25 +18,37 @@ import {
     Switch,
     Alert,
     Snackbar,
+    CircularProgress,
 } from '@mui/material';
-import EditIcon from '@mui/icons-material/Edit';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
-import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
-import PersonIcon from '@mui/icons-material/Person';
-import LockIcon from '@mui/icons-material/Lock';
-import CreditCardIcon from '@mui/icons-material/CreditCard';
-import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
-import StarIcon from '@mui/icons-material/Star';
-import EmailIcon from '@mui/icons-material/Email';
-import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
-import ReceiptIcon from '@mui/icons-material/Receipt';
-import CancelIcon from '@mui/icons-material/Cancel';
-import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import NotificationsIcon from '@mui/icons-material/Notifications';
+import {
+    Pencil,
+    Eye,
+    EyeOff,
+    Camera,
+    User,
+    Lock,
+    CreditCard,
+    Trash2,
+    Star,
+    Mail,
+    Calendar,
+    Receipt,
+    XCircle,
+    AlertTriangle,
+    CheckCircle2,
+    Bell,
+    Settings as SettingsIcon,
+    Sparkles,
+    Rocket,
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../hooks/useAuth'; // adjust path
+import { userApi } from '../../services/api';
+
+const getErrorMessage = (err, fallback) => {
+    const firstFieldError = err?.data?.errors && Object.values(err.data.errors)[0]?.[0];
+    return firstFieldError || err?.message || fallback;
+};
 
 
 
@@ -66,11 +78,11 @@ const SectionCard = ({ children, title, icon, action }) => (
                         width: 36,
                         height: 36,
                         borderRadius: 2,
-                        bgcolor: '#667eea12',
+                        bgcolor: '#00000012',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        color: '#667eea',
+                        color: '#000000',
                     }}
                 >
                     {icon}
@@ -88,7 +100,7 @@ const SectionCard = ({ children, title, icon, action }) => (
 
 export default function SettingsPage() {
     const router = useRouter();
-    const { user, logoutMutation } = useAuth();
+    const { user, logoutMutation, updateUser } = useAuth();
     const isPremium = user?.plan === 'premium';
 
     // ─── Profile State ───
@@ -124,17 +136,38 @@ export default function SettingsPage() {
     const [cancelSubDialogOpen, setCancelSubDialogOpen] = useState(false);
     const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
+    // ─── Loading States ───
+    const [isSavingProfile, setIsSavingProfile] = useState(false);
+    const [isSavingPassword, setIsSavingPassword] = useState(false);
+    const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+    const [isCancellingSubscription, setIsCancellingSubscription] = useState(false);
+
     // ─── Snackbar ───
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
     // ─── Handlers ───
-    const handleProfileSave = () => {
-        // TODO: API call to update profile
-        setIsEditingProfile(false);
-        setSnackbar({ open: true, message: 'Profile updated successfully!', severity: 'success' });
+    const handleProfileSave = async () => {
+        if (!profileForm.name.trim()) {
+            setSnackbar({ open: true, message: 'Name is required.', severity: 'error' });
+            return;
+        }
+        setIsSavingProfile(true);
+        try {
+            const res = await userApi.updateProfile({
+                name: profileForm.name,
+                email: profileForm.email,
+            });
+            updateUser(res.user);
+            setIsEditingProfile(false);
+            setSnackbar({ open: true, message: 'Profile updated successfully!', severity: 'success' });
+        } catch (err) {
+            setSnackbar({ open: true, message: getErrorMessage(err, 'Failed to update profile.'), severity: 'error' });
+        } finally {
+            setIsSavingProfile(false);
+        }
     };
 
-    const handlePasswordChange = () => {
+    const handlePasswordChange = async () => {
         if (passwordForm.newPassword !== passwordForm.confirmPassword) {
             setSnackbar({ open: true, message: 'Passwords do not match!', severity: 'error' });
             return;
@@ -143,23 +176,48 @@ export default function SettingsPage() {
             setSnackbar({ open: true, message: 'Password must be at least 8 characters!', severity: 'error' });
             return;
         }
-        // TODO: API call to change password
-        setIsChangingPassword(false);
-        setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-        setSnackbar({ open: true, message: 'Password changed successfully!', severity: 'success' });
+        setIsSavingPassword(true);
+        try {
+            await userApi.changePassword({
+                currentPassword: passwordForm.currentPassword,
+                newPassword: passwordForm.newPassword,
+                newPasswordConfirmation: passwordForm.confirmPassword,
+            });
+            setIsChangingPassword(false);
+            setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+            setSnackbar({ open: true, message: 'Password changed successfully!', severity: 'success' });
+        } catch (err) {
+            setSnackbar({ open: true, message: getErrorMessage(err, 'Failed to change password.'), severity: 'error' });
+        } finally {
+            setIsSavingPassword(false);
+        }
     };
 
-    const handleDeleteAccount = () => {
+    const handleDeleteAccount = async () => {
         if (deleteConfirmText !== 'DELETE') return;
-        // TODO: API call to delete account
-        setDeleteDialogOpen(false);
-        logoutMutation.mutate();
+        setIsDeletingAccount(true);
+        try {
+            await userApi.deleteAccount();
+            setDeleteDialogOpen(false);
+            logoutMutation.mutate();
+        } catch (err) {
+            setSnackbar({ open: true, message: getErrorMessage(err, 'Failed to delete account.'), severity: 'error' });
+            setIsDeletingAccount(false);
+        }
     };
 
-    const handleCancelSubscription = () => {
-        // TODO: API call to cancel subscription
-        setCancelSubDialogOpen(false);
-        setSnackbar({ open: true, message: 'Subscription cancelled. Access until end of billing period.', severity: 'info' });
+    const handleCancelSubscription = async () => {
+        setIsCancellingSubscription(true);
+        try {
+            await userApi.cancelSubscription();
+            updateUser({ subscription_status: 'inactive' });
+            setCancelSubDialogOpen(false);
+            setSnackbar({ open: true, message: 'Subscription cancelled. Access until end of billing period.', severity: 'info' });
+        } catch (err) {
+            setSnackbar({ open: true, message: getErrorMessage(err, 'Failed to cancel subscription.'), severity: 'error' });
+        } finally {
+            setIsCancellingSubscription(false);
+        }
     };
 
 
@@ -167,8 +225,8 @@ export default function SettingsPage() {
         <Box sx={{ p: { xs: 2, md: 4 }, maxWidth: 900, mx: 'auto' }}>
             {/* Header */}
             <Box sx={{ mb: 4 }}>
-                <Typography variant="h4" fontWeight="700" color="#1e293b">
-                    ⚙️ Settings
+                <Typography variant="h4" fontWeight="700" color="#1e293b" sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <SettingsIcon size={32} /> Settings
                 </Typography>
                 <Typography variant="body2" color="#64748b" sx={{ mt: 0.5 }}>
                     Manage your account, security, and preferences
@@ -180,16 +238,16 @@ export default function SettingsPage() {
             {/* ═══════════════════════════════════════════ */}
             <SectionCard
                 title="Profile Information"
-                icon={<PersonIcon fontSize="small" />}
+                icon={<User size={18} />}
                 action={
                     !isEditingProfile ? (
                         <Button
                             size="small"
-                            startIcon={<EditIcon />}
+                            startIcon={<Pencil size={16} />}
                             onClick={() => setIsEditingProfile(true)}
                             sx={{
                                 textTransform: 'none',
-                                color: '#667eea',
+                                color: '#000000',
                                 fontWeight: 600,
                             }}
                         >
@@ -206,7 +264,7 @@ export default function SettingsPage() {
                             sx={{
                                 width: 72,
                                 height: 72,
-                                bgcolor: '#667eea',
+                                bgcolor: '#000000',
                                 fontSize: '1.8rem',
                                 fontWeight: 700,
                             }}
@@ -220,14 +278,14 @@ export default function SettingsPage() {
                                     position: 'absolute',
                                     bottom: -4,
                                     right: -4,
-                                    bgcolor: '#667eea',
+                                    bgcolor: '#000000',
                                     color: '#ffffff',
                                     width: 28,
                                     height: 28,
                                     '&:hover': { bgcolor: '#5a6fd6' },
                                 }}
                             >
-                                <PhotoCameraIcon sx={{ fontSize: 14 }} />
+                                <Camera size={14} />
                             </IconButton>
                         )}
                     </Box>
@@ -239,7 +297,7 @@ export default function SettingsPage() {
                             {user?.email}
                         </Typography>
                         <Chip
-                            label={isPremium ? '⭐ Premium' : 'Free Plan'}
+                            label={isPremium ? (<Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}><Sparkles size={12} /> Premium</Box>) : 'Free Plan'}
                             size="small"
                             sx={{
                                 mt: 0.5,
@@ -247,7 +305,7 @@ export default function SettingsPage() {
                                 fontSize: '0.7rem',
                                 ...(isPremium
                                     ? {
-                                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                        background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
                                         color: '#ffffff',
                                     }
                                     : {
@@ -270,16 +328,16 @@ export default function SettingsPage() {
                         InputProps={{
                             startAdornment: (
                                 <InputAdornment position="start">
-                                    <PersonIcon sx={{ color: '#94a3b8', fontSize: 20 }} />
+                                    <User size={18} color="#94a3b8" />
                                 </InputAdornment>
                             ),
                         }}
                         sx={{
                             '& .MuiOutlinedInput-root': {
                                 borderRadius: 2,
-                                '&.Mui-focused fieldset': { borderColor: '#667eea' },
+                                '&.Mui-focused fieldset': { borderColor: '#000000' },
                             },
-                            '& .MuiInputLabel-root.Mui-focused': { color: '#667eea' },
+                            '& .MuiInputLabel-root.Mui-focused': { color: '#000000' },
                         }}
                     />
 
@@ -292,16 +350,16 @@ export default function SettingsPage() {
                         InputProps={{
                             startAdornment: (
                                 <InputAdornment position="start">
-                                    <EmailIcon sx={{ color: '#94a3b8', fontSize: 20 }} />
+                                    <Mail size={18} color="#94a3b8" />
                                 </InputAdornment>
                             ),
                         }}
                         sx={{
                             '& .MuiOutlinedInput-root': {
                                 borderRadius: 2,
-                                '&.Mui-focused fieldset': { borderColor: '#667eea' },
+                                '&.Mui-focused fieldset': { borderColor: '#000000' },
                             },
-                            '& .MuiInputLabel-root.Mui-focused': { color: '#667eea' },
+                            '& .MuiInputLabel-root.Mui-focused': { color: '#000000' },
                         }}
                     />
 
@@ -319,15 +377,17 @@ export default function SettingsPage() {
                             <Button
                                 variant="contained"
                                 onClick={handleProfileSave}
+                                disabled={isSavingProfile}
+                                startIcon={isSavingProfile ? <CircularProgress size={16} color="inherit" /> : null}
                                 sx={{
                                     textTransform: 'none',
                                     fontWeight: 600,
                                     borderRadius: 2,
-                                    bgcolor: '#667eea',
+                                    bgcolor: '#000000',
                                     '&:hover': { bgcolor: '#5a6fd6' },
                                 }}
                             >
-                                Save Changes
+                                {isSavingProfile ? 'Saving...' : 'Save Changes'}
                             </Button>
                         </Box>
                     )}
@@ -339,7 +399,7 @@ export default function SettingsPage() {
             {/* ═══════════════════════════════════════════ */}
             <SectionCard
                 title="Change Password"
-                icon={<LockIcon fontSize="small" />}
+                icon={<Lock size={18} />}
                 action={
                     !isChangingPassword ? (
                         <Button
@@ -347,7 +407,7 @@ export default function SettingsPage() {
                             onClick={() => setIsChangingPassword(true)}
                             sx={{
                                 textTransform: 'none',
-                                color: '#667eea',
+                                color: '#000000',
                                 fontWeight: 600,
                             }}
                         >
@@ -394,9 +454,9 @@ export default function SettingsPage() {
                                                 }
                                             >
                                                 {showPasswords[field.showKey] ? (
-                                                    <VisibilityOffIcon sx={{ fontSize: 18 }} />
+                                                    <EyeOff size={18} />
                                                 ) : (
-                                                    <VisibilityIcon sx={{ fontSize: 18 }} />
+                                                    <Eye size={18} />
                                                 )}
                                             </IconButton>
                                         </InputAdornment>
@@ -405,9 +465,9 @@ export default function SettingsPage() {
                                 sx={{
                                     '& .MuiOutlinedInput-root': {
                                         borderRadius: 2,
-                                        '&.Mui-focused fieldset': { borderColor: '#667eea' },
+                                        '&.Mui-focused fieldset': { borderColor: '#000000' },
                                     },
-                                    '& .MuiInputLabel-root.Mui-focused': { color: '#667eea' },
+                                    '& .MuiInputLabel-root.Mui-focused': { color: '#000000' },
                                 }}
                             />
                         ))}
@@ -433,17 +493,19 @@ export default function SettingsPage() {
                                 disabled={
                                     !passwordForm.currentPassword ||
                                     !passwordForm.newPassword ||
-                                    !passwordForm.confirmPassword
+                                    !passwordForm.confirmPassword ||
+                                    isSavingPassword
                                 }
+                                startIcon={isSavingPassword ? <CircularProgress size={16} color="inherit" /> : null}
                                 sx={{
                                     textTransform: 'none',
                                     fontWeight: 600,
                                     borderRadius: 2,
-                                    bgcolor: '#667eea',
+                                    bgcolor: '#000000',
                                     '&:hover': { bgcolor: '#5a6fd6' },
                                 }}
                             >
-                                Update Password
+                                {isSavingPassword ? 'Updating...' : 'Update Password'}
                             </Button>
                         </Box>
                     </Box>
@@ -455,7 +517,7 @@ export default function SettingsPage() {
             {/* ═══════════════════════════════════════════ */}
             <SectionCard
                 title="Plan & Subscription"
-                icon={<CreditCardIcon fontSize="small" />}
+                icon={<CreditCard size={18} />}
             >
                 {/* Current Plan Display */}
                 <Box
@@ -466,8 +528,8 @@ export default function SettingsPage() {
                         p: 3,
                         borderRadius: 2,
                         border: '1px solid',
-                        borderColor: isPremium ? '#667eea40' : '#e2e8f0',
-                        bgcolor: isPremium ? '#667eea08' : '#f8fafc',
+                        borderColor: isPremium ? '#00000040' : '#e2e8f0',
+                        bgcolor: isPremium ? '#00000008' : '#f8fafc',
                         mb: 3,
                     }}
                 >
@@ -478,7 +540,7 @@ export default function SettingsPage() {
                                 height: 48,
                                 borderRadius: 2,
                                 background: isPremium
-                                    ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+                                    ? 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)'
                                     : '#e2e8f0',
                                 display: 'flex',
                                 alignItems: 'center',
@@ -486,9 +548,9 @@ export default function SettingsPage() {
                             }}
                         >
                             {isPremium ? (
-                                <StarIcon sx={{ color: '#ffffff' }} />
+                                <Star size={22} color="#ffffff" />
                             ) : (
-                                <PersonIcon sx={{ color: '#64748b' }} />
+                                <User size={22} color="#64748b" />
                             )}
                         </Box>
                         <Box>
@@ -510,9 +572,9 @@ export default function SettingsPage() {
                                 textTransform: 'none',
                                 fontWeight: 600,
                                 borderRadius: 2,
-                                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
                                 '&:hover': {
-                                    boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)',
+                                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
                                 },
                             }}
                         >
@@ -565,11 +627,9 @@ export default function SettingsPage() {
                                 key={index}
                                 sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.5 }}
                             >
-                                <CheckCircleIcon
-                                    sx={{
-                                        fontSize: 16,
-                                        color: isPremium ? '#667eea' : '#10b981',
-                                    }}
+                                <CheckCircle2
+                                    size={16}
+                                    color={isPremium ? '#000000' : '#10b981'}
                                 />
                                 <Typography variant="body2" color="#64748b">
                                     {feature}
@@ -601,7 +661,7 @@ export default function SettingsPage() {
                             }}
                         >
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                <CreditCardIcon sx={{ color: '#667eea' }} />
+                                <CreditCard size={22} color="#000000" />
                                 <Box>
                                     <Typography variant="body2" fontWeight="600" color="#1e293b">
                                         •••• •••• •••• 4242
@@ -615,7 +675,7 @@ export default function SettingsPage() {
                                 size="small"
                                 sx={{
                                     textTransform: 'none',
-                                    color: '#667eea',
+                                    color: '#000000',
                                     fontWeight: 600,
                                 }}
                             >
@@ -643,7 +703,7 @@ export default function SettingsPage() {
                                 }}
                             >
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                    <ReceiptIcon sx={{ fontSize: 16, color: '#94a3b8' }} />
+                                    <Receipt size={16} color="#94a3b8" />
                                     <Typography variant="body2" color="#1e293b">
                                         {invoice.date}
                                     </Typography>
@@ -668,7 +728,7 @@ export default function SettingsPage() {
                                         sx={{
                                             textTransform: 'none',
                                             fontSize: '0.75rem',
-                                            color: '#667eea',
+                                            color: '#000000',
                                             minWidth: 0,
                                             p: 0,
                                         }}
@@ -688,11 +748,11 @@ export default function SettingsPage() {
                                 mt: 2,
                                 p: 2,
                                 borderRadius: 2,
-                                bgcolor: '#667eea08',
-                                border: '1px solid #667eea20',
+                                bgcolor: '#00000008',
+                                border: '1px solid #00000020',
                             }}
                         >
-                            <CalendarTodayIcon sx={{ fontSize: 16, color: '#667eea' }} />
+                            <Calendar size={16} color="#000000" />
                             <Typography variant="body2" color="#64748b">
                                 Next billing date: <strong>July 18, 2025</strong> — $9.99
                             </Typography>
@@ -724,13 +784,13 @@ export default function SettingsPage() {
                             mt: 2,
                             p: 3,
                             borderRadius: 2,
-                            background: 'linear-gradient(135deg, #667eea08 0%, #764ba208 100%)',
-                            border: '1px solid #667eea20',
+                            background: 'linear-gradient(135deg, #00000008 0%, #1a1a1a08 100%)',
+                            border: '1px solid #00000020',
                             textAlign: 'center',
                         }}
                     >
-                        <Typography variant="body2" color="#64748b" sx={{ mb: 2 }}>
-                            🚀 Unlock unlimited CVs, premium templates, no watermark, and more!
+                        <Typography variant="body2" color="#64748b" sx={{ mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.75 }}>
+                            <Rocket size={16} /> Unlock unlimited CVs, premium templates, no watermark, and more!
                         </Typography>
                         <Button
                             variant="contained"
@@ -740,7 +800,7 @@ export default function SettingsPage() {
                                 fontWeight: 600,
                                 borderRadius: 2,
                                 px: 4,
-                                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
                             }}
                         >
                             Upgrade to Premium
@@ -754,7 +814,7 @@ export default function SettingsPage() {
             {/* ═══════════════════════════════════════════ */}
             <SectionCard
                 title="Notifications"
-                icon={<NotificationsIcon fontSize="small" />}
+                icon={<Bell size={18} />}
             >
                 {[
                     {
@@ -806,9 +866,9 @@ export default function SettingsPage() {
                                 }))
                             }
                             sx={{
-                                '& .MuiSwitch-switchBase.Mui-checked': { color: '#667eea' },
+                                '& .MuiSwitch-switchBase.Mui-checked': { color: '#000000' },
                                 '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                                    backgroundColor: '#667eea',
+                                    backgroundColor: '#000000',
                                 },
                             }}
                         />
@@ -850,7 +910,7 @@ export default function SettingsPage() {
                                 color: '#ef4444',
                             }}
                         >
-                            <DeleteForeverIcon fontSize="small" />
+                            <Trash2 size={18} />
                         </Box>
                         <Typography variant="h6" fontWeight="700" color="#ef4444">
                             Danger Zone
@@ -874,7 +934,7 @@ export default function SettingsPage() {
                     <Button
                         variant="outlined"
                         color="error"
-                        startIcon={<DeleteForeverIcon />}
+                        startIcon={<Trash2 size={16} />}
                         onClick={() => setDeleteDialogOpen(true)}
                         sx={{
                             textTransform: 'none',
@@ -899,7 +959,7 @@ export default function SettingsPage() {
             >
                 <DialogTitle sx={{ fontWeight: 700, color: '#ef4444' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <WarningAmberIcon />
+                        <AlertTriangle size={20} />
                         Delete Account
                     </Box>
                 </DialogTitle>
@@ -911,7 +971,7 @@ export default function SettingsPage() {
                         {['All CVs and motivation letters', 'Download history', 'Account settings', 'Subscription (if any)'].map(
                             (item, i) => (
                                 <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.5 }}>
-                                    <CancelIcon sx={{ fontSize: 16, color: '#ef4444' }} />
+                                    <XCircle size={16} color="#ef4444" />
                                     <Typography variant="body2" color="#64748b">
                                         {item}
                                     </Typography>
@@ -949,10 +1009,11 @@ export default function SettingsPage() {
                         onClick={handleDeleteAccount}
                         variant="contained"
                         color="error"
-                        disabled={deleteConfirmText !== 'DELETE'}
+                        disabled={deleteConfirmText !== 'DELETE' || isDeletingAccount}
+                        startIcon={isDeletingAccount ? <CircularProgress size={16} color="inherit" /> : null}
                         sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 600 }}
                     >
-                        Delete My Account
+                        {isDeletingAccount ? 'Deleting...' : 'Delete My Account'}
                     </Button>
                 </DialogActions>
             </Dialog>
@@ -983,7 +1044,7 @@ export default function SettingsPage() {
                         {['No watermark downloads', 'DOCX, PNG, JPG formats', 'Premium templates', 'Advanced features'].map(
                             (item, i) => (
                                 <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.3 }}>
-                                    <CancelIcon sx={{ fontSize: 14, color: '#f59e0b' }} />
+                                    <XCircle size={14} color="#f59e0b" />
                                     <Typography variant="body2" color="#92400e">
                                         {item}
                                     </Typography>
@@ -1003,7 +1064,7 @@ export default function SettingsPage() {
                             textTransform: 'none',
                             borderRadius: 2,
                             fontWeight: 600,
-                            bgcolor: '#667eea',
+                            bgcolor: '#000000',
                             '&:hover': { bgcolor: '#5a6fd6' },
                         }}
                     >
@@ -1012,9 +1073,11 @@ export default function SettingsPage() {
                     <Button
                         onClick={handleCancelSubscription}
                         color="error"
+                        disabled={isCancellingSubscription}
+                        startIcon={isCancellingSubscription ? <CircularProgress size={16} color="inherit" /> : null}
                         sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 600 }}
                     >
-                        Cancel Subscription
+                        {isCancellingSubscription ? 'Cancelling...' : 'Cancel Subscription'}
                     </Button>
                 </DialogActions>
             </Dialog>

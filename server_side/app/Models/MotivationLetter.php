@@ -15,7 +15,11 @@ class MotivationLetter extends Model
         'company',
         'position',
         'linked_cv',
+        'template_id',
         'content',
+        'sender_info',
+        'recipient_info',
+        'signature',
         'status',
         'downloads',
         'share_token',
@@ -24,6 +28,9 @@ class MotivationLetter extends Model
     protected $casts = [
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
+        'sender_info' => 'array',
+        'recipient_info' => 'array',
+        'signature' => 'array',
     ];
 
     public function user()

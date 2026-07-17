@@ -5,12 +5,15 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => [
+    'allowed_origins' => array_filter([
         'http://localhost:3000',  // Next.js dev
+        'http://localhost:3001',  // Next.js dev (fallback port)
         'https://*.ngrok-free.app',  // Allow ngrok
-    ],
+        env('FRONTEND_URL'),  // Production frontend (e.g. Vercel)
+    ]),
 
     'allowed_origins_patterns' => [
+        '#^http://localhost:\d+$#',  // Any localhost port for local dev
         '#^https://.*\.ngrok-free\.app$#',  // Pattern for ngrok
     ],
 

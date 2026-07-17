@@ -42,8 +42,8 @@ export default function ModalComponent({ open, onClose }) {
 
         {/* Advantages List */}
         {[
-          { icon: '📊', title: 'Advanced Analytics', desc: 'Track CV views, download rates & ATS scores' },
-          { icon: '🎯', title: 'Profile Strength Score', desc: 'Get a detailed breakdown of your CV quality' },
+          { icon: '📊', title: 'Advanced Analytics', desc: 'Track CV views and download rates' },
+          { icon: '🎯', title: 'Profile Strength Score', desc: 'Get a detailed breakdown of your CV completeness' },
           { icon: '🎨', title: 'Premium Templates', desc: 'Access 50+ professionally designed templates' },
           { icon: '📄', title: 'Unlimited CVs', desc: 'Create up to 100 CVs instead of 10' },
           { icon: '🤖', title: 'AI Suggestions', desc: 'Get smart tips to improve your CV content' },
@@ -66,7 +66,7 @@ export default function ModalComponent({ open, onClose }) {
                 width: 40,
                 height: 40,
                 borderRadius: 2,
-                bgcolor: '#667eea15',
+                bgcolor: '#00000015',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -114,7 +114,7 @@ export default function ModalComponent({ open, onClose }) {
           <Button
             variant="contained"
             sx={{
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
               color: '#ffffff',
               fontWeight: 700,
               textTransform: 'none',
@@ -123,7 +123,7 @@ export default function ModalComponent({ open, onClose }) {
               borderRadius: 2,
               fontSize: '0.95rem',
               '&:hover': {
-                boxShadow: '0 4px 15px rgba(102, 126, 234, 0.5)',
+                boxShadow: '0 4px 15px rgba(0, 0, 0, 0.5)',
               },
             }}
           >

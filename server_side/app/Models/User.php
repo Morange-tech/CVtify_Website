@@ -73,12 +73,12 @@ class User extends Authenticatable
 
     public function cvs()
     {
-        return $this->hasMany(Document::class)->where('type', 'cv');
+        return $this->hasMany(Cv::class);
     }
 
     public function motivationLetters()
     {
-        return $this->hasMany(Document::class)->where('type', 'motivation_letter');
+        return $this->hasMany(MotivationLetter::class);
     }
 
     public function wishlistedTemplates()
@@ -89,7 +89,7 @@ class User extends Authenticatable
 
     public function wishlistedMotivationTemplates()
     {
-        return $this->belongsToMany(MotivationTemplate::class, 'motivation_template_wishlists')
+        return $this->belongsToMany(MotivationLetterTemplate::class, 'motivation_template_wishlists', 'user_id', 'motivation_template_id')
             ->withTimestamps();
     }
 

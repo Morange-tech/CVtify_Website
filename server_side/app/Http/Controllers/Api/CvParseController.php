@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Services\GroqService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Spatie\PdfToText\Pdf;
@@ -11,7 +13,7 @@ use PhpOffice\PhpWord\IOFactory;
 
 class CvParseController extends Controller
 {
-    public function parse(Request $request)
+    public function parse(Request $request, GroqService $groq)
     {
         $request->validate([
             'file' => 'required|file|max:10240|mimes:pdf,docx',
@@ -37,10 +39,51 @@ class CvParseController extends Controller
                 default => throw new \RuntimeException('Unsupported file type'),
             };
 
-            return response()->json($this->structureCvText($text));
+            if (!$this->looksLikeCv($text)) {
+                return response()->json([
+                    'message' => "Ce document ne ressemble pas à un CV. Veuillez importer un CV valide (PDF ou DOCX).",
+                ], 422);
+            }
+
+            $result = $this->tryAiParse($text, $groq) ?? $this->structureCvText($text);
+
+            return response()->json($result);
         } finally {
             Storage::disk($disk)->delete($tmpPath);
         }
+    }
+
+    /**
+     * Heuristic check that the uploaded document is actually a CV: it must contain
+     * enough text and either contact details (email/phone) or several CV-shaped
+     * section headings (experience, education, skills, etc.).
+     */
+    private function looksLikeCv(string $text): bool
+    {
+        $text = trim($text);
+
+        if (mb_strlen($text) < 100) {
+            return false;
+        }
+
+        $hasContactInfo = (bool) preg_match('/[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}/i', $text)
+            || (bool) preg_match('/(\+?\d[\d\-\s().]{7,}\d)/', $text);
+
+        $cvKeywords = [
+            'experience', 'expérience', 'education', 'formation', 'skills', 'compétences',
+            'profile', 'profil', 'summary', 'résumé', 'employment', 'work experience',
+            'languages', 'langues', 'curriculum vitae',
+        ];
+
+        $lower = mb_strtolower($text);
+        $keywordHits = 0;
+        foreach ($cvKeywords as $keyword) {
+            if (str_contains($lower, $keyword)) {
+                $keywordHits++;
+            }
+        }
+
+        return $hasContactInfo || $keywordHits >= 2;
     }
 
     private function extractPdfText(string $path): string
@@ -113,6 +156,188 @@ class CvParseController extends Controller
             'languages' => $this->parseLanguages($sections['languages'] ?? ''),
             'interests' => $this->parseInterests($sections['interests'] ?? ''),
         ];
+    }
+
+    private function tryAiParse(string $text, GroqService $groq): ?array
+    {
+        // The Groq call can take up to 45s; make sure PHP's max_execution_time
+        // doesn't kill the request before the fallback path gets a chance to run.
+        set_time_limit(60);
+
+        try {
+            return $this->structureCvTextWithAi($text, $groq);
+        } catch (\Throwable $e) {
+            Log::warning('AI CV parsing failed, falling back to regex parser: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    private function structureCvTextWithAi(string $text, GroqService $groq): array
+    {
+        $truncated = mb_substr(trim($text), 0, 12000);
+
+        $userPrompt = "Extract structured data from the following CV/resume text and return it as a single JSON "
+            . "object matching the schema described in your instructions. CV text follows between the markers.\n\n"
+            . "---BEGIN CV TEXT---\n{$truncated}\n---END CV TEXT---";
+
+        $data = $groq->generateJson($this->aiExtractionSystemPrompt(), $userPrompt, maxTokens: 4000, timeout: 45);
+
+        return $this->normalizeAiResult($data);
+    }
+
+    private function aiExtractionSystemPrompt(): string
+    {
+        return <<<'PROMPT'
+You are a CV/resume parsing engine. Extract structured data from the raw CV text the user provides.
+
+Respond with JSON only: a single valid JSON object, no markdown code fences, no commentary. It must match
+exactly this schema (every key must always be present):
+
+{
+  "personalInfo": {"firstName": "", "lastName": "", "email": "", "phoneNumber": "", "website": ""},
+  "profile": "",
+  "education": [{"education": "", "school": "", "city": "", "startMonth": "", "startYear": "", "endMonth": "", "endYear": "", "isPresent": false, "description": ""}],
+  "experience": [{"position": "", "employer": "", "city": "", "startMonth": "", "startYear": "", "endMonth": "", "endYear": "", "isPresent": false, "description": ""}],
+  "skills": [{"skill": "", "level": ""}],
+  "languages": [{"language": "", "level": ""}],
+  "interests": [{"interest": ""}],
+  "courses": [{"course": "", "month": "", "year": "", "isPresent": false, "description": ""}],
+  "internships": [{"position": "", "employer": "", "city": "", "startMonth": "", "startYear": "", "endMonth": "", "endYear": "", "isPresent": false, "description": ""}],
+  "extracurricular": [{"position": "", "employer": "", "city": "", "startMonth": "", "startYear": "", "endMonth": "", "endYear": "", "isPresent": false, "description": ""}],
+  "references": [{"name": "", "company": "", "city": "", "phone": "", "email": ""}],
+  "qualities": [{"quality": ""}],
+  "certificates": [{"certificate": "", "month": "", "year": "", "isPresent": false, "description": ""}],
+  "achievements": [{"description": ""}]
+}
+
+Rules:
+- Use only information present in the text. Never invent facts, dates, employers, or schools.
+- If a field is unknown, use an empty string ("") — never null, never omit the key.
+- If a whole section has no entries in the CV, return it as an empty array [], not omitted.
+- Month fields are two-digit strings "01"-"12" when known, else "".
+- Year fields are 4-digit year strings when known, else "". Do not guess a month/year you are not confident about.
+- isPresent is true only when the entry explicitly says the role/education is ongoing ("present", "current",
+  "ongoing", or an equivalent phrase in any language), otherwise false.
+- languages[].level must be one of "01" (beginner), "02" (intermediate), "03" (good), "04" (very good),
+  "05" (fluent), "06" (native/mother tongue) — map the CV's own wording (in any language) to this scale by
+  meaning, or use "" if unstated.
+- profile is a short plain-text paragraph (no HTML tags) summarizing the candidate, or "" if there is no
+  summary/profile section.
+- Preserve the original language of the CV — do not translate any extracted text.
+PROMPT;
+    }
+
+    private function normalizeAiResult(array $data): array
+    {
+        return [
+            'personalInfo' => $this->normalizePersonalInfo($data['personalInfo'] ?? []),
+            'profile' => $this->normalizeProfile($data['profile'] ?? ''),
+            'education' => $this->normalizeListSection($data['education'] ?? null, $this->sectionSchema('education')),
+            'experience' => $this->normalizeListSection($data['experience'] ?? null, $this->sectionSchema('experience')),
+            'skills' => $this->normalizeListSection($data['skills'] ?? null, $this->sectionSchema('skills')),
+            'languages' => $this->normalizeListSection($data['languages'] ?? null, $this->sectionSchema('languages')),
+            'interests' => $this->normalizeListSection($data['interests'] ?? null, $this->sectionSchema('interests')),
+            'courses' => $this->normalizeListSection($data['courses'] ?? null, $this->sectionSchema('courses')),
+            'internships' => $this->normalizeListSection($data['internships'] ?? null, $this->sectionSchema('internships')),
+            'extracurricular' => $this->normalizeListSection($data['extracurricular'] ?? null, $this->sectionSchema('extracurricular')),
+            'references' => $this->normalizeListSection($data['references'] ?? null, $this->sectionSchema('references')),
+            'qualities' => $this->normalizeListSection($data['qualities'] ?? null, $this->sectionSchema('qualities')),
+            'certificates' => $this->normalizeListSection($data['certificates'] ?? null, $this->sectionSchema('certificates')),
+            'achievements' => $this->normalizeListSection($data['achievements'] ?? null, $this->sectionSchema('achievements')),
+        ];
+    }
+
+    /**
+     * Field map per section, keyed by exact frontend field name. Used to rebuild AI
+     * output key-by-key so hallucinated/malformed shapes can never leak to the client.
+     */
+    private function sectionSchema(string $section): array
+    {
+        $personEntry = [
+            'position' => 'string', 'employer' => 'string', 'city' => 'string',
+            'startMonth' => 'month', 'startYear' => 'year', 'endMonth' => 'month', 'endYear' => 'year',
+            'isPresent' => 'bool', 'description' => 'string',
+        ];
+
+        return match ($section) {
+            'education' => [
+                'education' => 'string', 'school' => 'string', 'city' => 'string',
+                'startMonth' => 'month', 'startYear' => 'year', 'endMonth' => 'month', 'endYear' => 'year',
+                'isPresent' => 'bool', 'description' => 'string',
+            ],
+            'experience', 'internships', 'extracurricular' => $personEntry,
+            'skills' => ['skill' => 'string', 'level' => 'string'],
+            'languages' => ['language' => 'string', 'level' => 'langlevel'],
+            'interests' => ['interest' => 'string'],
+            'courses' => ['course' => 'string', 'month' => 'month', 'year' => 'year', 'isPresent' => 'bool', 'description' => 'string'],
+            'certificates' => ['certificate' => 'string', 'month' => 'month', 'year' => 'year', 'isPresent' => 'bool', 'description' => 'string'],
+            'references' => ['name' => 'string', 'company' => 'string', 'city' => 'string', 'phone' => 'string', 'email' => 'string'],
+            'qualities' => ['quality' => 'string'],
+            'achievements' => ['description' => 'string'],
+            default => [],
+        };
+    }
+
+    private function normalizeListSection(mixed $items, array $schema): array
+    {
+        if (!is_array($items) || empty($schema) || !array_is_list($items)) {
+            return [];
+        }
+
+        $out = [];
+        foreach (array_slice($items, 0, 50) as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+
+            $row = [];
+            $hasContent = false;
+            foreach ($schema as $key => $type) {
+                $row[$key] = $this->coerce($item[$key] ?? '', $type);
+                if ($type !== 'bool' && $row[$key] !== '') {
+                    $hasContent = true;
+                }
+            }
+
+            if ($hasContent) {
+                $out[] = $row;
+            }
+        }
+
+        return $out;
+    }
+
+    private function coerce(mixed $value, string $type): string|bool
+    {
+        return match ($type) {
+            'bool' => filter_var($value, FILTER_VALIDATE_BOOLEAN),
+            'month' => (is_string($value) && preg_match('/^(0[1-9]|1[0-2])$/', $value)) ? $value : '',
+            'year' => (is_string($value) && preg_match('/^(19|20)\d{2}$/', $value)) ? $value : '',
+            'langlevel' => (is_string($value) && preg_match('/^0[1-6]$/', $value)) ? $value : '',
+            default => is_scalar($value) ? trim((string) $value) : '',
+        };
+    }
+
+    private function normalizePersonalInfo(mixed $raw): array
+    {
+        if (!is_array($raw)) {
+            $raw = [];
+        }
+
+        return array_filter([
+            'firstName' => $this->coerce($raw['firstName'] ?? '', 'string'),
+            'lastName' => $this->coerce($raw['lastName'] ?? '', 'string'),
+            'email' => $this->coerce($raw['email'] ?? '', 'string'),
+            'phoneNumber' => $this->coerce($raw['phoneNumber'] ?? '', 'string'),
+            'website' => $this->coerce($raw['website'] ?? '', 'string'),
+        ], fn($v) => $v !== '');
+    }
+
+    private function normalizeProfile(mixed $raw): ?string
+    {
+        $text = is_scalar($raw) ? trim(strip_tags((string) $raw)) : '';
+
+        return $text !== '' ? '<p>' . e($text) . '</p>' : null;
     }
 
     private function splitName(string $fullName): array

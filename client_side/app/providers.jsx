@@ -4,6 +4,7 @@ import { AppRouterCacheProvider } from "@mui/material-nextjs/v15-appRouter";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
 import { AuthProvider } from './context/AuthContext';
+import { LanguageProvider } from './context/LanguageContext';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
 import { SessionProvider } from 'next-auth/react';
@@ -12,7 +13,7 @@ import { SessionProvider } from 'next-auth/react';
 const materialTheme = createTheme({
   palette: {
     primary: {
-      main: "#1976d2",
+      main: "#000000",
     },
   },
 });
@@ -33,9 +34,11 @@ export default function Providers({ children }) {
         <CssBaseline />
         <SessionProvider>
           <QueryClientProvider client={queryClient}>
-            <AuthProvider>
-              {children}
-            </AuthProvider>
+            <LanguageProvider>
+              <AuthProvider>
+                {children}
+              </AuthProvider>
+            </LanguageProvider>
           </QueryClientProvider>
         </SessionProvider>
       </ThemeProvider>

@@ -19,6 +19,7 @@ import {
     Alert,
     Chip,
     Collapse,
+    CircularProgress,
     styled,
     keyframes
 } from '@mui/material';
@@ -27,6 +28,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import AddIcon from '@mui/icons-material/Add';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import { useAiAssist } from '../../hooks/useAiAssist';
 
 const ReactQuill = dynamic(
     () => import("react-quill-new"),
@@ -117,6 +119,11 @@ const ExperienceSection = ({ cvData, setCvData }) => {
     const [descriptionCharCount, setDescriptionCharCount] = useState(0);
     const [isDescriptionOverLimit, setIsDescriptionOverLimit] = useState(false);
     const [isShaking, setIsShaking] = useState(false);
+    const { generateText, isGenerating } = useAiAssist();
+
+    const now = new Date();
+    const currentMonth = String(now.getMonth() + 1).padStart(2, "0");
+    const currentYear = now.getFullYear();
 
     // Use ref to avoid re-render loops
     const lastValidDescriptionRef = useRef('');
@@ -172,6 +179,22 @@ const ExperienceSection = ({ cvData, setCvData }) => {
     const countCharacters = useCallback((html) => {
         return getPlainText(html).length;
     }, [getPlainText]);
+
+    const handleAiGenerate = async () => {
+        const existingText = getPlainText(currentExperience.description);
+        const html = await generateText({
+            contentType: 'experience',
+            mode: existingText ? 'improve' : 'generate',
+            existingText,
+            context: {
+                position: currentExperience.position,
+                employer: currentExperience.employer,
+                city: currentExperience.city,
+            },
+            maxLength: MAX_DESCRIPTION_CHARS,
+        });
+        setCurrentExperience(prev => ({ ...prev, description: html }));
+    };
 
     // Update character count when description changes
     useEffect(() => {
@@ -541,9 +564,11 @@ const ExperienceSection = ({ cvData, setCvData }) => {
 
                 {/* Action Buttons */}
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    {/* <Button
+                    <Button
                         variant="contained"
-                        startIcon={<AutoFixHighIcon />}
+                        startIcon={isGenerating ? <CircularProgress size={16} color="inherit" /> : <AutoFixHighIcon />}
+                        onClick={handleAiGenerate}
+                        disabled={isGenerating}
                         sx={{
                             '& .MuiButton-startIcon': {
                                 transition: 'transform 0.3s ease',
@@ -553,8 +578,8 @@ const ExperienceSection = ({ cvData, setCvData }) => {
                             },
                         }}
                     >
-                        AI Suggestions
-                    </Button> */}
+                        {isGenerating ? 'Génération...' : 'AI Suggestions'}
+                    </Button>
 
                     <Stack direction="row" spacing={2} alignItems="center">
                         <IconButton
@@ -598,7 +623,7 @@ const ExperienceSection = ({ cvData, setCvData }) => {
                             <Typography variant="body2" color="text.secondary">
                                 {exp.startMonth && `${exp.startMonth}/`}{exp.startYear || 'Start'}
                                 {' - '}
-                                {exp.isPresent ? 'Present' : `${exp.endMonth && `${exp.endMonth}/`}${exp.endYear || 'End'}`}
+                                {exp.isPresent ? `${currentMonth}-${currentYear}` : `${exp.endMonth && `${exp.endMonth}/`}${exp.endYear || 'End'}`}
                             </Typography>
                         </>
                     )}

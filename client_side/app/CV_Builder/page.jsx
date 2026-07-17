@@ -58,6 +58,8 @@ import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import ListItemText from "@mui/material/ListItemText";
+import { ArrowLeft } from "lucide-react";
+import {useAuth} from "../hooks/useAuth";
 import {
     Dialog,
     DialogTitle,
@@ -67,12 +69,7 @@ import {
 } from "@mui/material";
 
 // Template Imports
-import Template1 from "../components/templates/Template1";
-import Template2 from "../components/templates/Template2";
-import Template3 from "../components/templates/Template3";
-import Template4 from "../components/templates/Template4";
-// import Template5 from "../../public/templates/template5";
-import Template6 from "../components/templates/Template6";
+import { templateComponents } from "../lib/templateComponents";
 
 // Component Imports
 import PersonalInfoForm from "../components/CV_Sections/PersonalInfoForm";
@@ -85,6 +82,7 @@ import InterestsSection from "../components/CV_Sections/InterestsSection";
 import AdditionalSectionForm from "../components/CV_Sections/AdditionalSectionForm";
 import { useCvBuilderApi } from "../lib/useCvBuilderApi";
 import { useSectionMenu } from "../hooks/useSectionMenu";
+import useDownloads from "../hooks/useDownloads";
 
 
 const ReactQuill = dynamic(
@@ -134,7 +132,10 @@ const rotate = keyframes`
     }
 `;
 
-
+// A4 sheet size at 96dpi, used to scale the preview to fit its container
+// and to figure out how many pages the current content spans.
+const CV_PAGE_WIDTH_PX = 794; // ~210mm
+const CV_PAGE_HEIGHT_PX = 1123; // ~297mm
 
 // =============================================
 // STYLED COMPONENTS
@@ -181,6 +182,7 @@ const SidebarContainer = styled(Box)(({ theme }) => ({
         width: '50%',
     },
 }));
+
 
 const PreviewContainer = styled(Box)(({ theme }) => ({
     width: '100%',
@@ -247,11 +249,13 @@ const AdditionalSectionCard = styled(Box, {
 const TemplatePreviewWrapper = styled(Box)(({ theme }) => ({
     flex: 1,
     overflowY: 'auto',
+    overflowX: 'hidden',
     backgroundColor: theme.palette.grey[200],
     borderRadius: `${theme.shape.borderRadius * 2}px ${theme.shape.borderRadius * 2}px 0 0`,
     padding: theme.spacing(2),
     display: 'flex',
     justifyContent: 'center',
+    alignItems: 'flex-start',
     '&::-webkit-scrollbar': {
         width: 8,
     },
@@ -274,6 +278,7 @@ const CVPrintRoot = styled(Box)(({ theme }) => ({
     position: 'relative',
     boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
 }));
+
 
 const ActionButtonsContainer = styled(Box)(({ theme }) => ({
     padding: theme.spacing(2),
@@ -323,6 +328,7 @@ const ErrorIconWrapper = styled(Box)(({ theme }) => ({
     marginBottom: theme.spacing(2),
 }));
 
+
 const LoadingContainer = styled(Box)(({ theme }) => ({
     minHeight: '100vh',
     background: 'linear-gradient(135deg, #e3f2fd 0%, #c5cae9 100%)',
@@ -357,12 +363,20 @@ const LoadingRing = styled(Box, {
 
 
 // =============================================
+// LOCAL DRAFT PERSISTENCE (survives page refresh)
+// =============================================
+const CV_DRAFT_PREFIX = "cvtify_cv_draft_";
+const getCvDraftKey = (id) => `${CV_DRAFT_PREFIX}${id || "new"}`;
+
+// =============================================
 // MAIN COMPONENT
 // =============================================
 const CvBuilder = () => {
     const router = useRouter();
     const searchParams = useSearchParams();
     const theme = useTheme();
+    const { getCv, createCv, updateCv, parseCvFile } = useCvBuilderApi();
+    const { createDownloadHistory } = useDownloads({ autoFetch: false });
 
     const {
         sectionMenuAnchor,
@@ -372,15 +386,15 @@ const CvBuilder = () => {
         sectionPageBreak,
         openSectionMenu,
         closeSectionMenu,
-        renameSection,
-        togglePageBreak,
-        setColumn,
-        openRenameDialog,  // ✅ MUST BE HERE
-        confirmRename,     // ✅ MUST BE HERE
+        openRenameDialog,
+        confirmRename,
+        closeRenameDialog,     // ✅ add this too
         renameOpen,
         renameValue,
+        setRenameValue,        // ✅ ADD THIS
+        togglePageBreak,
+        setColumn,
         clearSectionLayout,
-        setRenameValue,
     } = useSectionMenu();
 
     // =============================================
@@ -393,13 +407,15 @@ const CvBuilder = () => {
     const [showErrorModal, setShowErrorModal] = useState(false);
     const [errorMessage, setErrorMessage] = useState("");
     const [loadingProgress, setLoadingProgress] = useState(0);
+    const { token, loading, isAuthenticated } = useAuth();
 
     const urlTemplateId = searchParams.get("template");
     const cvIdParam = searchParams.get("id");
 
-    const [cvId, setCvId] = useState(cvIdParam || null);
+    const [cvId, setCvId] = useState(cvIdParam && /^\d+$/.test(cvIdParam) ? cvIdParam : null);
     const [selectedTemplateId, setSelectedTemplateId] = useState(urlTemplateId || "1");
     const [selectedSection, setSelectedSection] = useState(null);
+    const draftSaveTimerRef = useRef(null);
 
     const [cvData, setCvData] = useState({
         personalInfo: {
@@ -462,6 +478,7 @@ const CvBuilder = () => {
     const [showEducationForm, setShowEducationForm] = useState(true);
     const [editingIndex, setEditingIndex] = useState(null);
 
+    const downloadButtonRef = useRef(null);
 
 
 
@@ -507,13 +524,12 @@ const CvBuilder = () => {
 
             // additional sections (string IDs like "courses", "certificates"...)
             if (typeof target === "string") {
-                next[target] = [];
+                const key = target === "custom" ? "customSections" : target;
+                next[key] = [];
             }
 
             return next;
         });
-
-        clearSectionLayout(target);
 
         closeSectionMenu();
     };
@@ -548,6 +564,11 @@ const CvBuilder = () => {
     const canvasRef = useRef(null);
     const cvPreviewRef = useRef(null);
     const cvPrintRef = useRef(null);
+
+    // Scale the A4 preview to fit the available width (no horizontal scroll)
+    const [previewScale, setPreviewScale] = useState(1);
+    // Number of A4 sheets the current content spans, for the page-break overlay
+    const [cvPageCount, setCvPageCount] = useState(1);
 
     // =============================================
     // CONSTANTS
@@ -585,6 +606,12 @@ const CvBuilder = () => {
 
     const selectedTemplate = templates.find((template) => template.id === Number(selectedTemplateId));
 
+    const headerTitle = (() => {
+        const { firstName, lastName } = cvData.personalInfo;
+        const name = [firstName, lastName].filter(Boolean).join(" ");
+        return name ? `${name} – CV` : "Mon CV";
+    })();
+
     const quillModules = {
         toolbar: [
             [{ header: [1, 2, 3, false] }],
@@ -595,6 +622,72 @@ const CvBuilder = () => {
             ["clean"],
         ],
     };
+
+    const handleDownloadMenuOpen = (event) => {
+        setDownloadAnchorEl(event.currentTarget);
+    };
+
+    const handleDownloadMenuClose = () => {
+        setDownloadAnchorEl(null);
+    };
+
+    const handleDownloadPDF = () => {
+        handleDownloadCV(); // your existing PDF function
+        handleDownloadMenuClose();
+    };
+
+const handleDownloadDOCX = async () => {
+    try {
+
+        let idToUse = cvId;
+
+        // ✅ If CV not saved yet, save it first
+        if (!idToUse) {
+            const response = await handleSaveCv();
+            idToUse = response?.id;
+        }
+
+        if (!idToUse) {
+            showError("Please save your CV before downloading.");
+            return;
+        }
+
+        const response = await fetch(
+            `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/cvs/${idToUse}/export-docx`,
+            {
+                method: "GET",
+                headers: {
+                    Authorization: `Bearer ${localStorage.getItem("token")}`
+                }
+            }
+        );
+
+        if (!response.ok) throw new Error("DOCX export failed");
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "CV.docx";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+
+        window.URL.revokeObjectURL(url);
+
+        createDownloadHistory({
+            type: 'cv',
+            downloadableId: Number(idToUse),
+            format: 'DOCX',
+        }).catch(() => {});
+
+    } catch (err) {
+        showError("Failed to download DOCX");
+    }
+
+    handleDownloadMenuClose();
+};
 
     const quillFormats = ["header", "bold", "italic", "underline", "strike", "list", "link", "align"];
 
@@ -652,8 +745,17 @@ const CvBuilder = () => {
     };
 
     const removeAdditionalSection = (sectionId) => {
-        setActiveAdditionalSections(prev => ({ ...prev, [sectionId]: false }));
-        setCvData(prev => ({ ...prev, [sectionId]: [] }));
+        const key = sectionId === "custom" ? "customSections" : sectionId;
+
+        setCvData(prev => ({
+            ...prev,
+            [key]: []
+        }));
+
+        setActiveAdditionalSections(prev => ({
+            ...prev,
+            [sectionId]: false
+        }));
     };
 
     const toggleAdditionalSection = (sectionId) => {
@@ -671,7 +773,7 @@ const CvBuilder = () => {
             achievements: ['description'],
             signature: ['date'],
             footer: ['description'],
-            custom: ['']
+            custom: []
         };
         const fields = requiredFields[sectionId] || ['title'];
 
@@ -697,7 +799,12 @@ const CvBuilder = () => {
             id: `${sectionId}-${crypto.randomUUID().toString(36).substr(2, 9)}`
         };
 
-        setCvData(prev => ({ ...prev, [sectionId]: [...prev[sectionId], itemToAdd] }));
+        const key = sectionId === "custom" ? "customSections" : sectionId;
+
+        setCvData(prev => ({
+            ...prev,
+            [key]: [...(prev[key] || []), itemToAdd]
+        }));
         setCurrentAdditionalSection({ id: sectionId, title: "", description: "", ...getDefaultFields(sectionId) });
         setShowAdditionalForm(prev => ({ ...prev, [sectionId]: false }));
         setEditingAdditionalIndex(null);
@@ -706,9 +813,10 @@ const CvBuilder = () => {
 
     const updateAdditionalSection = (sectionId, index) => {
         setCvData(prev => {
-            const updated = [...prev[sectionId]];
+            const key = sectionId === "custom" ? "customSections" : sectionId;
+            const updated = [...prev[key]];
             updated[index] = { ...currentAdditionalSection, id: currentAdditionalSection.id || `${sectionId}-${crypto.randomUUID()}` };
-            return { ...prev, [sectionId]: updated };
+            return { ...prev, [key]: updated };
         });
         setEditingAdditionalIndex(null);
         setCurrentAdditionalSection({ id: sectionId, title: "", description: "", ...getDefaultFields(sectionId) });
@@ -716,7 +824,12 @@ const CvBuilder = () => {
     };
 
     const removeFromAdditionalSection = (sectionId, index) => {
-        setCvData(prev => ({ ...prev, [sectionId]: prev[sectionId].filter((_, i) => i !== index) }));
+        const key = sectionId === "custom" ? "customSections" : sectionId;
+
+        setCvData(prev => ({
+            ...prev,
+            [key]: prev[key].filter((_, i) => i !== index)
+        }));
     };
 
     // =============================================
@@ -912,6 +1025,9 @@ const CvBuilder = () => {
         }, 400);
     };
 
+    const [downloadAnchorEl, setDownloadAnchorEl] = useState(null);
+
+
     // In CvBuilder.jsx - Update the initialization logic
 
     // Add this useEffect to read the template from URL on mount
@@ -927,13 +1043,10 @@ const CvBuilder = () => {
                 try {
                     const storedSelection = localStorage.getItem('selectedTemplate');
                     if (storedSelection) {
-                        const parsed = JSON.parse(storedSelection);
-                        console.log('Template selected:', parsed.templateName);
-                        // Clear after reading to avoid stale data
-                        // localStorage.removeItem('selectedTemplate');
+                        JSON.parse(storedSelection);
                     }
                 } catch (e) {
-                    console.log('No stored template selection');
+                    // No stored template selection – ignore
                 }
             }
 
@@ -949,15 +1062,40 @@ const CvBuilder = () => {
     // =============================================
     useEffect(() => {
         const fetchCvData = async () => {
+            // Recover any unsaved edits left over from before a refresh
+            let draftCvData = null;
+            let draftTemplateId = null;
+            try {
+                const draftRaw = localStorage.getItem(getCvDraftKey(cvId));
+                if (draftRaw) {
+                    const draft = JSON.parse(draftRaw);
+                    draftCvData = draft?.cvData || null;
+                    draftTemplateId = draft?.selectedTemplateId || null;
+                }
+            } catch (e) {
+                // Corrupt/unavailable draft — ignore and continue as normal
+            }
+
             if (!cvId) {
+                if (draftCvData) {
+                    setCvData(prev => ({
+                        ...prev,
+                        ...draftCvData,
+                        personalInfo: { ...prev.personalInfo, ...draftCvData.personalInfo },
+                    }));
+                }
+                if (draftTemplateId) setSelectedTemplateId(draftTemplateId);
                 setIsDataLoaded(true);
                 return;
             }
 
             try {
-                const fetchedData = await getCv(cvId);
+                const fetchedData = (await getCv(cvId))?.cv || {};
+                const mergedData = { ...fetchedData, ...draftCvData };
 
-                if (fetchedData.template_id) {
+                if (draftTemplateId) {
+                    setSelectedTemplateId(draftTemplateId);
+                } else if (fetchedData.template_id) {
                     setSelectedTemplateId(String(fetchedData.template_id));
                 }
 
@@ -969,7 +1107,7 @@ const CvBuilder = () => {
                 ];
 
                 additionalKeys.forEach(key => {
-                    if (fetchedData[key] && fetchedData[key].length > 0) {
+                    if (mergedData[key] && mergedData[key].length > 0) {
                         newActiveSections[key] = true;
                         setExpandedAdditionalSections(prev => ({ ...prev, [key]: true }));
                     }
@@ -978,23 +1116,37 @@ const CvBuilder = () => {
 
                 setCvData(prev => ({
                     ...prev,
-                    ...fetchedData,
-                    personalInfo: { ...prev.personalInfo, ...fetchedData.personalInfo }
+                    ...mergedData,
+                    personalInfo: { ...prev.personalInfo, ...fetchedData.personalInfo, ...draftCvData?.personalInfo }
                 }));
 
                 setIsDataLoaded(true);
 
             } catch (error) {
-                console.error("Failed to fetch CV:", error);
                 setIsDataLoaded(true);
-                if (error.response?.status !== 401) {
-                    showError("Could not load CV data. Please check your connection or try again.");
-                }
+                showError(error?.message || "Could not load CV data. Please check your connection or try again.");
             }
         };
 
         fetchCvData();
-    }, [cvId]);
+    }, [cvId, getCv]);
+
+    // Debounced local backup of unsaved edits, so a refresh never loses data
+    useEffect(() => {
+        if (!isDataLoaded) return;
+        if (draftSaveTimerRef.current) clearTimeout(draftSaveTimerRef.current);
+        draftSaveTimerRef.current = setTimeout(() => {
+            try {
+                localStorage.setItem(
+                    getCvDraftKey(cvId),
+                    JSON.stringify({ cvData, selectedTemplateId, savedAt: Date.now() })
+                );
+            } catch (e) {
+                // localStorage unavailable/full — unsaved-draft backup is best-effort
+            }
+        }, 600);
+        return () => clearTimeout(draftSaveTimerRef.current);
+    }, [cvData, selectedTemplateId, cvId, isDataLoaded]);
 
     useEffect(() => {
         if (recentlyUpdatedSections.length > 0) {
@@ -1059,10 +1211,40 @@ const CvBuilder = () => {
     }, []);
 
     // =============================================
+    // SCALE PREVIEW TO FIT CONTAINER (no horizontal scroll)
+    // =============================================
+    useEffect(() => {
+        const el = cvPreviewRef.current;
+        if (!el) return;
+        const compute = () => setPreviewScale(Math.min(1, (el.clientWidth - 32) / CV_PAGE_WIDTH_PX));
+        compute();
+        const ro = new ResizeObserver(compute);
+        ro.observe(el);
+        return () => ro.disconnect();
+    }, []);
+
+    // =============================================
+    // A4 PAGE COUNT (drives the "next page" divider overlay)
+    // =============================================
+    useEffect(() => {
+        const el = cvPrintRef.current;
+        if (!el) return;
+        const compute = () => {
+            const naturalHeight = el.scrollHeight / (previewScale || 1);
+            setCvPageCount(Math.max(1, Math.ceil(naturalHeight / CV_PAGE_HEIGHT_PX)));
+        };
+        compute();
+        const ro = new ResizeObserver(compute);
+        ro.observe(el);
+        return () => ro.disconnect();
+    }, [previewScale, cvData, sectionColumn, sectionPageBreak, selectedTemplateId]);
+
+    // =============================================
     // SAVE CV FUNCTION
     // =============================================
     const handleSaveCv = async () => {
         setIsSaving(true);
+        const draftKeyBeforeSave = getCvDraftKey(cvId);
 
         try {
             const stripIds = (arr) => arr.map(({ id, ...rest }) => rest);
@@ -1096,19 +1278,27 @@ const CvBuilder = () => {
                 response = await updateCv(cvId, payload);
             } else {
                 response = await createCv(payload);
-                setCvId(response.id);
+                setCvId(response.cv.id);
 
                 const newParams = new URLSearchParams(searchParams);
-                newParams.set("id", response.id);
+                newParams.set("id", response.cv.id);
                 router.replace(`?${newParams.toString()}`, { scroll: false });
+
+                localStorage.removeItem(draftKeyBeforeSave);
+                setShowSuccessModal(true);
+                setTimeout(() => setShowSuccessModal(false), 3000);
+
+                return response.cv;
             }
 
+            localStorage.removeItem(draftKeyBeforeSave);
             setShowSuccessModal(true);
             setTimeout(() => setShowSuccessModal(false), 3000);
 
+            return response.cv;
+
         } catch (error) {
-            console.error("Save error:", error.response?.data || error);
-            showError(JSON.stringify(error.response?.data, null, 2));
+            showError(error?.message || 'Failed to save CV. Please try again.');
         } finally {
             setIsSaving(false);
         }
@@ -1117,75 +1307,57 @@ const CvBuilder = () => {
     // =============================================
     // PDF DOWNLOAD FUNCTION
     // =============================================
-    const handleDownloadCV = useCallback(() => {
-        const printContent = cvPrintRef.current;
-        if (!printContent) {
+    const handleDownloadCV = useCallback(async () => {
+        const element = cvPrintRef.current;
+        if (!element) {
             showError("CV preview not found.");
             return;
         }
 
-        const printWindow = window.open('', '_blank');
-        if (!printWindow) {
-            showError("Please allow popups to download PDF.");
-            return;
-        }
-
-        let allStyles = '';
-        document.querySelectorAll('style').forEach(s => allStyles += s.outerHTML);
-
         try {
-            Array.from(document.styleSheets).forEach(sheet => {
-                try {
-                    let css = '';
-                    Array.from(sheet.cssRules || []).forEach(rule => css += rule.cssText);
-                    if (css) allStyles += `<style>${css}</style>`;
-                } catch (e) {
-                    if (sheet.href) allStyles += `<link rel="stylesheet" href="${sheet.href}">`;
-                }
+            const html2canvas = (await import('html2canvas')).default;
+            const { jsPDF } = await import('jspdf');
+
+            const canvas = await html2canvas(element, {
+                scale: 2,
+                useCORS: true,
+                allowTaint: true,
+                logging: false,
+                backgroundColor: '#ffffff',
+                width: element.scrollWidth,
+                height: element.scrollHeight,
             });
-        } catch (e) { }
 
-        const clone = printContent.cloneNode(true);
+            const imgData = canvas.toDataURL('image/jpeg', 0.95);
 
-        printWindow.document.write(`
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <meta charset="UTF-8">
-                <title>CV - ${cvData.personalInfo.firstName || ''} ${cvData.personalInfo.lastName || ''}</title>
-                ${allStyles}
-                <style>
-                    @page { size: A4; margin: 10mm; }
-                    * { box-sizing: border-box; }
-                    html, body {
-                        margin: 0; padding: 0; background: white; width: 210mm;
-                        -webkit-print-color-adjust: exact !important;
-                        print-color-adjust: exact !important;
-                    }
-                    .print-wrapper { width: 100%; max-width: 210mm; background: white; }
-                    .cv-print-root { width: 100% !important; max-width: 210mm !important; min-height: auto !important; height: auto !important; }
-                    section, .section, .cv-section { page-break-inside: avoid; break-inside: avoid; }
-                    p, li, h1, h2, h3, h4, h5, h6 { orphans: 3; widows: 3; }
-                    img { page-break-inside: avoid; break-inside: avoid; }
-                    @media print { html, body { width: 210mm; height: auto; } .print-wrapper { width: 100%; margin: 0; padding: 0; } }
-                </style>
-            </head>
-            <body>
-                <div class="print-wrapper">${clone.outerHTML}</div>
-            </body>
-            </html>
-        `);
+            const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+            const pageWidth = pdf.internal.pageSize.getWidth();
+            const pageHeight = pdf.internal.pageSize.getHeight();
+            const imgWidth = pageWidth;
+            const imgHeight = (canvas.height * imgWidth) / canvas.width;
+            const totalPages = Math.ceil(imgHeight / pageHeight);
 
-        printWindow.document.close();
+            for (let page = 0; page < totalPages; page++) {
+                if (page > 0) pdf.addPage();
+                pdf.addImage(imgData, 'JPEG', 0, -(page * pageHeight), imgWidth, imgHeight);
+            }
 
-        printWindow.onload = () => {
-            setTimeout(() => {
-                printWindow.focus();
-                printWindow.print();
-                setTimeout(() => printWindow.close(), 500);
-            }, 800);
-        };
-    }, [cvData.personalInfo.firstName, cvData.personalInfo.lastName]);
+            const firstName = cvData.personalInfo.firstName || '';
+            const lastName = cvData.personalInfo.lastName || '';
+            const namePart = [firstName, lastName].filter(Boolean).join('-');
+            pdf.save(`CV${namePart ? '-' + namePart : ''}.pdf`);
+
+            if (cvId) {
+                createDownloadHistory({
+                    type: 'cv',
+                    downloadableId: Number(cvId),
+                    format: 'PDF',
+                }).catch(() => {});
+            }
+        } catch (err) {
+            showError("Failed to generate PDF. Please try again.");
+        }
+    }, [cvId, cvData.personalInfo.firstName, cvData.personalInfo.lastName]);
 
     // =============================================
     // TEMPLATE PREVIEW RENDERER
@@ -1210,22 +1382,49 @@ const CvBuilder = () => {
             });
         });
 
-        const templateComponents = {
-            1: Template1, 2: Template2, 3: Template3, 4: Template4, 6: Template6   //5: Template5,
-        };
-
         const TemplateComponent = templateComponents[templateId];
 
         if (TemplateComponent && typeof TemplateComponent === 'function') {
             return (
-                <CVPrintRoot ref={cvPrintRef} id="cv-pdf-content">
-                    <TemplateComponent
-                        cvData={safeCvData}
-                        sectionTitleOverrides={sectionTitleOverrides}
-                        sectionColumn={sectionColumn}
-                        sectionPageBreak={sectionPageBreak}
-                    />
-                </CVPrintRoot>
+                <Box sx={{ width: `${CV_PAGE_WIDTH_PX}px`, zoom: previewScale }}>
+                    <CVPrintRoot
+                        ref={cvPrintRef}
+                        id="cv-pdf-content"
+                        sx={{ minHeight: `${cvPageCount * CV_PAGE_HEIGHT_PX}px` }}
+                    >
+                        <TemplateComponent
+                            cvData={safeCvData}
+                            sectionTitleOverrides={sectionTitleOverrides}
+                            sectionColumn={sectionColumn}
+                            sectionPageBreak={sectionPageBreak}
+                        />
+                        {/* Visual "next A4 page" dividers once content overflows one sheet */}
+                        {Array.from({ length: cvPageCount - 1 }, (_, i) => (
+                            <Box
+                                key={`page-break-${i}`}
+                                data-html2canvas-ignore="true"
+                                sx={{
+                                    position: 'absolute',
+                                    left: 0,
+                                    right: 0,
+                                    top: `${(i + 1) * CV_PAGE_HEIGHT_PX - 14}px`,
+                                    height: 28,
+                                    bgcolor: 'grey.200',
+                                    borderTop: '1px dashed',
+                                    borderBottom: '1px dashed',
+                                    borderColor: 'grey.400',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    zIndex: 1,
+                                    pointerEvents: 'none',
+                                }}
+                            >
+                                <Chip label={`Page ${i + 2}`} size="small" sx={{ bgcolor: 'white' }} />
+                            </Box>
+                        ))}
+                    </CVPrintRoot>
+                </Box>
             );
         }
 
@@ -1286,7 +1485,6 @@ const CvBuilder = () => {
             setShowParseSuccess(true);
 
         } catch (err) {
-            console.error(err);
             showError(err?.message || "Failed to parse CV");
         } finally {
             setIsParsingCv(false);
@@ -1442,10 +1640,6 @@ const CvBuilder = () => {
     };
     const [isParsingCv, setIsParsingCv] = useState(false);
     const fileInputRef = useRef(null);
-    const { getCv, createCv, updateCv, parseCvFile } = useCvBuilderApi();
-
-
-
 
     // =============================================
     // LOADING STATE
@@ -1495,6 +1689,60 @@ const CvBuilder = () => {
     // =============================================
     return (
         <MainContainer>
+            {/* ══ TOP HEADER ══ */}
+            <Box
+                sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    px: { xs: 1, sm: 2 },
+                    py: 0.75,
+                    bgcolor: '#111827',
+                    color: 'white',
+                    flexShrink: 0,
+                    minHeight: 52,
+                    gap: 1,
+                }}
+            >
+                <Button
+                    startIcon={<ArrowLeft size={16} />}
+                    onClick={() => router.back()}
+                    sx={{
+                        color: 'white',
+                        textTransform: 'none',
+                        fontWeight: 500,
+                        fontSize: { xs: '0.78rem', sm: '0.875rem' },
+                        whiteSpace: 'nowrap',
+                        minWidth: 0,
+                        px: { xs: 1, sm: 1.5 },
+                        '&:hover': { bgcolor: 'rgba(255,255,255,0.08)' },
+                    }}
+                >
+                    <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                        Mes CV
+                    </Box>
+                </Button>
+
+                <Typography
+                    variant="body2"
+                    fontWeight={500}
+                    noWrap
+                    sx={{
+                        color: 'rgba(255,255,255,0.9)',
+                        fontSize: { xs: '0.78rem', sm: '0.875rem' },
+                        flex: 1,
+                        textAlign: 'center',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                    }}
+                >
+                    {headerTitle}
+                </Typography>
+
+                {/* Balances the back button so the title stays visually centered */}
+                <Box sx={{ width: { xs: 0, sm: 88 }, flexShrink: 0 }} />
+            </Box>
+
             <ContentContainer>
                 {/* ========== LEFT SIDEBAR - Forms ========== */}
                 <SidebarContainer>
@@ -1617,8 +1865,16 @@ const CvBuilder = () => {
                                                 startDrawing={startDrawing}
                                                 draw={draw}
                                                 stopDrawing={stopDrawing}
+                                                canvasRef={canvasRef}
                                                 quillModules={quillModules}
                                                 quillFormats={quillFormats}
+                                                addToAdditionalSection={addToAdditionalSection}
+                                                updateAdditionalSection={updateAdditionalSection}
+                                                removeFromAdditionalSection={removeFromAdditionalSection}
+                                                setShowAdditionalForm={setShowAdditionalForm}
+                                                setEditingAdditionalIndex={setEditingAdditionalIndex}
+                                                removeAdditionalSection={removeAdditionalSection}
+                                                cvData={cvData}
                                             />
                                         </Collapse>
                                     </SectionCard>
@@ -1664,7 +1920,7 @@ const CvBuilder = () => {
                         }}
                     >
                         {/* Scrollable Template Preview */}
-                        <TemplatePreviewWrapper>
+                        <TemplatePreviewWrapper ref={cvPreviewRef}>
                             {selectedTemplate ? (
                                 renderTemplatePreview(selectedTemplate.id, previewCvData)
                             ) : (
@@ -1698,15 +1954,45 @@ const CvBuilder = () => {
                             </Button>
 
                             <Button
+                                ref={downloadButtonRef}
                                 variant="contained"
                                 color="primary"
                                 startIcon={<DownloadIcon />}
-                                onClick={handleDownloadCV}
+                                endIcon={<ExpandMoreIcon />}
+                                onClick={handleDownloadMenuOpen}
                                 disabled={!selectedTemplate}
-                                sx={{ px: 4, py: 1 }}
                             >
-                                Download PDF
+                                Download
                             </Button>
+
+                            <Menu
+                                anchorEl={downloadAnchorEl}
+                                open={Boolean(downloadAnchorEl)}
+                                onClose={handleDownloadMenuClose}
+                                anchorOrigin={{
+                                    vertical: "top",
+                                    horizontal: "center",
+                                }}
+                                transformOrigin={{
+                                    vertical: "bottom",
+                                    horizontal: "center",
+                                }}
+                                PaperProps={{
+                                    sx: {
+                                        width: downloadButtonRef.current
+                                            ? downloadButtonRef.current.offsetWidth
+                                            : undefined
+                                    }
+                                }}
+                            >
+                                <MenuItem onClick={handleDownloadPDF}>
+                                    <ListItemText>PDF</ListItemText>
+                                </MenuItem>
+
+                                <MenuItem onClick={handleDownloadDOCX}>
+                                    <ListItemText>DOCX</ListItemText>
+                                </MenuItem>
+                            </Menu>
                         </ActionButtonsContainer>
                     </Paper>
                 </PreviewContainer>
@@ -1749,10 +2035,12 @@ const CvBuilder = () => {
                 open={showSuccessModal}
                 onClose={() => setShowSuccessModal(false)}
                 closeAfterTransition
-                BackdropComponent={Backdrop}
-                BackdropProps={{
-                    timeout: 500,
-                    sx: { backdropFilter: 'blur(5px)' },
+                slots={{ backdrop: Backdrop }}
+                slotProps={{
+                    backdrop: {
+                        timeout: 500,
+                        sx: { backdropFilter: "blur(5px)" },
+                    },
                 }}
             >
                 <Fade in={showSuccessModal}>
@@ -1785,10 +2073,12 @@ const CvBuilder = () => {
                 open={showErrorModal}
                 onClose={() => setShowErrorModal(false)}
                 closeAfterTransition
-                BackdropComponent={Backdrop}
-                BackdropProps={{
-                    timeout: 500,
-                    sx: { backdropFilter: 'blur(5px)' },
+                slots={{ backdrop: Backdrop }}
+                slotProps={{
+                    backdrop: {
+                        timeout: 500,
+                        sx: { backdropFilter: "blur(5px)" },
+                    },
                 }}
             >
                 <Fade in={showErrorModal}>
@@ -1828,6 +2118,14 @@ const CvBuilder = () => {
             <Modal
                 open={showParseSuccess}
                 onClose={() => setShowParseSuccess(false)}
+                closeAfterTransition
+                slots={{ backdrop: Backdrop }}
+                slotProps={{
+                    backdrop: {
+                        timeout: 500,
+                        sx: { backdropFilter: "blur(5px)" },
+                    },
+                }}
             >
                 <Fade in={showParseSuccess}>
                     <ModalContent>
@@ -1857,7 +2155,7 @@ const CvBuilder = () => {
             {/* Rename Section Dialog */}
             <Dialog
                 open={renameOpen}
-                onClose={() => setRenameValue("")}
+                onClose={closeRenameDialog}
                 maxWidth="sm"
                 fullWidth
             >
@@ -1875,7 +2173,7 @@ const CvBuilder = () => {
                 </DialogContent>
 
                 <DialogActions>
-                    <Button onClick={() => setRenameValue("")}>
+                    <Button onClick={closeRenameDialog}>
                         Cancel
                     </Button>
 

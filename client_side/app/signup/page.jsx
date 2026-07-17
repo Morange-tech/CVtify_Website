@@ -14,8 +14,8 @@ import {
     FormControlLabel,
     useTheme,
     useMediaQuery,
-    Snackbar,
     Alert,
+    Collapse,
     CircularProgress,
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
@@ -31,6 +31,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import DescriptionIcon from '@mui/icons-material/Description';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useAuth } from '../hooks/useAuth';
+import { useLanguage } from '../hooks/useLanguage';
 import { useEffect } from 'react';
 import SuccessModal from '../components/SuccessModal';
 import { useRouter } from 'next/navigation';
@@ -47,7 +48,7 @@ const PageContainer = styled(Box)({
 
 const LeftPanel = styled(Box)(({ theme }) => ({
     flex: 1,
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
     display: 'flex',
     flexDirection: 'column',
     justifyContent: 'center',
@@ -131,10 +132,10 @@ const PrimaryButton = styled(Button)(({ theme }) => ({
     fontWeight: 600,
     textTransform: 'none',
     background: 'linear-gradient(135deg, #EAB308)',
-    boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
+    boxShadow: '0 4px 15px rgba(0, 0, 0, 0.4)',
     transition: 'all 0.3s ease',
     '&:hover': {
-        boxShadow: '0 6px 20px rgba(102, 126, 234, 0.5)',
+        boxShadow: '0 6px 20px rgba(0, 0, 0, 0.5)',
         transform: 'translateY(-2px)',
     },
 }));
@@ -150,8 +151,8 @@ const SocialButton = styled(Button)(({ theme }) => ({
     transition: 'all 0.3s ease',
     '&:hover': {
         borderColor: '#fa9a9a',
-        backgroundColor: 'rgba(102, 126, 234, 0.05)',
-        color: '#667eea',
+        backgroundColor: 'rgba(0, 0, 0, 0.05)',
+        color: '#000000',
     },
 }));
 
@@ -174,7 +175,7 @@ const LogoIcon = styled(Box)(({ theme }) => ({
     width: 45,
     height: 45,
     borderRadius: theme.spacing(1.5),
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -214,6 +215,7 @@ export default function SignupPage() {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
     const router = useRouter();
+    const { t } = useLanguage();
     const [showSuccess, setShowSuccess] = useState(false);
     const [redirecting, setRedirecting] = useState(false);
 
@@ -235,17 +237,6 @@ export default function SignupPage() {
         agreeToTerms: false,
     });
     const [errors, setErrors] = useState({});
-    const [error, setError] = useState({});
-
-    const [open, setOpen] = useState(false);
-
-    const handleClose = (event, reason) => {
-        if (reason === 'clickaway') {
-            return;
-        }
-
-        setOpen(false);
-    };
 
     const { registerMutation, isAuthenticated } = useAuth();
 
@@ -290,27 +281,27 @@ export default function SignupPage() {
         const newErrors = {};
 
         if (!formData.name.trim()) {
-            newErrors.name = 'Full name is required';
+            newErrors.name = t('signup.nameRequired');
         }
 
         if (!formData.email.trim()) {
-            newErrors.email = 'Email is required';
+            newErrors.email = t('signup.emailRequired');
         } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-            newErrors.email = 'Invalid email format';
+            newErrors.email = t('signup.emailInvalid');
         }
 
         if (!formData.password) {
-            newErrors.password = 'Password is required';
+            newErrors.password = t('signup.passwordRequired');
         } else if (formData.password.length < 8) {
-            newErrors.password = 'Password must be at least 8 characters';
+            newErrors.password = t('signup.passwordTooShort');
         }
 
         if (formData.password !== formData.password_confirmation) {
-            newErrors.password_confirmation = 'Passwords do not match';
+            newErrors.password_confirmation = t('signup.passwordsDontMatch');
         }
 
         if (!formData.agreeToTerms) {
-            newErrors.agreeToTerms = 'You must agree to the terms and conditions';
+            newErrors.agreeToTerms = t('signup.mustAgreeToTerms');
         }
 
         setErrors(newErrors);
@@ -445,14 +436,7 @@ export default function SignupPage() {
                 </Box>
             </LeftPanel>
 
-            {registerMutation.isError && registerMutation.error.response
-                ? <Snackbar open={open} autoHideDuration={6000} onClose={handleClose}>
-                    <Alert onClose={handleClose} severity="error" sx={{ width: '100%' }}>
-                        {registerMutation.error.response.data ? registerMutation.error.response.data.message : 'Response data is undefined'}
-                    </Alert>
-                </Snackbar>
-                : null
-            }
+            {/* Registration error is shown inline in the form */}
 
             {/* Right Panel - Registration Form */}
             <RightPanel>
@@ -511,6 +495,13 @@ export default function SignupPage() {
                         </Typography>
                     </Divider>
 
+                    {/* Registration error */}
+                    <Collapse in={registerMutation.isError}>
+                        <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }} onClose={() => registerMutation.reset?.()}>
+                            {registerMutation.error?.message || 'Registration failed. Please try again.'}
+                        </Alert>
+                    </Collapse>
+
                     {/* Registration Form */}
                     <form onSubmit={handleSubmit}>
                         <StyledTextField
@@ -538,7 +529,7 @@ export default function SignupPage() {
                             type="email"
                             value={formData.email}
                             onChange={handleChange}
-                            error={!!error.email}
+                            error={!!errors.email}
                             helperText={errors.email}
                             placeholder="baesara803@example.com"
                             InputProps={{

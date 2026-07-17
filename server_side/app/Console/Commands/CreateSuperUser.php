@@ -29,7 +29,14 @@ class CreateSuperUser extends Command
     {
         $name = $this->ask('Name');
         $email = $this->ask('Email');
-        $password = $this->secret('Password');
+
+        do {
+            $password = $this->ask('Password');
+
+            if (empty($password)) {
+                $this->error('Password cannot be empty.');
+            }
+        } while (empty($password));
 
         if (User::where('email', $email)->exists()) {
             $this->error('A user with this email already exists.');

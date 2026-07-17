@@ -9,6 +9,7 @@ import {
     Stack,
     Alert,
     Collapse,
+    CircularProgress,
     styled,
     keyframes
 } from '@mui/material';
@@ -16,6 +17,7 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
+import { useAiAssist } from '../../hooks/useAiAssist';
 
 const ReactQuill = dynamic(
     () => import("react-quill-new"),
@@ -125,9 +127,9 @@ const ProfileSection = ({ cvData, setCvData }) => {
     const [charCount, setCharCount] = useState(0);
     const [isOverLimit, setIsOverLimit] = useState(false);
     const [showWarning, setShowWarning] = useState(false);
-    const [lastValidContent, setLastValidContent] = useState(cvData.profile || '');
     const [isShaking, setIsShaking] = useState(false);
     const quillRef = useRef(null);
+    const { generateText, isGenerating } = useAiAssist();
 
     const quillModules = useMemo(() => ({
         toolbar: [
@@ -189,6 +191,18 @@ const ProfileSection = ({ cvData, setCvData }) => {
         return text.split(/\s+/).filter(word => word.length > 0).length;
     }, [getPlainText]);
 
+    const handleAiGenerate = async () => {
+        const existingText = getPlainText(cvData.profile);
+        const html = await generateText({
+            contentType: 'profile',
+            mode: existingText ? 'improve' : 'generate',
+            existingText,
+            context: { title: cvData?.personalInfo?.title },
+            maxLength: MAX_CHARACTERS,
+        });
+        setCvData(prev => ({ ...prev, profile: html }));
+    };
+
     // Update character count when cvData.profile changes
     useEffect(() => {
         const count = countCharacters(cvData.profile);
@@ -198,32 +212,29 @@ const ProfileSection = ({ cvData, setCvData }) => {
     }, [cvData.profile, countCharacters]);
 
     // Handle content change with character limit
-    const handleChange = useCallback((value, delta, source, editor) => {
-        const newCharCount = countCharacters(value);
+const handleChange = (value, delta, source) => {
+    const newCharCount = countCharacters(value);
 
-        if (source === 'user' && newCharCount > MAX_CHARACTERS) {
-            setIsOverLimit(true);
-            setIsShaking(true);
-            setTimeout(() => setIsShaking(false), 500);
+    // 🚫 If user exceeds limit, block update
+    if (source === 'user' && newCharCount > MAX_CHARACTERS) {
+        setIsOverLimit(true);
+        setIsShaking(true);
+        setTimeout(() => setIsShaking(false), 500);
+        return; // ✅ DO NOT call setCvData
+    }
 
-            setCvData((prev) => ({
-                ...prev,
-                profile: lastValidContent,
-            }));
-
-            return;
-        }
-
-        setLastValidContent(value);
-        setCvData((prev) => ({
+    setCvData(prev => {
+        if (prev.profile === value) return prev; // ✅ guard
+        return {
             ...prev,
             profile: value,
-        }));
+        };
+    });
 
-        setCharCount(newCharCount);
-        setIsOverLimit(false);
-        setShowWarning(newCharCount >= MAX_CHARACTERS * 0.9);
-    }, [countCharacters, setCvData, lastValidContent]);
+    setCharCount(newCharCount);
+    setIsOverLimit(false);
+    setShowWarning(newCharCount >= MAX_CHARACTERS * 0.9);
+};
 
     // Calculate progress percentage
     const progressPercentage = Math.min((charCount / MAX_CHARACTERS) * 100, 100);
@@ -367,13 +378,14 @@ const ProfileSection = ({ cvData, setCvData }) => {
                     </Typography>
                 </Stack>
 
-                {/* <AIButton
+                <AIButton
                     variant="contained"
-                    startIcon={<AutoFixHighIcon />}
-                    disabled={charCount === 0}
+                    startIcon={isGenerating ? <CircularProgress size={16} color="inherit" /> : <AutoFixHighIcon />}
+                    onClick={handleAiGenerate}
+                    disabled={isGenerating}
                 >
-                    Suggestions de l'IA
-                </AIButton> */}
+                    {isGenerating ? 'Génération...' : charCount === 0 ? "Générer avec l'IA" : "Suggestions de l'IA"}
+                </AIButton>
             </Box>
         </QuillWrapper>
     );

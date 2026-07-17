@@ -3,11 +3,15 @@
 namespace App\Http\Controllers\Api\User;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Models\Cv;
+use App\Models\Template;
+use App\Services\CvDocxExporter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Validator;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class CvController extends Controller
 {
@@ -34,7 +38,7 @@ class CvController extends Controller
 
         return response()->json([
             'success' => true,
-            'cvs' => $cvs->map(fn ($cv) => $this->formatCv($cv)),
+            'cvs' => $cvs->map(fn ($cv) => $this->formatCv($cv, true)),
             'meta' => [
                 'total' => $cvs->count(),
             ],
@@ -57,8 +61,6 @@ class CvController extends Controller
 
         $validator = Validator::make($request->all(), [
             'title' => 'required|string|max:255',
-            'template_name' => 'nullable|string|max:255',
-            'content' => 'nullable|array',
         ]);
 
         if ($validator->fails()) {
@@ -79,15 +81,19 @@ class CvController extends Controller
             ], 403);
         }
 
+        $content = $request->except('title');
+
         $cv = Cv::create([
             'user_id' => $user->id,
             'title' => $request->title,
-            'template_name' => $request->template_name,
-            'content' => $request->content ?? [],
+            'template_name' => $this->resolveTemplateName($content['template_id'] ?? null),
+            'content' => $content,
             'is_public' => false,
             'public_token' => Str::random(32),
             'downloads' => 0,
         ]);
+
+        ActivityLog::log('cv_created', "{$user->name} created CV \"{$cv->title}\"", $user->id, ['cv_id' => $cv->id]);
 
         return response()->json([
             'success' => true,
@@ -102,8 +108,6 @@ class CvController extends Controller
 
         $validator = Validator::make($request->all(), [
             'title' => 'sometimes|required|string|max:255',
-            'template_name' => 'nullable|string|max:255',
-            'content' => 'nullable|array',
         ]);
 
         if ($validator->fails()) {
@@ -114,7 +118,15 @@ class CvController extends Controller
             ], 422);
         }
 
-        $cv->update($validator->validated());
+        $content = $request->except('title');
+
+        $cv->update([
+            'title' => $request->title ?? $cv->title,
+            'template_name' => $this->resolveTemplateName($content['template_id'] ?? null),
+            'content' => $content,
+        ]);
+
+        ActivityLog::log('cv_updated', "{$request->user()->name} updated CV \"{$cv->title}\"", $request->user()->id, ['cv_id' => $cv->id]);
 
         return response()->json([
             'success' => true,
@@ -186,6 +198,8 @@ class CvController extends Controller
     {
         $this->authorizeCv($request, $cv);
 
+        ActivityLog::log('cv_deleted', "{$request->user()->name} deleted CV \"{$cv->title}\"", $request->user()->id, ['cv_id' => $cv->id]);
+
         $cv->delete();
 
         return response()->json([
@@ -227,6 +241,17 @@ class CvController extends Controller
         ]);
     }
 
+    public function exportDocx(Request $request, Cv $cv): BinaryFileResponse
+    {
+        $this->authorizeCv($request, $cv);
+
+        $cv->increment('downloads');
+
+        $path = (new CvDocxExporter())->export($cv);
+
+        return response()->download($path, Str::slug($cv->title) . '.docx')->deleteFileAfterSend(true);
+    }
+
     private function authorizeCv(Request $request, Cv $cv): void
     {
         abort_unless($cv->user_id === $request->user()->id, 404);
@@ -237,6 +262,17 @@ class CvController extends Controller
         return ($user->plan ?? null) === 'premium'
             || ($user->subscription_plan ?? null) === 'premium'
             || (bool) ($user->is_premium ?? false);
+    }
+
+    private function resolveTemplateName($templateId): ?string
+    {
+        if (!$templateId) {
+            return null;
+        }
+
+        $name = Template::where('template_id', $templateId)->value('name');
+
+        return $name ?: "Template {$templateId}";
     }
 
     private function formatCv(Cv $cv, bool $withContent = false): array
@@ -254,7 +290,7 @@ class CvController extends Controller
         ];
 
         if ($withContent) {
-            $data['content'] = $cv->content ?? [];
+            $data = array_merge($data, $cv->content ?? []);
         }
 
         return $data;

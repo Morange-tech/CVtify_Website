@@ -1,13 +1,14 @@
 // app/(dashboard)/my-cvs/page.jsx
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Box,
   Typography,
   Button,
   IconButton,
   Menu,
+  Skeleton,
   MenuItem,
   ListItemIcon,
   ListItemText,
@@ -24,25 +25,31 @@ import {
   Snackbar,
   CircularProgress,
 } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
-import MoreVertIcon from '@mui/icons-material/MoreVert';
-import SearchIcon from '@mui/icons-material/Search';
-import EditIcon from '@mui/icons-material/Edit';
-import DeleteIcon from '@mui/icons-material/Delete';
-import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import ShareIcon from '@mui/icons-material/Share';
-import DownloadIcon from '@mui/icons-material/Download';
-import DriveFileRenameOutlineIcon from '@mui/icons-material/DriveFileRenameOutline';
-import DescriptionIcon from '@mui/icons-material/Description';
-import SortIcon from '@mui/icons-material/Sort';
-import GridViewIcon from '@mui/icons-material/GridView';
-import ViewListIcon from '@mui/icons-material/ViewList';
-import HistoryIcon from '@mui/icons-material/History';
-import CreateNewFolderIcon from '@mui/icons-material/CreateNewFolder';
+import {
+  Plus,
+  MoreVertical,
+  Search,
+  Pencil,
+  Trash2,
+  Copy,
+  Eye,
+  Share2,
+  Download,
+  PenLine,
+  FileText,
+  ArrowUpDown,
+  LayoutGrid,
+  List as ListIcon,
+  History,
+  FolderPlus,
+  AlertTriangle,
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../hooks/useAuth';
 import useMyCvs from '../../hooks/useMyCvs';
+import { templateComponents } from '../../lib/templateComponents';
+import { exportElementToPdf } from '../../lib/exportCvPdf';
+import useDownloads from '../../hooks/useDownloads';
 
 export default function MyCvsPage() {
   const router = useRouter();
@@ -61,6 +68,10 @@ export default function MyCvsPage() {
   const [sortBy, setSortBy] = useState('lastEdited');
   const [sortAnchorEl, setSortAnchorEl] = useState(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [previewCv, setPreviewCv] = useState(null);
+  const [downloadingCv, setDownloadingCv] = useState(null);
+  const [downloadingId, setDownloadingId] = useState(null);
+  const downloadRef = useRef(null);
 
   const {
     cvs,
@@ -77,10 +88,52 @@ export default function MyCvsPage() {
     search: searchQuery,
     sort: sortBy,
   });
+  const { createDownloadHistory } = useDownloads({ autoFetch: false });
 
   const showSnackbar = (message, severity = 'success') => {
     setSnackbar({ open: true, message, severity });
   };
+
+  const handleDownloadPdf = async (cv) => {
+    if (!cv) return;
+    setDownloadingId(cv.id);
+    try {
+      await downloadCv(cv.id); // keep the server-side download counter in sync
+    } catch {
+      // non-fatal: still generate the file client-side below
+    }
+    setDownloadingCv(cv);
+  };
+
+  // Renders the CV off-screen (see hidden Box near the bottom of this page)
+  // then captures it to a PDF once it has had a moment to paint.
+  useEffect(() => {
+    if (!downloadingCv) return;
+    let cancelled = false;
+
+    const timer = setTimeout(async () => {
+      try {
+        await exportElementToPdf(downloadRef.current, `${downloadingCv.title || 'CV'}.pdf`);
+        createDownloadHistory({
+          type: 'cv',
+          downloadableId: Number(downloadingCv.id),
+          format: 'PDF',
+        }).catch(() => {});
+      } catch (err) {
+        if (!cancelled) showSnackbar(err.message || 'Failed to generate PDF', 'error');
+      } finally {
+        if (!cancelled) {
+          setDownloadingCv(null);
+          setDownloadingId(null);
+        }
+      }
+    }, 500);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [downloadingCv]);
 
   const filteredCvs = useMemo(() => cvs, [cvs]);
 
@@ -94,15 +147,15 @@ export default function MyCvsPage() {
   };
 
   const handleView = () => {
-    handleMenuClose();
     if (!selectedCv) return;
-    router.push(`/dashboard/cvs/${selectedCv.id}`);
+    setPreviewCv(selectedCv);
+    handleMenuClose();
   };
 
   const handleEdit = () => {
     handleMenuClose();
     if (!selectedCv) return;
-    router.push(`/builder/${selectedCv.id}`);
+    router.push(`/CV_Builder?id=${selectedCv.id}`);
   };
 
   const handleDuplicate = async () => {
@@ -151,19 +204,8 @@ export default function MyCvsPage() {
 
   const handleDownload = async () => {
     if (!selectedCv) return;
-
-    try {
-      const res = await downloadCv(selectedCv.id);
-      showSnackbar(res.message || 'Download started');
-
-      if (res.downloadUrl) {
-        window.open(res.downloadUrl, '_blank');
-      }
-    } catch (err) {
-      showSnackbar(err.message || 'Failed to download CV', 'error');
-    } finally {
-      handleMenuClose();
-    }
+    handleMenuClose();
+    await handleDownloadPdf(selectedCv);
   };
 
   const handleDeleteOpen = () => {
@@ -203,25 +245,25 @@ export default function MyCvsPage() {
   const isLimitReached = !isPremium && filteredCvs.length >= CV_LIMIT;
 
   const menuItems = [
-    { label: 'View', icon: <VisibilityIcon fontSize="small" />, action: handleView, color: '#667eea' },
-    { label: 'Edit', icon: <EditIcon fontSize="small" />, action: handleEdit, color: '#667eea' },
-    { label: 'Rename', icon: <DriveFileRenameOutlineIcon fontSize="small" />, action: handleRenameOpen, color: '#64748b' },
-    { label: 'Duplicate', icon: <ContentCopyIcon fontSize="small" />, action: handleDuplicate, color: '#64748b' },
-    { label: 'Share', icon: <ShareIcon fontSize="small" />, action: handleShareOpen, color: '#64748b' },
-    { label: 'Download', icon: <DownloadIcon fontSize="small" />, action: handleDownload, color: '#10b981' },
+    { label: 'View', icon: <Eye size={16} />, action: handleView, color: '#000000' },
+    { label: 'Edit', icon: <Pencil size={16} />, action: handleEdit, color: '#000000' },
+    { label: 'Rename', icon: <PenLine size={16} />, action: handleRenameOpen, color: '#64748b' },
+    { label: 'Duplicate', icon: <Copy size={16} />, action: handleDuplicate, color: '#64748b' },
+    { label: 'Share', icon: <Share2 size={16} />, action: handleShareOpen, color: '#64748b' },
+    { label: 'Download', icon: <Download size={16} />, action: handleDownload, color: '#10b981' },
     ...(isPremium
       ? [
           { divider: true },
           {
             label: 'Version History',
-            icon: <HistoryIcon fontSize="small" />,
+            icon: <History size={16} />,
             action: handleVersionHistory,
-            color: '#667eea',
+            color: '#000000',
           },
         ]
       : []),
     { divider: true },
-    { label: 'Delete', icon: <DeleteIcon fontSize="small" />, action: handleDeleteOpen, color: '#ef4444' },
+    { label: 'Delete', icon: <Trash2 size={16} />, action: handleDeleteOpen, color: '#ef4444' },
   ];
 
   return (
@@ -272,9 +314,9 @@ export default function MyCvsPage() {
                 sx={{
                   fontWeight: 600,
                   fontSize: '0.75rem',
-                  bgcolor: meta.total >= 3 ? '#ef444420' : '#667eea15',
-                  color: meta.total >= 3 ? '#ef4444' : '#667eea',
-                  border: `1px solid ${meta.total >= 3 ? '#ef444440' : '#667eea30'}`,
+                  bgcolor: meta.total >= 3 ? '#ef444420' : '#00000015',
+                  color: meta.total >= 3 ? '#ef4444' : '#000000',
+                  border: `1px solid ${meta.total >= 3 ? '#ef444440' : '#00000030'}`,
                 }}
               />
             ) : (
@@ -284,9 +326,9 @@ export default function MyCvsPage() {
                 sx={{
                   fontWeight: 600,
                   fontSize: '0.75rem',
-                  bgcolor: '#667eea15',
-                  color: '#667eea',
-                  border: '1px solid #667eea30',
+                  bgcolor: '#00000015',
+                  color: '#000000',
+                  border: '1px solid #00000030',
                 }}
               />
             )}
@@ -295,7 +337,7 @@ export default function MyCvsPage() {
 
         <Button
           variant="contained"
-          startIcon={<AddIcon />}
+          startIcon={<Plus size={18} />}
           onClick={handleCreateCv}
           disabled={isLimitReached}
           sx={{
@@ -304,8 +346,8 @@ export default function MyCvsPage() {
             borderRadius: 2,
             px: 3,
             py: 1.2,
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
+            background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
+            boxShadow: '0 4px 15px rgba(0, 0, 0, 0.4)',
           }}
         >
           {isLimitReached ? 'Limit Reached' : 'Create New CV'}
@@ -331,13 +373,13 @@ export default function MyCvsPage() {
             '& .MuiOutlinedInput-root': {
               borderRadius: 2,
               bgcolor: '#ffffff',
-              '&.Mui-focused fieldset': { borderColor: '#667eea' },
+              '&.Mui-focused fieldset': { borderColor: '#000000' },
             },
           }}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
-                <SearchIcon sx={{ color: '#94a3b8' }} />
+                <Search size={20} color="#94a3b8" />
               </InputAdornment>
             ),
           }}
@@ -345,7 +387,7 @@ export default function MyCvsPage() {
 
         <Button
           size="small"
-          startIcon={<SortIcon />}
+          startIcon={<ArrowUpDown size={16} />}
           onClick={(e) => setSortAnchorEl(e.currentTarget)}
           sx={{
             textTransform: 'none',
@@ -384,22 +426,22 @@ export default function MyCvsPage() {
             onClick={() => setViewMode('grid')}
             sx={{
               borderRadius: '8px 0 0 8px',
-              bgcolor: viewMode === 'grid' ? '#667eea15' : 'transparent',
-              color: viewMode === 'grid' ? '#667eea' : '#94a3b8',
+              bgcolor: viewMode === 'grid' ? '#00000015' : 'transparent',
+              color: viewMode === 'grid' ? '#000000' : '#94a3b8',
             }}
           >
-            <GridViewIcon fontSize="small" />
+            <LayoutGrid size={18} />
           </IconButton>
           <IconButton
             size="small"
             onClick={() => setViewMode('list')}
             sx={{
               borderRadius: '0 8px 8px 0',
-              bgcolor: viewMode === 'list' ? '#667eea15' : 'transparent',
-              color: viewMode === 'list' ? '#667eea' : '#94a3b8',
+              bgcolor: viewMode === 'list' ? '#00000015' : 'transparent',
+              color: viewMode === 'list' ? '#000000' : '#94a3b8',
             }}
           >
-            <ViewListIcon fontSize="small" />
+            <ListIcon size={18} />
           </IconButton>
         </Box>
       </Box>
@@ -407,15 +449,15 @@ export default function MyCvsPage() {
       {isPremium && (
         <Box sx={{ mb: 3 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Typography variant="subtitle1" fontWeight="700" color="#1e293b">
-              📁 Folders
+            <Typography variant="subtitle1" fontWeight="700" color="#1e293b" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <FolderPlus size={18} /> Folders
             </Typography>
             <Button
               size="small"
-              startIcon={<CreateNewFolderIcon />}
+              startIcon={<FolderPlus size={16} />}
               sx={{
                 textTransform: 'none',
-                color: '#667eea',
+                color: '#000000',
                 fontWeight: 600,
               }}
             >
@@ -439,14 +481,14 @@ export default function MyCvsPage() {
                 px: 2.5,
                 py: 1.5,
                 borderRadius: 2,
-                bgcolor: '#667eea10',
-                border: '1px solid #667eea40',
+                bgcolor: '#00000010',
+                border: '1px solid #00000040',
                 whiteSpace: 'nowrap',
               }}
             >
-              <Typography fontSize="1.1rem">📄</Typography>
+              <FileText size={18} color="#000000" />
               <Box>
-                <Typography variant="body2" fontWeight="600" color="#667eea">
+                <Typography variant="body2" fontWeight="600" color="#000000">
                   All CVs
                 </Typography>
                 <Typography variant="caption" color="#94a3b8">
@@ -471,8 +513,8 @@ export default function MyCvsPage() {
             border: '1px solid #fcd34d',
           }}
         >
-          <Typography variant="body2" color="#92400e">
-            ⚠️ You&apos;ve reached the free plan limit of 3 CVs. Upgrade to create unlimited CVs.
+          <Typography variant="body2" color="#92400e" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <AlertTriangle size={16} /> You&apos;ve reached the free plan limit of 3 CVs. Upgrade to create unlimited CVs.
           </Typography>
           <Button
             size="small"
@@ -491,8 +533,39 @@ export default function MyCvsPage() {
       )}
 
       {loading ? (
-        <Box sx={{ py: 8, textAlign: 'center' }}>
-          <CircularProgress />
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' },
+            gap: 3,
+          }}
+        >
+          {[...Array(6)].map((_, i) => (
+            <Box
+              key={i}
+              sx={{
+                bgcolor: '#ffffff',
+                borderRadius: 3,
+                overflow: 'hidden',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                animation: `fadeIn 0.4s ease ${i * 0.07}s both`,
+                '@keyframes fadeIn': {
+                  from: { opacity: 0, transform: 'translateY(12px)' },
+                  to: { opacity: 1, transform: 'translateY(0)' },
+                },
+              }}
+            >
+              <Skeleton variant="rectangular" height={200} />
+              <Box sx={{ p: 2 }}>
+                <Skeleton variant="text" width="70%" height={24} sx={{ mb: 0.5 }} />
+                <Skeleton variant="text" width="50%" height={18} sx={{ mb: 1.5 }} />
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <Skeleton variant="rounded" width={60} height={24} />
+                  <Skeleton variant="rounded" width={80} height={24} />
+                </Box>
+              </Box>
+            </Box>
+          ))}
         </Box>
       ) : filteredCvs.length === 0 ? (
         <Box
@@ -509,7 +582,7 @@ export default function MyCvsPage() {
               width: 80,
               height: 80,
               borderRadius: '50%',
-              bgcolor: '#667eea15',
+              bgcolor: '#00000015',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -517,7 +590,7 @@ export default function MyCvsPage() {
               mb: 3,
             }}
           >
-            <DescriptionIcon sx={{ fontSize: 40, color: '#667eea' }} />
+            <FileText size={40} color="#000000" />
           </Box>
           <Typography variant="h6" fontWeight="600" color="#1e293b" gutterBottom>
             {searchQuery ? 'No CVs found' : 'No CVs yet'}
@@ -528,7 +601,7 @@ export default function MyCvsPage() {
           {!searchQuery && (
             <Button
               variant="contained"
-              startIcon={<AddIcon />}
+              startIcon={<Plus size={18} />}
               onClick={handleCreateCv}
               sx={{
                 textTransform: 'none',
@@ -536,7 +609,7 @@ export default function MyCvsPage() {
                 borderRadius: 2,
                 px: 4,
                 py: 1.2,
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
               }}
             >
               Create Your First CV
@@ -551,7 +624,7 @@ export default function MyCvsPage() {
             gap: 3,
           }}
         >
-          {filteredCvs.map((cv) => (
+          {filteredCvs.map((cv, idx) => (
             <Box
               key={cv.id}
               sx={{
@@ -560,6 +633,11 @@ export default function MyCvsPage() {
                 boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
                 overflow: 'hidden',
                 transition: 'all 0.3s ease',
+                animation: `fadeInUp 0.4s ease ${idx * 0.06}s both`,
+                '@keyframes fadeInUp': {
+                  from: { opacity: 0, transform: 'translateY(16px)' },
+                  to: { opacity: 1, transform: 'translateY(0)' },
+                },
                 '&:hover': {
                   transform: 'translateY(-4px)',
                   boxShadow: '0 8px 25px rgba(0,0,0,0.12)',
@@ -580,10 +658,21 @@ export default function MyCvsPage() {
                 }}
                 onClick={() => {
                   setSelectedCv(cv);
-                  router.push(`/dashboard/cvs/${cv.id}`);
+                  setPreviewCv(cv);
                 }}
               >
-                <DescriptionIcon sx={{ fontSize: 60, color: '#cbd5e1' }} />
+                {templateComponents[cv.template_id] ? (
+                  <Box sx={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
+                    <Box sx={{ width: '900px', transform: 'scale(0.28)', transformOrigin: 'top left', pointerEvents: 'none' }}>
+                      {(() => {
+                        const ThumbTemplate = templateComponents[cv.template_id];
+                        return <ThumbTemplate cvData={cv} />;
+                      })()}
+                    </Box>
+                  </Box>
+                ) : (
+                  <FileText size={60} color="#cbd5e1" />
+                )}
 
                 <Box
                   className="cv-actions"
@@ -606,10 +695,10 @@ export default function MyCvsPage() {
                       onClick={(e) => {
                         e.stopPropagation();
                         setSelectedCv(cv);
-                        router.push(`/dashboard/cvs/${cv.id}`);
+                        setPreviewCv(cv);
                       }}
                     >
-                      <VisibilityIcon fontSize="small" />
+                      <Eye size={16} />
                     </IconButton>
                   </Tooltip>
                   <Tooltip title="Edit">
@@ -618,29 +707,24 @@ export default function MyCvsPage() {
                       sx={{ bgcolor: '#ffffff' }}
                       onClick={(e) => {
                         e.stopPropagation();
-                        router.push(`/builder/${cv.id}`);
+                        router.push(`/CV_Builder?id=${cv.id}`);
                       }}
                     >
-                      <EditIcon fontSize="small" />
+                      <Pencil size={16} />
                     </IconButton>
                   </Tooltip>
                   <Tooltip title="Download">
                     <IconButton
                       size="small"
                       sx={{ bgcolor: '#ffffff' }}
+                      disabled={downloadingId === cv.id}
                       onClick={async (e) => {
                         e.stopPropagation();
                         setSelectedCv(cv);
-                        try {
-                          const res = await downloadCv(cv.id);
-                          showSnackbar(res.message || 'Download started');
-                          if (res.downloadUrl) window.open(res.downloadUrl, '_blank');
-                        } catch (err) {
-                          showSnackbar(err.message || 'Failed to download CV', 'error');
-                        }
+                        await handleDownloadPdf(cv);
                       }}
                     >
-                      <DownloadIcon fontSize="small" />
+                      {downloadingId === cv.id ? <CircularProgress size={16} /> : <Download size={16} />}
                     </IconButton>
                   </Tooltip>
                 </Box>
@@ -655,9 +739,9 @@ export default function MyCvsPage() {
                       right: 12,
                       fontWeight: 600,
                       fontSize: '0.75rem',
-                      bgcolor: isLimitReached ? '#ef444420' : '#667eea15',
-                      color: isLimitReached ? '#ef4444' : '#667eea',
-                      border: `1px solid ${isLimitReached ? '#ef444440' : '#667eea30'}`,
+                      bgcolor: isLimitReached ? '#ef444420' : '#00000015',
+                      color: isLimitReached ? '#ef4444' : '#000000',
+                      border: `1px solid ${isLimitReached ? '#ef444440' : '#00000030'}`,
                     }}
                   />
                 ) : (
@@ -670,9 +754,9 @@ export default function MyCvsPage() {
                       right: 12,
                       fontWeight: 600,
                       fontSize: '0.75rem',
-                      bgcolor: '#667eea15',
-                      color: '#667eea',
-                      border: '1px solid #667eea30',
+                      bgcolor: '#00000015',
+                      color: '#000000',
+                      border: '1px solid #00000030',
                     }}
                   />
                 )}
@@ -693,7 +777,7 @@ export default function MyCvsPage() {
                     onClick={(e) => handleMenuOpen(e, cv)}
                     disabled={actionLoading}
                   >
-                    <MoreVertIcon fontSize="small" />
+                    <MoreVertical size={16} />
                   </IconButton>
                 </Box>
 
@@ -704,7 +788,7 @@ export default function MyCvsPage() {
                     Edited {cv.lastEdited}
                   </Typography>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    <DownloadIcon sx={{ fontSize: 14, color: '#94a3b8' }} />
+                    <Download size={14} color="#94a3b8" />
                     <Typography variant="caption" color="#94a3b8">
                       {cv.downloads}
                     </Typography>
@@ -735,16 +819,16 @@ export default function MyCvsPage() {
                 width: 60,
                 height: 60,
                 borderRadius: '50%',
-                bgcolor: '#667eea15',
+                bgcolor: '#00000015',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 mb: 2,
               }}
             >
-              <AddIcon sx={{ fontSize: 30, color: '#667eea' }} />
+              <Plus size={30} color="#000000" />
             </Box>
-            <Typography variant="body1" fontWeight="600" color="#667eea">
+            <Typography variant="body1" fontWeight="600" color="#000000">
               Create New CV
             </Typography>
             <Typography variant="caption" color="#94a3b8" sx={{ mt: 0.5 }}>
@@ -797,22 +881,22 @@ export default function MyCvsPage() {
                     width: 36,
                     height: 44,
                     borderRadius: 1,
-                    bgcolor: '#667eea15',
-                    border: '1px solid #667eea30',
+                    bgcolor: '#00000015',
+                    border: '1px solid #00000030',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     flexShrink: 0,
                   }}
                 >
-                  <DescriptionIcon sx={{ fontSize: 18, color: '#667eea' }} />
+                  <FileText size={18} color="#000000" />
                 </Box>
                 <Box sx={{ minWidth: 0 }}>
                   <Typography variant="body2" fontWeight="600" color="#1e293b" noWrap>
                     {cv.title}
                   </Typography>
-                  <Typography variant="caption" color="#94a3b8">
-                    ⬇️ {cv.downloads} downloads
+                  <Typography variant="caption" color="#94a3b8" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Download size={12} /> {cv.downloads} downloads
                   </Typography>
                 </Box>
               </Box>
@@ -828,9 +912,9 @@ export default function MyCvsPage() {
                   sx={{
                     fontWeight: 600,
                     fontSize: '0.75rem',
-                    bgcolor: isLimitReached ? '#ef444420' : '#667eea15',
-                    color: isLimitReached ? '#ef4444' : '#667eea',
-                    border: `1px solid ${isLimitReached ? '#ef444440' : '#667eea30'}`,
+                    bgcolor: isLimitReached ? '#ef444420' : '#00000015',
+                    color: isLimitReached ? '#ef4444' : '#000000',
+                    border: `1px solid ${isLimitReached ? '#ef444440' : '#00000030'}`,
                   }}
                 />
               ) : (
@@ -840,9 +924,9 @@ export default function MyCvsPage() {
                   sx={{
                     fontWeight: 600,
                     fontSize: '0.75rem',
-                    bgcolor: '#667eea15',
-                    color: '#667eea',
-                    border: '1px solid #667eea30',
+                    bgcolor: '#00000015',
+                    color: '#000000',
+                    border: '1px solid #00000030',
                   }}
                 />
               )}
@@ -855,21 +939,21 @@ export default function MyCvsPage() {
                 <Tooltip title="View">
                   <IconButton
                     size="small"
-                    onClick={() => router.push(`/dashboard/cvs/${cv.id}`)}
+                    onClick={() => setPreviewCv(cv)}
                   >
-                    <VisibilityIcon fontSize="small" sx={{ color: '#94a3b8' }} />
+                    <Eye size={16} color="#94a3b8" />
                   </IconButton>
                 </Tooltip>
                 <Tooltip title="Edit">
                   <IconButton
                     size="small"
-                    onClick={() => router.push(`/builder/${cv.id}`)}
+                    onClick={() => router.push(`/CV_Builder?id=${cv.id}`)}
                   >
-                    <EditIcon fontSize="small" sx={{ color: '#94a3b8' }} />
+                    <Pencil size={16} color="#94a3b8" />
                   </IconButton>
                 </Tooltip>
                 <IconButton size="small" onClick={(e) => handleMenuOpen(e, cv)}>
-                  <MoreVertIcon fontSize="small" sx={{ color: '#94a3b8' }} />
+                  <MoreVertical size={16} color="#94a3b8" />
                 </IconButton>
               </Box>
             </Box>
@@ -894,10 +978,10 @@ export default function MyCvsPage() {
             height: 56,
             borderRadius: '50%',
             minWidth: 0,
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
           }}
         >
-          <AddIcon />
+          <Plus size={24} />
         </Button>
       </Box>
 
@@ -970,9 +1054,9 @@ export default function MyCvsPage() {
               mt: 1,
               '& .MuiOutlinedInput-root': {
                 borderRadius: 2,
-                '&.Mui-focused fieldset': { borderColor: '#667eea' },
+                '&.Mui-focused fieldset': { borderColor: '#000000' },
               },
-              '& .MuiInputLabel-root.Mui-focused': { color: '#667eea' },
+              '& .MuiInputLabel-root.Mui-focused': { color: '#000000' },
             }}
           />
         </DialogContent>
@@ -987,7 +1071,7 @@ export default function MyCvsPage() {
             sx={{
               textTransform: 'none',
               borderRadius: 2,
-              bgcolor: '#667eea',
+              bgcolor: '#000000',
               '&:hover': { bgcolor: '#5a6fd6' },
             }}
           >
@@ -1018,11 +1102,11 @@ export default function MyCvsPage() {
           <Button
             onClick={handleCopyLink}
             variant="contained"
-            startIcon={<ContentCopyIcon />}
+            startIcon={<Copy size={16} />}
             sx={{
               textTransform: 'none',
               borderRadius: 2,
-              bgcolor: '#667eea',
+              bgcolor: '#000000',
               '&:hover': { bgcolor: '#5a6fd6' },
             }}
           >
@@ -1040,7 +1124,7 @@ export default function MyCvsPage() {
           PaperProps={{ sx: { borderRadius: 3, p: 1 } }}
         >
           <DialogTitle sx={{ fontWeight: 700 }}>
-            📋 Version History
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><History size={18} /> Version History</Box>
             <Typography variant="body2" color="#64748b">
               {selectedCv?.title}
             </Typography>
@@ -1056,6 +1140,44 @@ export default function MyCvsPage() {
             </Button>
           </DialogActions>
         </Dialog>
+      )}
+
+      <Dialog
+        open={Boolean(previewCv)}
+        onClose={() => setPreviewCv(null)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 3 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 700 }}>{previewCv?.title}</DialogTitle>
+        <DialogContent sx={{ bgcolor: '#f1f5f9', display: 'flex', justifyContent: 'center', py: 4 }}>
+          {previewCv && templateComponents[previewCv.template_id] ? (
+            (() => {
+              const PreviewTemplate = templateComponents[previewCv.template_id];
+              return <PreviewTemplate cvData={previewCv} />;
+            })()
+          ) : (
+            <Typography variant="body2" color="#94a3b8">
+              No preview available for this template.
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setPreviewCv(null)} sx={{ textTransform: 'none', borderRadius: 2, color: '#64748b' }}>
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {downloadingCv && templateComponents[downloadingCv.template_id] && (
+        <Box sx={{ position: 'fixed', top: 0, left: -99999, zIndex: -1 }}>
+          <Box ref={downloadRef} sx={{ width: '900px', bgcolor: '#ffffff' }}>
+            {(() => {
+              const DownloadTemplate = templateComponents[downloadingCv.template_id];
+              return <DownloadTemplate cvData={downloadingCv} />;
+            })()}
+          </Box>
+        </Box>
       )}
     </Box>
   );

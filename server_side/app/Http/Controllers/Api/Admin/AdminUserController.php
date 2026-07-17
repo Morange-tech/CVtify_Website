@@ -10,7 +10,8 @@ class AdminUserController extends Controller
 {
     public function index()
     {
-        $users = User::select('id', 'name', 'email')
+        $users = User::where('role', 'user')
+            ->select('id', 'name', 'email')
             ->orderBy('name')
             ->get()
             ->map(function ($user) {

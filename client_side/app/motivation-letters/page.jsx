@@ -38,13 +38,22 @@ import MailOutlineIcon from '@mui/icons-material/MailOutline';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import FavoriteIcon from '@mui/icons-material/Favorite';
-import Image from 'next/image';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import ScrollToTop from '../components/ScrollToTop';
 import useMotivationTemplates from '../hooks/useMotivationTemplates';
+import { useLanguage } from '../hooks/useLanguage';
+import { letterTemplateComponents, SAMPLE_LETTER_DATA } from '../lib/letterTemplateComponents';
+
+// The admin-managed template catalog rows have no guaranteed link to the 5
+// real letter designs, so each row is deterministically mapped onto one of
+// them (1-5) purely for preview/navigation purposes.
+const getDesignId = (templateId) => {
+  const n = Number(templateId) || 1;
+  return (((n - 1) % 5) + 5) % 5 + 1;
+};
 
 // ─── Styled Components ──────────────────────────────────────────
 
@@ -55,7 +64,7 @@ const PageWrapper = styled(Box)({
 });
 
 const HeroSection = styled(Box)(({ theme }) => ({
-  background: 'linear-gradient(135deg, #f27273)',
+  background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
   padding: theme.spacing(20, 2, 10),
   position: 'relative',
   overflow: 'hidden',
@@ -115,8 +124,8 @@ const TemplateCard = styled(Card)(({ theme }) => ({
   cursor: 'pointer',
   '&:hover': {
     transform: 'translateY(-8px)',
-    boxShadow: '0 25px 50px rgba(102, 126, 234, 0.2)',
-    borderColor: '#667eea',
+    boxShadow: '0 25px 50px rgba(0, 0, 0, 0.2)',
+    borderColor: '#000000',
     '& .overlay': { opacity: 1 },
     '& .template-image': { transform: 'scale(1.05)' },
   },
@@ -139,7 +148,7 @@ const TemplateImageBox = styled(Box)({
 const Overlay = styled(Box)(({ theme }) => ({
   position: 'absolute',
   top: 0, left: 0, right: 0, bottom: 0,
-  background: 'linear-gradient(135deg, rgba(102,126,234,0.9) 0%, rgba(118,75,162,0.9) 100%)',
+  background: 'linear-gradient(135deg, rgba(0, 0, 0,0.9) 0%, rgba(26, 26, 26,0.9) 100%)',
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
@@ -165,7 +174,7 @@ const StyledChip = styled(Chip, {
   const styles = {
     popular: { background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', color: '#fff' },
     free: { background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: '#fff' },
-    premium: { background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)', color: '#fff' },
+    premium: { background: 'linear-gradient(135deg, #eab308 0%, #000000 100%)', color: '#fff' },
     new: { background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)', color: '#fff' },
   };
   return {
@@ -270,28 +279,11 @@ const TemplateCardSkeleton = () => (
 // ─── Constants ──────────────────────────────────────────────────
 
 const TAB_FILTERS = [
-  { label: 'All Templates', value: 'all' },
-  { label: 'Free', value: 'free' },
-  { label: 'Premium', value: 'premium' },
-  { label: 'Popular', value: 'popular' },
+  { labelKey: 'motivationLettersPage.tabs.all', value: 'all' },
+  { labelKey: 'motivationLettersPage.tabs.free', value: 'free' },
+  { labelKey: 'motivationLettersPage.tabs.premium', value: 'premium' },
+  { labelKey: 'motivationLettersPage.tabs.popular', value: 'popular' },
 ];
-
-const FEATURES = [
-  'Professionally crafted content suggestions',
-  'Industry-specific language and tone',
-  'Easy customization for any job application',
-  'ATS-friendly formatting',
-];
-
-const getBadgeLabel = (badge) => {
-  const labels = {
-    popular: { label: 'Most Popular', icon: <StarIcon sx={{ fontSize: 14 }} /> },
-    free: { label: 'Free', icon: null },
-    premium: { label: 'Premium', icon: <WorkspacePremiumIcon sx={{ fontSize: 14 }} /> },
-    new: { label: 'New', icon: null },
-  };
-  return labels[badge] || { label: badge, icon: null };
-};
 
 // ─── Main Component ─────────────────────────────────────────────
 
@@ -299,9 +291,23 @@ const MotivationLettersPage = () => {
   const theme = useTheme();
   const router = useRouter();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const { t } = useLanguage();
 
   // Backend data
   const { templates, loading, error, toggleWishlist, refresh } = useMotivationTemplates();
+
+  const FEATURES = t('motivationLettersPage.features');
+
+  // ─── Badge Helper ─────────────────────────────────────────
+  const getBadgeLabel = (badge) => {
+    const labels = {
+      popular: { label: t('templatesSection.badges.mostPopular'), icon: <StarIcon sx={{ fontSize: 14 }} /> },
+      free: { label: t('templatesSection.badges.free'), icon: null },
+      premium: { label: t('templatesSection.badges.premium'), icon: <WorkspacePremiumIcon sx={{ fontSize: 14 }} /> },
+      new: { label: t('templatesSection.badges.new'), icon: null },
+    };
+    return labels[badge] || { label: badge, icon: null };
+  };
 
   // Local UI state
   const [activeTab, setActiveTab] = useState(0);
@@ -347,14 +353,18 @@ const MotivationLettersPage = () => {
     try {
       const result = await toggleWishlist(templateId);
       if (result?.error === 'auth_required') {
-        showSnackbar('Please log in to save templates', 'warning');
+        showSnackbar(t('motivationLettersPage.snackbar.loginRequired'), 'warning');
         return;
       }
-      showSnackbar(result.is_wishlisted ? 'Added to wishlist!' : 'Removed from wishlist');
+      showSnackbar(
+        result.is_wishlisted
+          ? t('motivationLettersPage.snackbar.addedToWishlist')
+          : t('motivationLettersPage.snackbar.removedFromWishlist')
+      );
     } catch {
-      showSnackbar('Failed to update wishlist', 'error');
+      showSnackbar(t('motivationLettersPage.snackbar.wishlistUpdateFailed'), 'error');
     }
-  }, [toggleWishlist]);
+  }, [toggleWishlist, t]);
 
   // ─── Card Click → Preview ────────────────────────────────
   const handleCardClick = (template) => {
@@ -398,7 +408,7 @@ const MotivationLettersPage = () => {
     );
 
     setTimeout(() => {
-      router.push(`/motivation-letter-builder?template=${template.templateId}`);
+      router.push(`/motivation-letter-builder?template=${getDesignId(template.templateId)}`);
     }, 500);
   };
 
@@ -409,12 +419,12 @@ const MotivationLettersPage = () => {
       {/* Navigation Loading */}
       {isNavigating && (
         <LoadingOverlay>
-          <CircularProgress size={60} sx={{ color: '#667eea' }} />
+          <CircularProgress size={60} sx={{ color: '#000000' }} />
           <Typography variant="h6" color="text.primary" fontWeight={600}>
-            Loading {navigatingTemplateName}...
+            {t('motivationLettersPage.loadingTemplate', { name: navigatingTemplateName })}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Preparing your editor
+            {t('motivationLettersPage.preparingEditor')}
           </Typography>
         </LoadingOverlay>
       )}
@@ -455,16 +465,15 @@ const MotivationLettersPage = () => {
               </Box>
 
               <Typography variant={isMobile ? 'h4' : 'h2'} fontWeight="700" gutterBottom sx={{ mb: 2 }}>
-                Motivation Letter
-                <Box component="span" sx={{ color: '#EAB308', display: 'block' }}>Templates</Box>
+                {t('motivationLettersPage.hero.headingLine1')}
+                <Box component="span" sx={{ color: '#EAB308', display: 'block' }}>{t('motivationLettersPage.hero.headingLine2')}</Box>
               </Typography>
 
               <Typography
                 variant={isMobile ? 'body1' : 'h6'}
                 sx={{ maxWidth: 700, margin: '0 auto 40px', opacity: 0.9, lineHeight: 1.7 }}
               >
-                Create compelling motivation letters that capture attention. Choose from free
-                and premium templates designed to help you land your dream job.
+                {t('motivationLettersPage.hero.subheading')}
               </Typography>
 
               <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 2, maxWidth: 800, margin: '0 auto' }}>
@@ -498,10 +507,10 @@ const MotivationLettersPage = () => {
           >
             <Box mb={4} textAlign="center">
               <Typography variant={isMobile ? 'h5' : 'h4'} component="h2" fontWeight="bold" color="text.primary" gutterBottom sx={{ mb: 1 }}>
-                Choose Your Template
+                {t('motivationLettersPage.chooseTemplate.heading')}
               </Typography>
               <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 500, margin: '0 auto' }}>
-                Free and premium motivation letter templates. Pick one and start writing today.
+                {t('motivationLettersPage.chooseTemplate.subheading')}
               </Typography>
             </Box>
           </motion.div>
@@ -516,7 +525,7 @@ const MotivationLettersPage = () => {
               centered={!isMobile}
             >
               {TAB_FILTERS.map((tab, index) => (
-                <Tab key={index} label={tab.label} disabled={loading} />
+                <Tab key={index} label={t(tab.labelKey)} disabled={loading} />
               ))}
             </StyledTabs>
           </Box>
@@ -528,7 +537,7 @@ const MotivationLettersPage = () => {
                 severity="error"
                 action={
                   <Button color="inherit" size="small" onClick={refresh} startIcon={<RefreshIcon />}>
-                    Retry
+                    {t('templatesSection.retry')}
                   </Button>
                 }
                 sx={{ maxWidth: 600, width: '100%' }}
@@ -553,6 +562,7 @@ const MotivationLettersPage = () => {
               {filteredTemplates.map((template) => (
                 <motion.div
                   key={template.id}
+                  style={{ minWidth: 0 }}
                   initial={{ opacity: 0, y: 50 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true, amount: 0.3 }}
@@ -576,12 +586,23 @@ const MotivationLettersPage = () => {
                       </WishlistButton>
 
                       <TemplateImageBox className="template-image">
-                        <Box
-                          component="img"
-                          src={template.image}
-                          alt={`${template.name} Motivation Letter Template`}
-                          sx={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top' }}
-                        />
+                        {(() => {
+                          const DesignTemplate = letterTemplateComponents[getDesignId(template.templateId)];
+                          return DesignTemplate ? (
+                            <Box sx={{ width: '100%', height: '100%', overflow: 'hidden', bgcolor: '#ffffff' }}>
+                              <Box sx={{ width: '794px', transform: 'scale(0.35)', transformOrigin: 'top left', pointerEvents: 'none' }}>
+                                <DesignTemplate letterData={SAMPLE_LETTER_DATA} />
+                              </Box>
+                            </Box>
+                          ) : (
+                            <Box
+                              component="img"
+                              src={template.image}
+                              alt={t('motivationLettersPage.imageAlt', { name: template.name })}
+                              sx={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top' }}
+                            />
+                          );
+                        })()}
                       </TemplateImageBox>
 
                       <Overlay className="overlay">
@@ -589,12 +610,12 @@ const MotivationLettersPage = () => {
                           variant="contained" size="large" endIcon={<ArrowForwardIcon />}
                           onClick={(e) => handleUseTemplate(template, e)}
                           sx={{
-                            background: '#ffffff', color: '#667eea', fontWeight: 600,
+                            background: '#ffffff', color: '#000000', fontWeight: 600,
                             textTransform: 'none', borderRadius: 3, px: 4, py: 1.5,
                             '&:hover': { background: '#f8fafc', transform: 'scale(1.05)' },
                           }}
                         >
-                          Use This Template
+                          {t('motivationLettersPage.useThisTemplate')}
                         </Button>
                         <Button
                           variant="outlined" size="medium" startIcon={<VisibilityIcon />}
@@ -605,7 +626,7 @@ const MotivationLettersPage = () => {
                             '&:hover': { borderColor: '#ffffff', background: 'rgba(255,255,255,0.1)' },
                           }}
                         >
-                          Preview
+                          {t('templatesSection.preview')}
                         </Button>
                       </Overlay>
                     </ImageWrapper>
@@ -621,18 +642,18 @@ const MotivationLettersPage = () => {
                         <Box display="flex" alignItems="center" gap={0.5}>
                           <StarIcon sx={{ fontSize: 16, color: '#f59e0b' }} />
                           <Typography variant="body2" color="text.secondary">
-                            {template.rating} • {template.uses} uses
+                            {template.rating} • {template.uses} {t('templatesSection.uses')}
                           </Typography>
                         </Box>
                       </Box>
                       <Chip
-                        label={template.isFree ? 'Free' : 'Pro'}
+                        label={template.isFree ? t('templatesSection.free') : t('templatesSection.pro')}
                         size="small"
                         sx={{
                           fontWeight: 600, fontSize: '0.75rem',
                           background: template.isFree
                             ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
-                            : 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+                            : 'linear-gradient(135deg, #eab308 0%, #000000 100%)',
                           color: '#ffffff',
                         }}
                       />
@@ -646,8 +667,8 @@ const MotivationLettersPage = () => {
           {/* Empty */}
           {!loading && !error && filteredTemplates.length === 0 && (
             <NoResults>
-              <Typography variant="h6" gutterBottom>No templates found</Typography>
-              <Typography variant="body2">Try selecting a different filter.</Typography>
+              <Typography variant="h6" gutterBottom>{t('templatesSection.noTemplatesFound')}</Typography>
+              <Typography variant="body2">{t('templatesSection.tryDifferentFilter')}</Typography>
             </NoResults>
           )}
 
@@ -655,28 +676,28 @@ const MotivationLettersPage = () => {
           <Box
             mt={8} p={5} textAlign="center"
             sx={{
-              background: 'linear-gradient(135deg, rgba(102,126,234,0.05) 0%, rgba(118,75,162,0.05) 100%)',
+              background: 'linear-gradient(135deg, rgba(0, 0, 0,0.05) 0%, rgba(26, 26, 26,0.05) 100%)',
               borderRadius: 4,
             }}
           >
             <Typography variant="h5" fontWeight="700" color="text.primary" gutterBottom>
-              Need Help Writing Your Motivation Letter?
+              {t('motivationLettersPage.cta.heading')}
             </Typography>
             <Typography variant="body1" color="text.secondary" sx={{ mb: 3, maxWidth: 500, margin: '0 auto 24px' }}>
-              We can help you craft the perfect motivation letter tailored to your dream job.
+              {t('motivationLettersPage.cta.subheading')}
             </Typography>
             <Link href="/signup" passHref style={{ textDecoration: 'none' }}>
               <Button
                 variant="contained" size="large" endIcon={<ArrowForwardIcon />}
                 sx={{
-                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
                   color: '#ffffff', fontWeight: 600, textTransform: 'none',
                   borderRadius: 3, px: 5, py: 1.5,
-                  boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
-                  '&:hover': { boxShadow: '0 6px 20px rgba(102,126,234,0.5)', transform: 'translateY(-2px)' },
+                  boxShadow: '0 4px 15px rgba(0, 0, 0, 0.4)',
+                  '&:hover': { boxShadow: '0 6px 20px rgba(0, 0, 0,0.5)', transform: 'translateY(-2px)' },
                 }}
               >
-                Get Started for Free
+                {t('motivationLettersPage.cta.getStartedForFree')}
               </Button>
             </Link>
           </Box>
@@ -703,16 +724,16 @@ const MotivationLettersPage = () => {
                     <Box display="flex" alignItems="center" gap={1}>
                       <StarIcon sx={{ fontSize: 16, color: '#f59e0b' }} />
                       <Typography variant="body2" color="text.secondary">
-                        {selectedTemplate.rating} • {selectedTemplate.uses} uses
+                        {selectedTemplate.rating} • {selectedTemplate.uses} {t('templatesSection.uses')}
                       </Typography>
                       <Chip
-                        label={selectedTemplate.isFree ? 'Free' : 'Pro'}
+                        label={selectedTemplate.isFree ? t('templatesSection.free') : t('templatesSection.pro')}
                         size="small"
                         sx={{
                           fontWeight: 600, fontSize: '0.65rem', height: '20px',
                           background: selectedTemplate.isFree
                             ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
-                            : 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+                            : 'linear-gradient(135deg, #eab308 0%, #000000 100%)',
                           color: '#ffffff',
                         }}
                       />
@@ -723,14 +744,14 @@ const MotivationLettersPage = () => {
                       variant="contained" size="small" endIcon={<ArrowForwardIcon />}
                       onClick={(e) => handleUseTemplate(selectedTemplate, e)}
                       sx={{
-                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
                         color: '#ffffff', fontWeight: 600, textTransform: 'none',
                         borderRadius: 2, px: 2,
                         '&:hover': { background: 'linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%)' },
                         display: { xs: 'none', sm: 'flex' },
                       }}
                     >
-                      Use Template
+                      {t('templatesSection.useTemplate')}
                     </Button>
                     <IconButton onClick={handleCloseModal} sx={{ color: '#64748b', '&:hover': { backgroundColor: '#e2e8f0', color: '#1e293b' } }}>
                       <CloseIcon />
@@ -741,7 +762,21 @@ const MotivationLettersPage = () => {
                 <ModalImageContainer>
                   <Box sx={{ transform: `scale(${zoomLevel / 100})`, transition: 'transform 0.2s ease-out', transformOrigin: 'center center', maxWidth: '100%', display: 'flex', justifyContent: 'center' }}>
                     <Box sx={{ position: 'relative', width: { xs: '300px', sm: '400px', md: '500px' }, height: { xs: '424px', sm: '566px', md: '707px' }, boxShadow: '0 10px 40px rgba(0,0,0,0.2)', borderRadius: 1, overflow: 'hidden', backgroundColor: '#ffffff' }}>
-                      <Image src={selectedTemplate.image} alt={`${selectedTemplate.name} Preview`} fill style={{ objectFit: 'contain' }} quality={100} priority />
+                      {(() => {
+                        const DesignTemplate = letterTemplateComponents[getDesignId(selectedTemplate.templateId)];
+                        return DesignTemplate ? (
+                          <Box sx={{ width: '794px', transform: 'scale(0.63)', transformOrigin: 'top left' }}>
+                            <DesignTemplate letterData={SAMPLE_LETTER_DATA} />
+                          </Box>
+                        ) : (
+                          <Box
+                            component="img"
+                            src={selectedTemplate.image}
+                            alt={t('motivationLettersPage.previewAlt', { name: selectedTemplate.name })}
+                            sx={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
+                          />
+                        );
+                      })()}
                     </Box>
                   </Box>
                 </ModalImageContainer>
@@ -751,7 +786,7 @@ const MotivationLettersPage = () => {
                     <ZoomOutIcon />
                   </IconButton>
                   <Slider value={zoomLevel} onChange={handleZoomSliderChange} min={50} max={200} step={5}
-                    sx={{ width: { xs: 100, sm: 200 }, color: '#667eea', '& .MuiSlider-thumb': { width: 16, height: 16 }, '& .MuiSlider-track': { height: 4 }, '& .MuiSlider-rail': { height: 4, backgroundColor: '#e2e8f0' } }}
+                    sx={{ width: { xs: 100, sm: 200 }, color: '#000000', '& .MuiSlider-thumb': { width: 16, height: 16 }, '& .MuiSlider-track': { height: 4 }, '& .MuiSlider-rail': { height: 4, backgroundColor: '#e2e8f0' } }}
                   />
                   <IconButton onClick={handleZoomIn} disabled={zoomLevel >= 200} size="small" sx={{ color: zoomLevel >= 200 ? '#cbd5e1' : '#64748b', '&:hover': { backgroundColor: '#e2e8f0' } }}>
                     <ZoomInIcon />
@@ -764,14 +799,14 @@ const MotivationLettersPage = () => {
                     variant="contained" size="small"
                     onClick={(e) => handleUseTemplate(selectedTemplate, e)}
                     sx={{
-                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
                       color: '#ffffff', fontWeight: 600, textTransform: 'none',
                       borderRadius: 2, px: 2, ml: 'auto',
                       '&:hover': { background: 'linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%)' },
                       display: { xs: 'flex', sm: 'none' },
                     }}
                   >
-                    Use
+                    {t('motivationLettersPage.useShort')}
                   </Button>
                 </ZoomControls>
               </>

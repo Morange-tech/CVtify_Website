@@ -1,4 +1,4 @@
-// app/(dashboard)/motivation-letters/page.jsx
+// app/(dashboard)/motivation-letter/page.jsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -22,26 +22,30 @@ import {
   Divider,
   Tabs,
   Tab,
-  Link,
+  Skeleton,
 } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
-import MoreVertIcon from '@mui/icons-material/MoreVert';
-import SearchIcon from '@mui/icons-material/Search';
-import EditIcon from '@mui/icons-material/Edit';
-import DeleteIcon from '@mui/icons-material/Delete';
-import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import ShareIcon from '@mui/icons-material/Share';
-import DownloadIcon from '@mui/icons-material/Download';
-import DriveFileRenameOutlineIcon from '@mui/icons-material/DriveFileRenameOutline';
-import MailOutlineIcon from '@mui/icons-material/MailOutline';
-import SortIcon from '@mui/icons-material/Sort';
-import GridViewIcon from '@mui/icons-material/GridView';
-import ViewListIcon from '@mui/icons-material/ViewList';
-import BusinessIcon from '@mui/icons-material/Business';
-import WorkIcon from '@mui/icons-material/Work';
-import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
-import LinkIcon from '@mui/icons-material/Link';
+import {
+  Plus,
+  MoreVertical,
+  Search,
+  Pencil,
+  Trash2,
+  Copy,
+  Eye,
+  Share2,
+  Download,
+  PenLine,
+  Mail,
+  ArrowUpDown,
+  LayoutGrid,
+  List as ListIcon,
+  Building2,
+  Briefcase,
+  Link2,
+  Sparkles,
+  AlertTriangle,
+} from 'lucide-react';
+import { motion } from 'motion/react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../hooks/useAuth'; // adjust path
 
@@ -49,7 +53,7 @@ import { useAuth } from '../../hooks/useAuth'; // adjust path
 export default function MotivationLettersPage() {
   const router = useRouter();
   const [letters, setLetters] = useState([]);
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const isPremium = user?.plan === 'premium';
 
   // States
@@ -67,8 +71,6 @@ export default function MotivationLettersPage() {
   const [activeTab, setActiveTab] = useState('all');
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
   const [loading, setLoading] = useState(false);
-  const [letter, setLetter] = useState(false);
-
 
   // New letter form
   const [newLetter, setNewLetter] = useState({
@@ -116,11 +118,11 @@ export default function MotivationLettersPage() {
 
   const handleDuplicate = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/motivation-letters/${selectedLetter.id}/duplicate`, {
+      const res = await fetch(`${API_URL}/motivation-letters/${selectedLetter.id}/duplicate`, {
         method: 'POST',
-        credentials: 'include',
         headers: {
           Accept: 'application/json',
+          Authorization: `Bearer ${token}`,
         },
       });
 
@@ -146,12 +148,12 @@ export default function MotivationLettersPage() {
 
   const handleRenameConfirm = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/motivation-letters/${selectedLetter.id}`, {
+      const res = await fetch(`${API_URL}/motivation-letters/${selectedLetter.id}`, {
         method: 'PATCH',
-        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           Accept: 'application/json',
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ title: newName }),
       });
@@ -189,11 +191,11 @@ export default function MotivationLettersPage() {
       if (activeTab !== 'all') params.append('status', activeTab);
       if (sortBy) params.append('sortBy', sortBy);
 
-      const res = await fetch(`${API_URL}/api/motivation-letters?${params.toString()}`, {
+      const res = await fetch(`${API_URL}/motivation-letters?${params.toString()}`, {
         method: 'GET',
-        credentials: 'include', // for Sanctum cookie auth
         headers: {
           Accept: 'application/json',
+          Authorization: `Bearer ${token}`,
         },
       });
 
@@ -208,11 +210,11 @@ export default function MotivationLettersPage() {
 
   const handleShareOpen = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/motivation-letters/${selectedLetter.id}/share`, {
+      const res = await fetch(`${API_URL}/motivation-letters/${selectedLetter.id}/share`, {
         method: 'POST',
-        credentials: 'include',
         headers: {
           Accept: 'application/json',
+          Authorization: `Bearer ${token}`,
         },
       });
 
@@ -242,11 +244,11 @@ export default function MotivationLettersPage() {
 
   const handleDeleteConfirm = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/motivation-letters/${selectedLetter.id}`, {
+      const res = await fetch(`${API_URL}/motivation-letters/${selectedLetter.id}`, {
         method: 'DELETE',
-        credentials: 'include',
         headers: {
           Accept: 'application/json',
+          Authorization: `Bearer ${token}`,
         },
       });
 
@@ -271,12 +273,12 @@ export default function MotivationLettersPage() {
 
   const handleCreateConfirm = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/motivation-letters`, {
+      const res = await fetch(`${API_URL}/motivation-letters`, {
         method: 'POST',
-        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           Accept: 'application/json',
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(newLetter),
       });
@@ -304,7 +306,7 @@ export default function MotivationLettersPage() {
 
   // Company color generator
   const getCompanyColor = (company) => {
-    const colors = ['#667eea', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'];
+    const colors = ['#000000', '#10b981', '#f59e0b', '#ef4444', '#eab308', '#ec4899', '#06b6d4'];
     let hash = 0;
     for (let i = 0; i < company.length; i++) {
       hash = company.charCodeAt(i) + ((hash << 5) - hash);
@@ -314,14 +316,14 @@ export default function MotivationLettersPage() {
 
   // Menu items
   const menuItems = [
-    { label: 'View', icon: <VisibilityIcon fontSize="small" />, action: handleView, color: '#667eea' },
-    { label: 'Edit', icon: <EditIcon fontSize="small" />, action: handleEdit, color: '#667eea' },
-    { label: 'Rename', icon: <DriveFileRenameOutlineIcon fontSize="small" />, action: handleRenameOpen, color: '#64748b' },
-    { label: 'Duplicate', icon: <ContentCopyIcon fontSize="small" />, action: handleDuplicate, color: '#64748b' },
-    { label: 'Share', icon: <ShareIcon fontSize="small" />, action: handleShareOpen, color: '#64748b' },
-    { label: 'Download', icon: <DownloadIcon fontSize="small" />, action: handleDownload, color: '#10b981' },
+    { label: 'View', icon: <Eye size={16} />, action: handleView, color: '#000000' },
+    { label: 'Edit', icon: <Pencil size={16} />, action: handleEdit, color: '#000000' },
+    { label: 'Rename', icon: <PenLine size={16} />, action: handleRenameOpen, color: '#64748b' },
+    { label: 'Duplicate', icon: <Copy size={16} />, action: handleDuplicate, color: '#64748b' },
+    { label: 'Share', icon: <Share2 size={16} />, action: handleShareOpen, color: '#64748b' },
+    { label: 'Download', icon: <Download size={16} />, action: handleDownload, color: '#10b981' },
     { divider: true },
-    { label: 'Delete', icon: <DeleteIcon fontSize="small" />, action: handleDeleteOpen, color: '#ef4444' },
+    { label: 'Delete', icon: <Trash2 size={16} />, action: handleDeleteOpen, color: '#ef4444' },
   ];
 
   return (
@@ -347,27 +349,27 @@ export default function MotivationLettersPage() {
             </Typography>
             {!isPremium ? (
               <Chip
-                label={letter.status === 'complete' ? 'Complete' : 'Draft'}
+                label={`${letters.length}/${LETTER_LIMIT} used`}
                 size="small"
                 sx={{
                   fontWeight: 600,
                   fontSize: '0.75rem',
-                  bgcolor: isLimitReached ? '#ef444420' : '#667eea15',
-                  color: isLimitReached ? '#ef4444' : '#667eea',
-                  border: `1px solid ${isLimitReached ? '#ef444440' : '#667eea30'}`,
+                  bgcolor: isLimitReached ? '#ef444420' : '#00000015',
+                  color: isLimitReached ? '#ef4444' : '#000000',
+                  border: `1px solid ${isLimitReached ? '#ef444440' : '#00000030'}`,
                 }}
               />
             ) : (
               <Chip
                 label="Unlimited"
                 size="small"
-                icon={<span style={{ fontSize: '0.7rem' }}>⭐</span>}
+                icon={<Sparkles size={12} />}
                 sx={{
                   fontWeight: 600,
                   fontSize: '0.75rem',
-                  bgcolor: '#667eea15',
-                  color: '#667eea',
-                  border: '1px solid #667eea30',
+                  bgcolor: '#00000015',
+                  color: '#000000',
+                  border: '1px solid #00000030',
                 }}
               />
             )}
@@ -376,20 +378,19 @@ export default function MotivationLettersPage() {
 
         <Button
           variant="contained"
-          component={Link}
-          href='/motivation-letters'
-          startIcon={<AddIcon />}
+          startIcon={<Plus size={18} />}
           onClick={handleCreateOpen}
+          disabled={isLimitReached}
           sx={{
             textTransform: 'none',
             fontWeight: 600,
             borderRadius: 2,
             px: 3,
             py: 1.2,
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
+            background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
+            boxShadow: '0 4px 15px rgba(0, 0, 0, 0.4)',
             '&:hover': {
-              boxShadow: '0 6px 20px rgba(102, 126, 234, 0.5)',
+              boxShadow: '0 6px 20px rgba(0, 0, 0, 0.5)',
               transform: 'translateY(-1px)',
             },
           }}
@@ -410,8 +411,8 @@ export default function MotivationLettersPage() {
             fontSize: '0.9rem',
             minHeight: 40,
           },
-          '& .Mui-selected': { color: '#667eea' },
-          '& .MuiTabs-indicator': { backgroundColor: '#667eea' },
+          '& .Mui-selected': { color: '#000000' },
+          '& .MuiTabs-indicator': { backgroundColor: '#000000' },
         }}
       >
         <Tab
@@ -448,13 +449,13 @@ export default function MotivationLettersPage() {
             '& .MuiOutlinedInput-root': {
               borderRadius: 2,
               bgcolor: '#ffffff',
-              '&.Mui-focused fieldset': { borderColor: '#667eea' },
+              '&.Mui-focused fieldset': { borderColor: '#000000' },
             },
           }}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
-                <SearchIcon sx={{ color: '#94a3b8' }} />
+                <Search size={20} color="#94a3b8" />
               </InputAdornment>
             ),
           }}
@@ -462,7 +463,7 @@ export default function MotivationLettersPage() {
 
         <Button
           size="small"
-          startIcon={<SortIcon />}
+          startIcon={<ArrowUpDown size={16} />}
           onClick={(e) => setSortAnchorEl(e.currentTarget)}
           sx={{
             textTransform: 'none',
@@ -507,22 +508,22 @@ export default function MotivationLettersPage() {
             onClick={() => setViewMode('grid')}
             sx={{
               borderRadius: '8px 0 0 8px',
-              bgcolor: viewMode === 'grid' ? '#667eea15' : 'transparent',
-              color: viewMode === 'grid' ? '#667eea' : '#94a3b8',
+              bgcolor: viewMode === 'grid' ? '#00000015' : 'transparent',
+              color: viewMode === 'grid' ? '#000000' : '#94a3b8',
             }}
           >
-            <GridViewIcon fontSize="small" />
+            <LayoutGrid size={18} />
           </IconButton>
           <IconButton
             size="small"
             onClick={() => setViewMode('list')}
             sx={{
               borderRadius: '0 8px 8px 0',
-              bgcolor: viewMode === 'list' ? '#667eea15' : 'transparent',
-              color: viewMode === 'list' ? '#667eea' : '#94a3b8',
+              bgcolor: viewMode === 'list' ? '#00000015' : 'transparent',
+              color: viewMode === 'list' ? '#000000' : '#94a3b8',
             }}
           >
-            <ViewListIcon fontSize="small" />
+            <ListIcon size={18} />
           </IconButton>
         </Box>
       </Box>
@@ -541,8 +542,8 @@ export default function MotivationLettersPage() {
             border: '1px solid #fcd34d',
           }}
         >
-          <Typography variant="body2" color="#92400e">
-            ⚠️ You&apos;ve reached the free plan limit of 3 letters. Upgrade to create unlimited letters.
+          <Typography variant="body2" color="#92400e" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <AlertTriangle size={16} /> You&apos;ve reached the free plan limit of 3 letters. Upgrade to create unlimited letters.
           </Typography>
           <Button
             size="small"
@@ -563,7 +564,27 @@ export default function MotivationLettersPage() {
 
 
       {/* Content */}
-      {filteredLetters.length === 0 ? (
+      {loading ? (
+        /* Loading Skeleton */
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' },
+            gap: 3,
+          }}
+        >
+          {[...Array(6)].map((_, i) => (
+            <Box key={i} sx={{ bgcolor: '#ffffff', borderRadius: 3, boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
+              <Skeleton variant="rectangular" height={120} />
+              <Box sx={{ p: 2.5 }}>
+                <Skeleton variant="text" width="70%" height={28} />
+                <Skeleton variant="text" width="50%" height={20} />
+                <Skeleton variant="text" width="40%" height={20} />
+              </Box>
+            </Box>
+          ))}
+        </Box>
+      ) : filteredLetters.length === 0 ? (
         /* Empty State */
         <Box
           sx={{
@@ -579,7 +600,7 @@ export default function MotivationLettersPage() {
               width: 80,
               height: 80,
               borderRadius: '50%',
-              bgcolor: '#667eea15',
+              bgcolor: '#00000015',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -587,7 +608,7 @@ export default function MotivationLettersPage() {
               mb: 3,
             }}
           >
-            <MailOutlineIcon sx={{ fontSize: 40, color: '#667eea' }} />
+            <Mail size={40} color="#000000" />
           </Box>
           <Typography variant="h6" fontWeight="600" color="#1e293b" gutterBottom>
             {searchQuery ? 'No letters found' : 'No motivation letters yet'}
@@ -599,10 +620,8 @@ export default function MotivationLettersPage() {
           </Typography>
           {!searchQuery && (
             <Button
-              component={Link}
-              href='/motivation-letters'
               variant="contained"
-              startIcon={<AddIcon />}
+              startIcon={<Plus size={18} />}
               onClick={handleCreateOpen}
               disabled={isLimitReached}
               sx={{
@@ -611,7 +630,7 @@ export default function MotivationLettersPage() {
                 borderRadius: 2,
                 px: 4,
                 py: 1.2,
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
               }}
             >
               {isLimitReached ? 'Limit Reached' : 'New Letter'}
@@ -701,7 +720,7 @@ export default function MotivationLettersPage() {
                         handleView();
                       }}
                     >
-                      <VisibilityIcon fontSize="small" />
+                      <Eye size={16} />
                     </IconButton>
                   </Tooltip>
                   <Tooltip title="Edit">
@@ -714,7 +733,7 @@ export default function MotivationLettersPage() {
                         handleEdit();
                       }}
                     >
-                      <EditIcon fontSize="small" />
+                      <Pencil size={16} />
                     </IconButton>
                   </Tooltip>
                   <Tooltip title="Download">
@@ -727,7 +746,7 @@ export default function MotivationLettersPage() {
                         handleDownload();
                       }}
                     >
-                      <DownloadIcon fontSize="small" />
+                      <Download size={16} />
                     </IconButton>
                   </Tooltip>
                 </Box>
@@ -740,22 +759,22 @@ export default function MotivationLettersPage() {
                     sx={{
                       fontWeight: 600,
                       fontSize: '0.75rem',
-                      bgcolor: isLimitReached ? '#ef444420' : '#667eea15',
-                      color: isLimitReached ? '#ef4444' : '#667eea',
-                      border: `1px solid ${isLimitReached ? '#ef444440' : '#667eea30'}`,
+                      bgcolor: isLimitReached ? '#ef444420' : '#00000015',
+                      color: isLimitReached ? '#ef4444' : '#000000',
+                      border: `1px solid ${isLimitReached ? '#ef444440' : '#00000030'}`,
                     }}
                   />
                 ) : (
                   <Chip
                     label="Unlimited"
                     size="small"
-                    icon={<span style={{ fontSize: '0.7rem' }}>⭐</span>}
+                    icon={<Sparkles size={12} />}
                     sx={{
                       fontWeight: 600,
                       fontSize: '0.75rem',
-                      bgcolor: '#667eea15',
-                      color: '#667eea',
-                      border: '1px solid #667eea30',
+                      bgcolor: '#00000015',
+                      color: '#000000',
+                      border: '1px solid #00000030',
                     }}
                   />
                 )}
@@ -770,28 +789,28 @@ export default function MotivationLettersPage() {
                     </Typography>
                   </Box>
                   <IconButton size="small" onClick={(e) => handleMenuOpen(e, letter)}>
-                    <MoreVertIcon fontSize="small" />
+                    <MoreVertical size={16} />
                   </IconButton>
                 </Box>
 
                 {/* Details */}
                 <Box sx={{ mt: 1.5, display: 'flex', flexDirection: 'column', gap: 0.8 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <BusinessIcon sx={{ fontSize: 14, color: '#94a3b8' }} />
+                    <Building2 size={14} color="#94a3b8" />
                     <Typography variant="caption" color="#64748b">
                       {letter.company}
                     </Typography>
                   </Box>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <WorkIcon sx={{ fontSize: 14, color: '#94a3b8' }} />
+                    <Briefcase size={14} color="#94a3b8" />
                     <Typography variant="caption" color="#64748b">
                       {letter.position}
                     </Typography>
                   </Box>
                   {letter.linkedCv && (
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <LinkIcon sx={{ fontSize: 14, color: '#667eea' }} />
-                      <Typography variant="caption" color="#667eea" fontWeight="500">
+                      <Link2 size={14} color="#000000" />
+                      <Typography variant="caption" color="#000000" fontWeight="500">
                         {letter.linkedCv}
                       </Typography>
                     </Box>
@@ -805,7 +824,7 @@ export default function MotivationLettersPage() {
                     Edited {letter.lastEdited}
                   </Typography>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    <DownloadIcon sx={{ fontSize: 14, color: '#94a3b8' }} />
+                    <Download size={14} color="#94a3b8" />
                     <Typography variant="caption" color="#94a3b8">
                       {letter.downloads}
                     </Typography>
@@ -830,8 +849,8 @@ export default function MotivationLettersPage() {
               cursor: 'pointer',
               transition: 'all 0.3s ease',
               '&:hover': {
-                borderColor: '#667eea',
-                bgcolor: '#667eea08',
+                borderColor: '#000000',
+                bgcolor: '#00000008',
                 transform: 'translateY(-4px)',
               },
             }}
@@ -841,16 +860,16 @@ export default function MotivationLettersPage() {
                 width: 60,
                 height: 60,
                 borderRadius: '50%',
-                bgcolor: '#667eea15',
+                bgcolor: '#00000015',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 mb: 2,
               }}
             >
-              <AddIcon sx={{ fontSize: 30, color: '#667eea' }} />
+              <Plus size={30} color="#000000" />
             </Box>
-            <Typography variant="body1" fontWeight="600" color="#667eea">
+            <Typography variant="body1" fontWeight="600" color="#000000">
               {isLimitReached ? 'Limit Reached' : 'New Motivation Letter'}
             </Typography>
             <Typography variant="caption" color="#94a3b8" sx={{ mt: 0.5 }}>
@@ -928,8 +947,12 @@ export default function MotivationLettersPage() {
                     {letter.title}
                   </Typography>
                   {letter.linkedCv && (
-                    <Typography variant="caption" color="#667eea">
-                      🔗 {letter.linkedCv}
+                    <Typography
+                      variant="caption"
+                      color="#000000"
+                      sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
+                    >
+                      <Link2 size={12} /> {letter.linkedCv}
                     </Typography>
                   )}
                 </Box>
@@ -953,22 +976,22 @@ export default function MotivationLettersPage() {
                   sx={{
                     fontWeight: 600,
                     fontSize: '0.75rem',
-                    bgcolor: isLimitReached ? '#ef444420' : '#667eea15',
-                    color: isLimitReached ? '#ef4444' : '#667eea',
-                    border: `1px solid ${isLimitReached ? '#ef444440' : '#667eea30'}`,
+                    bgcolor: isLimitReached ? '#ef444420' : '#00000015',
+                    color: isLimitReached ? '#ef4444' : '#000000',
+                    border: `1px solid ${isLimitReached ? '#ef444440' : '#00000030'}`,
                   }}
                 />
               ) : (
                 <Chip
                   label="Unlimited"
                   size="small"
-                  icon={<span style={{ fontSize: '0.7rem' }}>⭐</span>}
+                  icon={<Sparkles size={12} />}
                   sx={{
                     fontWeight: 600,
                     fontSize: '0.75rem',
-                    bgcolor: '#667eea15',
-                    color: '#667eea',
-                    border: '1px solid #667eea30',
+                    bgcolor: '#00000015',
+                    color: '#000000',
+                    border: '1px solid #00000030',
                   }}
                 />
               )}
@@ -988,7 +1011,7 @@ export default function MotivationLettersPage() {
                       handleView();
                     }}
                   >
-                    <VisibilityIcon fontSize="small" sx={{ color: '#94a3b8' }} />
+                    <Eye size={16} color="#94a3b8" />
                   </IconButton>
                 </Tooltip>
                 <Tooltip title="Edit">
@@ -999,11 +1022,11 @@ export default function MotivationLettersPage() {
                       handleEdit();
                     }}
                   >
-                    <EditIcon fontSize="small" sx={{ color: '#94a3b8' }} />
+                    <Pencil size={16} color="#94a3b8" />
                   </IconButton>
                 </Tooltip>
                 <IconButton size="small" onClick={(e) => handleMenuOpen(e, letter)}>
-                  <MoreVertIcon fontSize="small" sx={{ color: '#94a3b8' }} />
+                  <MoreVertical size={16} color="#94a3b8" />
                 </IconButton>
               </Box>
             </Box>
@@ -1029,11 +1052,11 @@ export default function MotivationLettersPage() {
             height: 56,
             borderRadius: '50%',
             minWidth: 0,
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
+            background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
+            boxShadow: '0 4px 15px rgba(0, 0, 0, 0.4)',
           }}
         >
-          <AddIcon />
+          <Plus size={24} />
         </Button>
       </Box>
 
@@ -1114,9 +1137,9 @@ export default function MotivationLettersPage() {
               mt: 1,
               '& .MuiOutlinedInput-root': {
                 borderRadius: 2,
-                '&.Mui-focused fieldset': { borderColor: '#667eea' },
+                '&.Mui-focused fieldset': { borderColor: '#000000' },
               },
-              '& .MuiInputLabel-root.Mui-focused': { color: '#667eea' },
+              '& .MuiInputLabel-root.Mui-focused': { color: '#000000' },
             }}
           />
         </DialogContent>
@@ -1134,7 +1157,7 @@ export default function MotivationLettersPage() {
             sx={{
               textTransform: 'none',
               borderRadius: 2,
-              bgcolor: '#667eea',
+              bgcolor: '#000000',
               '&:hover': { bgcolor: '#5a6fd6' },
             }}
           >
@@ -1173,11 +1196,11 @@ export default function MotivationLettersPage() {
           <Button
             onClick={handleCopyLink}
             variant="contained"
-            startIcon={<ContentCopyIcon />}
+            startIcon={<Copy size={16} />}
             sx={{
               textTransform: 'none',
               borderRadius: 2,
-              bgcolor: '#667eea',
+              bgcolor: '#000000',
               '&:hover': { bgcolor: '#5a6fd6' },
             }}
           >

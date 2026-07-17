@@ -316,7 +316,6 @@ const ResumeDesign3 = ({ cvData }) => {
                 <ContactItem label="Address" value={address} />
               )}
             </Box>
-
           </Box>
         </Box>
 

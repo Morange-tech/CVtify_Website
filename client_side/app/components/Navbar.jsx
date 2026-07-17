@@ -17,6 +17,8 @@ import MenuIcon from '@mui/icons-material/Menu';
 import CloseIcon from '@mui/icons-material/Close';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '../hooks/useAuth';
+import { useLanguage } from '../hooks/useLanguage';
+import { LANGUAGES } from '../locales';
 import Avatar from '@mui/material/Avatar';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
@@ -25,14 +27,16 @@ import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import PersonIcon from '@mui/icons-material/Person';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import LogoutIcon from '@mui/icons-material/Logout';
+import LanguageIcon from '@mui/icons-material/Language';
+import CheckIcon from '@mui/icons-material/Check';
 
 
 
 const navItems = [
-    { label: 'CVs', path: '/cvs' },
-    { label: 'Motivation Letters', path: '/motivation-letters' },
-    { label: 'Resources', path: '/resources' },
-    { label: 'Pricing', path: '/pricing' },
+    { labelKey: 'nav.cvs', path: '/cvs' },
+    { labelKey: 'nav.motivationLetters', path: '/motivation-letters' },
+    { labelKey: 'nav.resources', path: '/resources' },
+    { labelKey: 'nav.pricing', path: '/pricing' },
 ];
 
 // Styled NavLink with underline animation
@@ -81,9 +85,12 @@ export default function Navbar() {
     const [open, setOpen] = useState(false);
     const [isScrolled, setIsScrolled] = useState(false);
     const pathname = usePathname();
-    const { user, isAuthenticated, logoutMutation } = useAuth();
+    const { user, isAuthenticated, loading: authLoading, logoutMutation } = useAuth();
+    const { language, setLanguage, t } = useLanguage();
     const [anchorEl, setAnchorEl] = useState(null);
     const menuOpen = Boolean(anchorEl);
+    const [langAnchorEl, setLangAnchorEl] = useState(null);
+    const langMenuOpen = Boolean(langAnchorEl);
 
     const handleMenuOpen = (event) => {
         setAnchorEl(event.currentTarget);
@@ -96,6 +103,19 @@ export default function Navbar() {
     const handleLogout = () => {
         handleMenuClose();
         logoutMutation.mutate();
+    };
+
+    const handleLangMenuOpen = (event) => {
+        setLangAnchorEl(event.currentTarget);
+    };
+
+    const handleLangMenuClose = () => {
+        setLangAnchorEl(null);
+    };
+
+    const handleSelectLanguage = (code) => {
+        setLanguage(code);
+        handleLangMenuClose();
     };
 
 
@@ -158,17 +178,64 @@ export default function Navbar() {
                     {/* Desktop Nav */}
                     <Box sx={{ display: { xs: 'none', lg: 'flex' }, gap: 2 }}>
                         {navItems.map((item) => (
-                            <Link key={item.label} href={item.path} passHref style={{ textDecoration: 'none' }}>
+                            <Link key={item.labelKey} href={item.path} passHref style={{ textDecoration: 'none' }}>
                                 <NavLink isScrolled={isScrolled} isActive={pathname === item.path}>
-                                    {item.label}
+                                    {t(item.labelKey)}
                                 </NavLink>
                             </Link>
                         ))}
                     </Box>
 
+                    {/* Language Switcher */}
+                    <Button
+                        onClick={handleLangMenuOpen}
+                        startIcon={<LanguageIcon sx={{ fontSize: 18 }} />}
+                        endIcon={<KeyboardArrowDownIcon sx={{ fontSize: 18 }} />}
+                        sx={{
+                            display: { xs: 'none', lg: 'inline-flex' },
+                            textTransform: 'none',
+                            color: '#000000',
+                            fontWeight: 600,
+                            minWidth: 0,
+                            mr: 1,
+                        }}
+                    >
+                        {language.toUpperCase()}
+                    </Button>
+                    <Menu
+                        anchorEl={langAnchorEl}
+                        open={langMenuOpen}
+                        onClose={handleLangMenuClose}
+                        PaperProps={{
+                            sx: { mt: 1, minWidth: 160, borderRadius: 2 }
+                        }}
+                    >
+                        {LANGUAGES.map((lng) => (
+                            <MenuItem
+                                key={lng.code}
+                                selected={language === lng.code}
+                                onClick={() => handleSelectLanguage(lng.code)}
+                                sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}
+                            >
+                                {lng.label}
+                                {language === lng.code && <CheckIcon sx={{ fontSize: 18, color: '#EAB308' }} />}
+                            </MenuItem>
+                        ))}
+                    </Menu>
+
                     {/* Desktop CTA */}
 
-                    {isAuthenticated ? (
+                    {authLoading ? (
+                        <Box
+                            sx={{
+                                display: { xs: 'none', lg: 'block' },
+                                width: 140,
+                                height: 40,
+                                borderRadius: '999px',
+                                bgcolor: 'rgba(0, 0, 0, 0.06)',
+                            }}
+                        />
+                    ) : isAuthenticated ? (
                         <>
                             <Button
                                 onClick={handleMenuOpen}
@@ -182,7 +249,7 @@ export default function Navbar() {
                             >
                                 <Avatar
                                     src={user?.avatar}
-                                    sx={{ width: 32, height: 32, bgcolor: '#667eea' }}
+                                    sx={{ width: 32, height: 32, bgcolor: '#000000' }}
                                 >
                                     {user?.name?.charAt(0).toUpperCase()}
                                 </Avatar>
@@ -206,19 +273,19 @@ export default function Navbar() {
                                     onClick={handleMenuClose}
                                 >
                                     <DashboardIcon sx={{ mr: 1, fontSize: 20 }} />
-                                    Dashboard
+                                    {t('nav.dashboard')}
                                 </MenuItem>
                                 <MenuItem
                                     component={Link}
-                                    href="/profile"
+                                    href="/settings"
                                     onClick={handleMenuClose}
                                 >
                                     <PersonIcon sx={{ mr: 1, fontSize: 20 }} />
-                                    Profile
+                                    {t('nav.profile')}
                                 </MenuItem>
                                 <MenuItem onClick={handleLogout} sx={{ color: 'error.main' }}>
                                     <LogoutIcon sx={{ mr: 1, fontSize: 20 }} />
-                                    Logout
+                                    {t('nav.logout')}
                                 </MenuItem>
                             </Menu>
                         </>
@@ -242,7 +309,7 @@ export default function Navbar() {
                                 },
                             }}
                         >
-                            Join Now
+                            {t('nav.joinNow')}
                         </Button>
                     )}
 
@@ -303,9 +370,31 @@ export default function Navbar() {
                                 </IconButton>
                             </Box>
 
+                            {/* Mobile Language Switcher */}
+                            <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+                                {LANGUAGES.map((lng) => (
+                                    <Button
+                                        key={lng.code}
+                                        fullWidth
+                                        onClick={() => setLanguage(lng.code)}
+                                        sx={{
+                                            textTransform: 'none',
+                                            fontWeight: 600,
+                                            borderRadius: 2,
+                                            border: '1px solid',
+                                            borderColor: language === lng.code ? '#EAB308' : '#e2e8f0',
+                                            color: language === lng.code ? '#000000' : '#64748b',
+                                            bgcolor: language === lng.code ? 'rgba(234, 179, 8, 0.1)' : 'transparent',
+                                        }}
+                                    >
+                                        {lng.code.toUpperCase()}
+                                    </Button>
+                                ))}
+                            </Box>
+
                             {/* Mobile Nav Links */}
                             {navItems.map((item) => (
-                                <Link key={item.label} href={item.path} passHref style={{ textDecoration: 'none' }}>
+                                <Link key={item.labelKey} href={item.path} passHref style={{ textDecoration: 'none' }}>
                                     <Button
                                         fullWidth
                                         onClick={() => setOpen(false)}
@@ -341,18 +430,20 @@ export default function Navbar() {
                                             },
                                         }}
                                     >
-                                        {item.label}
+                                        {t(item.labelKey)}
                                     </Button>
                                 </Link>
                             ))}
 
                             {/* Mobile CTA */}
-                            {isAuthenticated ? (
+                            {authLoading ? (
+                                <Box sx={{ width: '100%', height: 44, borderRadius: 2, bgcolor: 'rgba(0, 0, 0, 0.06)' }} />
+                            ) : isAuthenticated ? (
                                 <>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
                                         <Avatar
                                             src={user?.avatar}
-                                            sx={{ width: 40, height: 40, bgcolor: '#667eea' }}
+                                            sx={{ width: 40, height: 40, bgcolor: '#000000' }}
                                         >
                                             {user?.name?.charAt(0).toUpperCase()}
                                         </Avatar>
@@ -375,12 +466,12 @@ export default function Navbar() {
                                         }}
                                     >
                                         <DashboardIcon sx={{ mr: 1 }} />
-                                        Dashboard
+                                        {t('nav.dashboard')}
                                     </Button>
 
                                     <Button
                                         component={Link}
-                                        href="/profile"
+                                        href="/settings"
                                         fullWidth
                                         onClick={() => setOpen(false)}
                                         sx={{
@@ -392,7 +483,7 @@ export default function Navbar() {
                                         }}
                                     >
                                         <PersonIcon sx={{ mr: 1 }} />
-                                        Profile
+                                        {t('nav.profile')}
                                     </Button>
 
                                     <Button
@@ -409,7 +500,7 @@ export default function Navbar() {
                                         }}
                                     >
                                         <LogoutIcon sx={{ mr: 1 }} />
-                                        Logout
+                                        {t('nav.logout')}
                                     </Button>
                                 </>
                             ) : (
@@ -433,7 +524,7 @@ export default function Navbar() {
                                         },
                                     }}
                                 >
-                                    Join Now
+                                    {t('nav.joinNow')}
                                 </Button>
                             )}
                         </Box>

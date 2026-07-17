@@ -32,7 +32,7 @@ export default function SuccessModal({
                 <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
                     {loading ? (
                         <>
-                            <CircularProgress size={60} sx={{ color: '#667eea' }} />
+                            <CircularProgress size={60} sx={{ color: '#000000' }} />
                             <Typography variant="h6" fontWeight="600" color="#1e293b">
                                 {loadingText}
                             </Typography>

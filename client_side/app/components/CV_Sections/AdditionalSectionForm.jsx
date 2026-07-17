@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React from 'react';
 import dynamic from 'next/dynamic';
 import {
     Box,
@@ -22,6 +22,7 @@ import {
     ToggleButton,
     ToggleButtonGroup,
     Divider,
+    CircularProgress,
     styled
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -29,6 +30,9 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import DrawIcon from '@mui/icons-material/Draw';
 import KeyboardIcon from '@mui/icons-material/Keyboard';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
+import EditIcon from '@mui/icons-material/Edit';
+import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
+import { useAiAssist } from '../../hooks/useAiAssist';
 
 const ReactQuill = dynamic(
     () => import("react-quill-new"),
@@ -68,6 +72,30 @@ const UploadBox = styled(Box)(({ theme }) => ({
     },
 }));
 
+const AIButton = styled(Button)(({ theme }) => ({
+    '& .MuiButton-startIcon': {
+        transition: 'transform 0.3s ease',
+    },
+    '&:hover .MuiButton-startIcon': {
+        transform: 'rotate(180deg)',
+    },
+}));
+
+const DescriptionLabelRow = ({ label, onGenerate, isGenerating, hasText }) => (
+    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+        <Typography variant="body2" color="text.secondary">{label}</Typography>
+        <AIButton
+            size="small"
+            variant="outlined"
+            startIcon={isGenerating ? <CircularProgress size={14} color="inherit" /> : <AutoFixHighIcon fontSize="small" />}
+            onClick={onGenerate}
+            disabled={isGenerating}
+        >
+            {isGenerating ? 'Génération...' : hasText ? "Suggestions de l'IA" : "Générer avec l'IA"}
+        </AIButton>
+    </Box>
+);
+
 const SkillLevelButton = styled(Button)(({ theme, selected }) => ({
     flex: 1,
     padding: theme.spacing(1),
@@ -95,14 +123,51 @@ const AdditionalSectionForm = ({
     handleFileUpload,
     handleTypedSignature,
     clearCanvas,
+    addToAdditionalSection,
+    updateAdditionalSection,
+    removeFromAdditionalSection,
+    removeAdditionalSection,
+    setShowAdditionalForm,
+    setEditingAdditionalIndex,
+    cvData,
     startDrawing,
     draw,
     stopDrawing,
     quillModules,
-    quillFormats
+    quillFormats,
+    canvasRef
 }) => {
-    const localCanvasRef = useRef(null);
-    const canvasRef = localCanvasRef;
+
+    const stripHtml = (html) => {
+        if (!html) return "";
+        const tmp = document.createElement("div");
+        tmp.innerHTML = html;
+        return tmp.textContent || tmp.innerText || "";
+    };
+
+    const { generateText, isGenerating } = useAiAssist();
+
+    const SECTION_LABELS = {
+        courses: 'Courses',
+        internships: 'Internships',
+        extracurricular: 'Extracurricular Activities',
+        certificates: 'Certificates',
+        achievements: 'Achievements',
+        footer: 'Footer',
+        custom: 'Custom Section',
+    };
+
+    const handleAiGenerate = async (descriptionField, context) => {
+        const existingText = stripHtml(currentAdditionalSection[descriptionField]);
+        const html = await generateText({
+            contentType: 'additional_section',
+            sectionLabel: SECTION_LABELS[sectionId] || sectionId,
+            mode: existingText ? 'improve' : 'generate',
+            existingText,
+            context,
+        });
+        setCurrentAdditionalSection(prev => ({ ...prev, [descriptionField]: html }));
+    };
 
     // Month options for select
     const months = [
@@ -119,6 +184,39 @@ const AdditionalSectionForm = ({
         { value: '11', label: 'November' },
         { value: '12', label: 'December' },
     ];
+
+    const getDisplayTitle = (item, sectionId) => {
+        switch (sectionId) {
+            case "courses":
+                return item.course || "Untitled Course";
+
+            case "internships":
+            case "extracurricular":
+                return item.position || "Untitled Position";
+
+            case "references":
+                return item.name || "Untitled Reference";
+
+            case "qualities":
+                return item.quality || "Untitled Quality";
+
+            case "certificates":
+                return item.certificate || "Untitled Certificate";
+
+            case "achievements":
+            case "footer":
+                return stripHtml(item.description) || "Untitled";
+
+            case "custom":
+                return item.title || "Untitled Custom Section";
+
+            case "signature":
+                return "Signature";
+
+            default:
+                return item.description || "Untitled";
+        }
+    };
 
     // Year options
     const years = Array.from({ length: 40 }, (_, i) => new Date().getFullYear() - i);
@@ -212,6 +310,35 @@ const AdditionalSectionForm = ({
         return fieldConfig[sectionId] || {};
     };
 
+    const renderDisplay = (item, index) => (
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Box>
+                <Typography fontWeight="medium">
+                    {getDisplayTitle(item, sectionId)}
+                </Typography>
+            </Box>
+
+            <Stack direction="row" spacing={1}>
+                <IconButton
+                    color="primary"
+                    onClick={() => {
+                        setEditingAdditionalIndex(index);
+                        setCurrentAdditionalSection(item);
+                    }}
+                >
+                    <EditIcon />
+                </IconButton>
+
+                <IconButton
+                    color="error"
+                    onClick={() => removeFromAdditionalSection(sectionId, index)}
+                >
+                    <DeleteIcon />
+                </IconButton>
+            </Stack>
+        </Box>
+    );
+
     // Render fields based on section type
     const renderFields = () => {
         const specificFields = {
@@ -283,7 +410,12 @@ const AdditionalSectionForm = ({
                         </Grid>
                     </Grid>
                     <Box sx={{ mt: 3 }}>
-                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>Description</Typography>
+                        <DescriptionLabelRow
+                            label="Description"
+                            onGenerate={() => handleAiGenerate('description', { course: currentAdditionalSection.course })}
+                            isGenerating={isGenerating}
+                            hasText={!!currentAdditionalSection.description}
+                        />
                         <ReactQuill
                             theme="snow"
                             value={currentAdditionalSection.description || ""}
@@ -427,7 +559,16 @@ const AdditionalSectionForm = ({
                     </Grid>
 
                     <Box sx={{ mt: 3 }}>
-                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>Description</Typography>
+                        <DescriptionLabelRow
+                            label="Description"
+                            onGenerate={() => handleAiGenerate('description', {
+                                position: currentAdditionalSection.position,
+                                employer: currentAdditionalSection.employer,
+                                city: currentAdditionalSection.city,
+                            })}
+                            isGenerating={isGenerating}
+                            hasText={!!currentAdditionalSection.description}
+                        />
                         <ReactQuill
                             theme="snow"
                             value={currentAdditionalSection.description || ""}
@@ -571,7 +712,16 @@ const AdditionalSectionForm = ({
                     </Grid>
 
                     <Box sx={{ mt: 3 }}>
-                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>Description</Typography>
+                        <DescriptionLabelRow
+                            label="Description"
+                            onGenerate={() => handleAiGenerate('description', {
+                                position: currentAdditionalSection.position,
+                                employer: currentAdditionalSection.employer,
+                                city: currentAdditionalSection.city,
+                            })}
+                            isGenerating={isGenerating}
+                            hasText={!!currentAdditionalSection.description}
+                        />
                         <ReactQuill
                             theme="snow"
                             value={currentAdditionalSection.description || ""}
@@ -736,7 +886,12 @@ const AdditionalSectionForm = ({
                     </Grid>
 
                     <Box sx={{ mt: 3 }}>
-                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>Description</Typography>
+                        <DescriptionLabelRow
+                            label="Description"
+                            onGenerate={() => handleAiGenerate('description', { certificate: currentAdditionalSection.certificate })}
+                            isGenerating={isGenerating}
+                            hasText={!!currentAdditionalSection.description}
+                        />
                         <ReactQuill
                             theme="snow"
                             value={currentAdditionalSection.description || ""}
@@ -750,7 +905,12 @@ const AdditionalSectionForm = ({
             ),
             achievements: (
                 <Box>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>Achievement Description</Typography>
+                    <DescriptionLabelRow
+                        label="Achievement Description"
+                        onGenerate={() => handleAiGenerate('description', {})}
+                        isGenerating={isGenerating}
+                        hasText={!!currentAdditionalSection.description}
+                    />
                     <ReactQuill
                         theme="snow"
                         value={currentAdditionalSection.description || ""}
@@ -954,7 +1114,12 @@ const AdditionalSectionForm = ({
             ),
             footer: (
                 <Box>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>Content</Typography>
+                    <DescriptionLabelRow
+                        label="Content"
+                        onGenerate={() => handleAiGenerate('description', {})}
+                        isGenerating={isGenerating}
+                        hasText={!!currentAdditionalSection.description}
+                    />
                     <ReactQuill
                         theme="snow"
                         value={currentAdditionalSection.description || ""}
@@ -992,7 +1157,12 @@ const AdditionalSectionForm = ({
                     {/* Conditional Fields Based on Type */}
                     {currentAdditionalSection.type === 'description' && (
                         <Box>
-                            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>Description</Typography>
+                            <DescriptionLabelRow
+                                label="Description"
+                                onGenerate={() => handleAiGenerate('description', {})}
+                                isGenerating={isGenerating}
+                                hasText={!!currentAdditionalSection.description}
+                            />
                             <ReactQuill
                                 theme="snow"
                                 value={currentAdditionalSection.description || ""}
@@ -1075,7 +1245,15 @@ const AdditionalSectionForm = ({
                             </Grid>
 
                             <Box>
-                                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>Description</Typography>
+                                <DescriptionLabelRow
+                                    label="Description"
+                                    onGenerate={() => handleAiGenerate('entryDescription', {
+                                        title: currentAdditionalSection.entryTitle,
+                                        organization: currentAdditionalSection.organization,
+                                    })}
+                                    isGenerating={isGenerating}
+                                    hasText={!!currentAdditionalSection.entryDescription}
+                                />
                                 <ReactQuill
                                     theme="snow"
                                     value={currentAdditionalSection.entryDescription || ""}
@@ -1228,39 +1406,44 @@ const AdditionalSectionForm = ({
                             </Button>
 
                             {/* Display added skills */}
-                            {currentAdditionalSection.skills && currentAdditionalSection.skills.length > 0 && (
-                                <Box>
-                                    <Divider sx={{ mb: 2 }} />
-                                    <Typography variant="subtitle2" sx={{ mb: 2 }}>Added Skills:</Typography>
-                                    <Stack spacing={1}>
-                                        {currentAdditionalSection.skills.map((skill, index) => (
-                                            <Paper key={skill.id} variant="outlined" sx={{ p: 2 }}>
-                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                    <Box>
-                                                        <Typography fontWeight="medium">{skill.name}</Typography>
-                                                        <Typography variant="body2" color="text.secondary">
-                                                            Level: {skill.level}
-                                                        </Typography>
-                                                    </Box>
-                                                    <IconButton
-                                                        color="error"
-                                                        onClick={() => {
-                                                            const updatedSkills = currentAdditionalSection.skills.filter((_, i) => i !== index);
-                                                            setCurrentAdditionalSection(prev => ({
-                                                                ...prev,
-                                                                skills: updatedSkills
-                                                            }));
-                                                        }}
-                                                        size="small"
-                                                    >
-                                                        <DeleteIcon fontSize="small" />
-                                                    </IconButton>
-                                                </Box>
-                                            </Paper>
-                                        ))}
-                                    </Stack>
-                                </Box>
-                            )}
+{Array.isArray(currentAdditionalSection.skills) &&
+ currentAdditionalSection.skills.length > 0 && (
+  <Box>
+    <Divider sx={{ mb: 2 }} />
+    <Typography variant="subtitle2" sx={{ mb: 2 }}>
+      Added Skills:
+    </Typography>
+
+    <Stack spacing={1}>
+      {currentAdditionalSection.skills.map((skill, index) => (
+        <Paper key={skill.id} variant="outlined" sx={{ p: 2 }}>
+          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <Box>
+              <Typography fontWeight="medium">{skill.name}</Typography>
+              <Typography variant="body2" color="text.secondary">
+                Level: {skill.level}
+              </Typography>
+            </Box>
+
+            <IconButton
+              color="error"
+              onClick={() => {
+                const updated = currentAdditionalSection.skills.filter((_, i) => i !== index);
+                setCurrentAdditionalSection(prev => ({
+                  ...prev,
+                  skills: updated
+                }));
+              }}
+              size="small"
+            >
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          </Box>
+        </Paper>
+      ))}
+    </Stack>
+  </Box>
+)}
                         </Stack>
                     )}
 
@@ -1359,14 +1542,70 @@ const AdditionalSectionForm = ({
                         </Box>
                     </Stack>
                 )}
+                <Divider sx={{ mt: 3, mb: 2 }} />
+
+                <Divider sx={{ mt: 3, mb: 2 }} />
+
+                <Stack direction="row" spacing={2} alignItems="center">
+                    <Button
+                        variant="outlined"
+                        color="error"
+                        startIcon={<DeleteIcon />}
+                        onClick={() => {
+                            removeAdditionalSection(sectionId);
+                            setEditingAdditionalIndex(null);
+                            setShowAdditionalForm(prev => ({
+                                ...prev,
+                                [sectionId]: false
+                            }));
+                        }}
+                    >
+                        Remove Section
+                    </Button>
+
+                    <Button
+                        variant="contained"
+                        color="success"
+                        onClick={() => {
+                            if (editingAdditionalIndex !== null) {
+                                updateAdditionalSection(sectionId, editingAdditionalIndex);
+                            } else {
+                                addToAdditionalSection(sectionId);
+                            }
+
+                            // ✅ IMMEDIATELY HIDE FORM
+                            setEditingAdditionalIndex(null);
+                        }}
+                    >
+                        Finish
+                    </Button>
+                </Stack>
+
             </Box>
         );
     };
 
     return (
-        <Box>
-            {renderFields()}
-        </Box>
+        <Stack spacing={2}>
+
+            {/* Existing Items */}
+            {cvData[sectionId]?.map((item, index) => (
+                <Paper key={item.id || index} variant="outlined" sx={{ p: 2 }}>
+                    {editingAdditionalIndex === index
+                        ? renderFields()
+                        : renderDisplay(item, index)
+                    }
+                </Paper>
+            ))}
+
+            {/* Add Form */}
+            {editingAdditionalIndex === null && (
+                <Paper variant="outlined" sx={{ p: 3 }}>
+                    {renderFields()}
+                </Paper>
+            )}
+
+        </Stack>
     );
 };
 

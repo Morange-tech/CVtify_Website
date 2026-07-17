@@ -13,9 +13,13 @@ use App\Http\Controllers\Api\Admin\SupportTicketController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CvParseController;
 use App\Http\Controllers\Api\DashboardController;
+use App\Http\Controllers\Api\Admin\AdminResourceController;
 use App\Http\Controllers\Api\MotivationTemplateController;
+use App\Http\Controllers\Api\ResourceController;
+use App\Http\Controllers\Api\SubscriptionController;
 use App\Http\Controllers\Api\SupportTicketController as ApiSupportTicketController;
 use App\Http\Controllers\Api\TemplateController;
+use App\Http\Controllers\Api\User\AiController;
 use App\Http\Controllers\Api\User\CvController;
 use App\Http\Controllers\Api\User\DownloadHistoryController;
 use App\Http\Controllers\Api\User\MotivationLetterController;
@@ -49,8 +53,9 @@ Route::get('/templates', [TemplateController::class, 'index']);
 Route::get('/templates/{template}', [TemplateController::class, 'show']);
 Route::get('/motivation-templates', [MotivationTemplateController::class, 'index']);
 Route::get('/motivation-templates/{motivationTemplate}', [MotivationTemplateController::class, 'show']);
+Route::get('/resources', [ResourceController::class, 'index']);
 Route::get('/public/motivation-letters/{token}', [MotivationLetterController::class, 'publicShow']);
-Route::post('/cvs/parse', [CvParseController::class, 'parse']);
+Route::post('/cvs/parse', [CvParseController::class, 'parse'])->middleware('throttle:5,1');
 Route::get('/auth/linkedin/redirect', [LinkedInAuthController::class, 'redirect']);
 Route::get('/auth/linkedin/callback', [LinkedInAuthController::class, 'callback']);
 
@@ -63,10 +68,15 @@ Route::get('/auth/linkedin/callback', [LinkedInAuthController::class, 'callback'
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [App\Http\Controllers\Api\AuthController::class, 'user']);
     Route::post('/logout', [App\Http\Controllers\Api\AuthController::class, 'logout']);
+    Route::patch('/profile', [App\Http\Controllers\Api\AuthController::class, 'updateProfile']);
+    Route::post('/change-password', [App\Http\Controllers\Api\AuthController::class, 'changePassword']);
+    Route::delete('/account', [App\Http\Controllers\Api\AuthController::class, 'deleteAccount']);
+    Route::post('/subscription/cancel', [SubscriptionController::class, 'cancel']);
     Route::post('/admin/users/{id}/activate-premium', [\App\Http\Controllers\Api\Admin\SubscriptionController::class, 'activate']);
     Route::post('/templates/{template}/wishlist', [TemplateController::class, 'toggleWishlist']);
     Route::get('/user/wishlist', [TemplateController::class, 'userWishlist']);
     Route::post('/motivation-templates/{motivationTemplate}/wishlist', [MotivationTemplateController::class, 'toggleWishlist']);
+    Route::get('/user/motivation-wishlist', [MotivationTemplateController::class, 'userWishlist']);
     Route::get('/dashboard', [DashboardController::class, 'index']);
     Route::get('/dashboard/stats', [DashboardController::class, 'stats']);
     Route::get('/dashboard/documents', [DashboardController::class, 'documents']);
@@ -75,12 +85,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/cvs', [CvController::class, 'store']);
 
     Route::get('/cvs/{cv}', [CvController::class, 'show'])->whereNumber('cv');
-    Route::put('/cvs/{cv}', [CvController::class, 'update'])->whereNumber('cv');
+    Route::match(['put', 'patch'], '/cvs/{cv}', [CvController::class, 'update'])->whereNumber('cv');
     Route::patch('/cvs/{cv}/rename', [CvController::class, 'rename'])->whereNumber('cv');
     Route::post('/cvs/{cv}/duplicate', [CvController::class, 'duplicate'])->whereNumber('cv');
     Route::delete('/cvs/{cv}', [CvController::class, 'destroy'])->whereNumber('cv');
     Route::get('/cvs/{cv}/share', [CvController::class, 'share'])->whereNumber('cv');
     Route::get('/cvs/{cv}/download', [CvController::class, 'download'])->whereNumber('cv');
+    Route::get('/cvs/{cv}/export-docx', [CvController::class, 'exportDocx'])->whereNumber('cv');
+
+    Route::post('/ai/generate-text', [AiController::class, 'generateText'])->middleware('throttle:10,1');
 
     Route::get('/motivation-letters', [MotivationLetterController::class, 'index']);
     Route::post('/motivation-letters', [MotivationLetterController::class, 'store']);
@@ -99,6 +112,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/downloads', [DownloadHistoryController::class, 'clearAll']);
 
     Route::get('/upgrade-content', [UpgradeContentController::class, 'index']);
+    Route::post('/support-tickets', [ApiSupportTicketController::class, 'store']);
 
 
     // ─── Admin Routes ───────────────────────────────────
@@ -167,6 +181,20 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::patch('/admins/{id}/role', [AdminManagementController::class, 'updateRole']);
         Route::patch('/admins/{id}/status', [AdminManagementController::class, 'updateStatus']);
         Route::delete('/admins/{id}', [AdminManagementController::class, 'destroy']);
+
+        // Resources (guides / tips / prep / advice + FAQ)
+        Route::get('/resources/faqs', [AdminResourceController::class, 'faqIndex']);
+        Route::post('/resources/faqs', [AdminResourceController::class, 'faqStore']);
+        Route::put('/resources/faqs/{faq}', [AdminResourceController::class, 'faqUpdate']);
+        Route::delete('/resources/faqs/{faq}', [AdminResourceController::class, 'faqDestroy']);
+        Route::patch('/resources/faqs/{faq}/toggle-active', [AdminResourceController::class, 'faqToggleActive']);
+
+        Route::get('/resources', [AdminResourceController::class, 'index']);
+        Route::post('/resources', [AdminResourceController::class, 'store']);
+        Route::put('/resources/{resource}', [AdminResourceController::class, 'update']);
+        Route::delete('/resources/{resource}', [AdminResourceController::class, 'destroy']);
+        Route::patch('/resources/{resource}/toggle-published', [AdminResourceController::class, 'togglePublished']);
+        Route::patch('/resources/{resource}/toggle-featured', [AdminResourceController::class, 'toggleFeatured']);
 
         // Motivation Letter Templates
         Route::get('/motivation-letter-templates', [MotivationLetterTemplateController::class, 'index']);

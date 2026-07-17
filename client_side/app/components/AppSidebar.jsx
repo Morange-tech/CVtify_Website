@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import {
   Drawer,
   Box,
@@ -14,31 +14,41 @@ import {
   Typography,
   Divider,
   Tooltip,
-  Skeleton,
+  useMediaQuery,
 } from "@mui/material";
-
-import MenuIcon from "@mui/icons-material/Menu";
-import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
-import HomeIcon from "@mui/icons-material/Home";
-import DescriptionIcon from "@mui/icons-material/Description";
-import MailOutlineIcon from "@mui/icons-material/MailOutline";
-import ColorLensIcon from "@mui/icons-material/ColorLens";
-import BarChartIcon from "@mui/icons-material/BarChart";
-import SmartToyIcon from "@mui/icons-material/SmartToy";
-import DownloadIcon from "@mui/icons-material/Download";
-import StarIcon from "@mui/icons-material/Star";
-import DiamondIcon from "@mui/icons-material/Diamond";
-import SettingsIcon from "@mui/icons-material/Settings";
-import LogoutIcon from "@mui/icons-material/Logout";
+import { useTheme } from "@mui/material/styles";
+import { motion } from "motion/react";
+import {
+  Menu,
+  ChevronLeft,
+  X,
+  Home,
+  FileText,
+  Mail,
+  Palette,
+  BarChart3,
+  Bot,
+  Download,
+  Sparkles,
+  Gem,
+  Settings,
+  LogOut,
+  ArrowLeft,
+  Heart,
+} from "lucide-react";
 import { useSidebar } from "./SidebarContext";
 import { useAuth } from "../hooks/useAuth";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
+
+const MotionListItem = motion(ListItem);
 
 export default function AppSidebar() {
-  const [isLoading, setIsLoading] = useState(false);
   const { open, setOpen } = useSidebar();
   const { user, logoutMutation } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
   const drawerWidth = 240;
   const railWidth = 70;
@@ -47,78 +57,184 @@ export default function AppSidebar() {
 
   // Free user links
   const freeLinks = [
-    { title: "Dashboard", icon: <HomeIcon />, path: "/dashboard" },
-    { title: "My CVs", icon: <DescriptionIcon />, path: "/my-cvs" },
-    { title: "My Motivation Letters", icon: <MailOutlineIcon />, path: "/motivation-letter" },
-    { title: "Templates", icon: <ColorLensIcon />, path: "/templates" },
-    { title: "Downloads", icon: <DownloadIcon />, path: "/downloads" },
+    { title: "Dashboard", icon: Home, path: "/dashboard" },
+    { title: "My CVs", icon: FileText, path: "/my-cvs" },
+    { title: "My Motivation Letters", icon: Mail, path: "/motivation-letter" },
+    { title: "Templates", icon: Palette, path: "/templates" },
+    { title: "Wishlist", icon: Heart, path: "/wishlist" },
+    { title: "Downloads", icon: Download, path: "/downloads" },
   ];
 
   // Premium-only links
   const premiumLinks = [
-    { title: "Dashboard", icon: <HomeIcon />, path: "/dashboard" },
-    { title: "My CVs", icon: <DescriptionIcon />, path: "/my-cvs" },
-    { title: "My Motivation Letters", icon: <MailOutlineIcon />, path: "/motivation-letters" },
-    { title: "All Templates", icon: <ColorLensIcon />, path: "/templates" },
-    { title: "CV Analytics", icon: <BarChartIcon />, path: "/analytics" },
-    { title: "AI Assistant", icon: <SmartToyIcon />, path: "/ai-assistant" },
-    { title: "Downloads", icon: <DownloadIcon />, path: "/downloads" },
+    { title: "Dashboard", icon: Home, path: "/dashboard" },
+    { title: "My CVs", icon: FileText, path: "/my-cvs" },
+    { title: "My Motivation Letters", icon: Mail, path: "/motivation-letter" },
+    { title: "All Templates", icon: Palette, path: "/templates" },
+    { title: "Wishlist", icon: Heart, path: "/wishlist" },
+    { title: "CV Analytics", icon: BarChart3, path: "/analytics" },
+    { title: "AI Assistant", icon: Bot, path: "/ai-assistant" },
+    { title: "Downloads", icon: Download, path: "/downloads" },
   ];
 
   const mainLinks = isPremium ? premiumLinks : freeLinks;
 
   // Bottom links differ based on plan
   const bottomLinks = isPremium
-    ? [
-        { title: "Subscription", icon: <DiamondIcon />, path: "/subscription" },
-        { title: "Settings", icon: <SettingsIcon />, path: "/settings" },
-      ]
-    : [
-        { title: "Upgrade to Premium", icon: <StarIcon />, path: "/upgrade" },
-        { title: "Settings", icon: <SettingsIcon />, path: "/settings" },
-      ];
+    ? [{ title: "Subscription", icon: Gem, path: "/subscription" }]
+    : [{ title: "Upgrade to Premium", icon: Sparkles, path: "/upgrade" }];
+
+  const settingsLink = { title: "Settings", icon: Settings, path: "/settings" };
+  const homeLink = { title: "Retour à l'accueil", icon: ArrowLeft, path: "/" };
+
+  const isExpanded = isMobile ? true : open;
 
   const handleNavigate = (path) => {
     router.push(path);
+    if (isMobile) setOpen(false);
   };
 
   const handleLogout = () => {
     logoutMutation.mutate();
+    if (isMobile) setOpen(false);
   };
 
-  return (
-    <Drawer
-      variant="permanent"
-      sx={{
-        width: open ? drawerWidth : railWidth,
-        flexShrink: 0,
-        "& .MuiDrawer-paper": {
-          width: open ? drawerWidth : railWidth,
-          transition: "width 0.3s",
-          overflowX: "hidden",
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "space-between",
-          borderRight: "1px solid #e2e8f0",
-        },
-      }}
-    >
+  const isActive = (path) =>
+    pathname === path || (path !== "/dashboard" && pathname?.startsWith(path + "/"));
+
+  const renderLink = (link, index, variant = "default") => {
+    const Icon = link.icon;
+    const active = isActive(link.path);
+
+    const isUpgrade = variant === "upgrade";
+    const isSubscription = variant === "subscription";
+    const isLogout = variant === "logout";
+
+    const isHome = variant === "home";
+
+    let activeColor = "#000000";
+    if (isUpgrade) activeColor = "#EAB308";
+    if (isSubscription) activeColor = "#1a1a1a";
+    if (isLogout) activeColor = "#ef4444";
+    if (isHome) activeColor = "#64748b";
+
+    return (
+      <MotionListItem
+        key={link.title}
+        disablePadding
+        sx={{ mb: 0.5 }}
+        initial={{ opacity: 0, x: -12 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.25, delay: index * 0.04, ease: "easeOut" }}
+      >
+        <Tooltip title={!isExpanded ? link.title : ""} placement="right" arrow>
+          <ListItemButton
+            onClick={isLogout ? handleLogout : () => handleNavigate(link.path)}
+            disabled={isLogout && logoutMutation.isPending}
+            sx={{
+              borderRadius: 2,
+              minHeight: 44,
+              justifyContent: isExpanded ? "initial" : "center",
+              px: 2,
+              position: "relative",
+              transition: "background-color 0.2s ease, transform 0.15s ease",
+              ...(active && {
+                bgcolor: "#00000014",
+                "&::before": {
+                  content: '""',
+                  position: "absolute",
+                  left: 0,
+                  top: "20%",
+                  height: "60%",
+                  width: 3,
+                  borderRadius: "0 4px 4px 0",
+                  bgcolor: "#000000",
+                },
+              }),
+              ...((isUpgrade || isSubscription) && {
+                background: "linear-gradient(135deg, #00000015 0%, #1a1a1a15 100%)",
+                border: "1px solid #00000030",
+                "&:hover": {
+                  background: "linear-gradient(135deg, #00000025 0%, #1a1a1a25 100%)",
+                  transform: "translateX(2px)",
+                },
+              }),
+              "&:hover": {
+                bgcolor: isLogout
+                  ? "#ef444410"
+                  : isUpgrade || isSubscription
+                  ? undefined
+                  : "#00000010",
+                transform: "translateX(2px)",
+                "& .MuiListItemIcon-root": {
+                  color: activeColor,
+                },
+                "& .MuiListItemText-primary": {
+                  color: activeColor,
+                },
+              },
+            }}
+          >
+            <ListItemIcon
+              sx={{
+                minWidth: 0,
+                mr: isExpanded ? 2 : "auto",
+                justifyContent: "center",
+                color: active
+                  ? activeColor
+                  : isUpgrade
+                  ? "#EAB308"
+                  : isSubscription
+                  ? "#1a1a1a"
+                  : isLogout
+                  ? "#ef4444"
+                  : "#64748b",
+              }}
+            >
+              <Icon size={20} strokeWidth={2} />
+            </ListItemIcon>
+            {isExpanded && (
+              <ListItemText
+                primary={link.title}
+                primaryTypographyProps={{
+                  fontSize: "0.9rem",
+                  fontWeight: active || isUpgrade || isSubscription ? 700 : 500,
+                  color: active
+                    ? activeColor
+                    : isUpgrade
+                    ? "#EAB308"
+                    : isSubscription
+                    ? "#1a1a1a"
+                    : isLogout
+                    ? "#ef4444"
+                    : "#1e293b",
+                }}
+              />
+            )}
+          </ListItemButton>
+        </Tooltip>
+      </MotionListItem>
+    );
+  };
+
+  const sidebarContent = (
+    <>
       {/* ===== TOP SECTION ===== */}
       <Box>
         {/* Header */}
         <Toolbar
           sx={{
             display: "flex",
-            justifyContent: open ? "space-between" : "center",
-            px: open ? 2 : 0,
+            justifyContent: isExpanded ? "space-between" : "center",
+            px: isExpanded ? 2 : 0,
           }}
         >
-          {open && (
+          {isExpanded && (
             <Typography
               variant="h6"
               fontWeight="800"
               sx={{
-                background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                background: "linear-gradient(135deg, #000000 0%, #1a1a1a 100%)",
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
               }}
@@ -126,76 +242,23 @@ export default function AppSidebar() {
               CVtify
             </Typography>
           )}
-          <IconButton onClick={() => setOpen(!open)}>
-            {open ? <ChevronLeftIcon /> : <MenuIcon />}
+          <IconButton onClick={() => setOpen(!open)} size="small">
+            {isMobile ? (
+              <X size={20} />
+            ) : open ? (
+              <ChevronLeft size={20} />
+            ) : (
+              <Menu size={20} />
+            )}
           </IconButton>
         </Toolbar>
 
         <Divider />
 
         {/* Main Links */}
-        {isLoading ? (
-          <List>
-            {Array.from({ length: 5 }).map((_, index) => (
-              <ListItem key={index} disablePadding>
-                <ListItemButton>
-                  <ListItemIcon>
-                    <Skeleton variant="circular" width={24} height={24} />
-                  </ListItemIcon>
-                  {open && <Skeleton variant="text" width="80%" height={24} />}
-                </ListItemButton>
-              </ListItem>
-            ))}
-          </List>
-        ) : (
-          <List sx={{ px: 1 }}>
-            {mainLinks.map((link, index) => (
-              <ListItem key={index} disablePadding sx={{ mb: 0.5 }}>
-                <Tooltip title={!open ? link.title : ""} placement="right" arrow>
-                  <ListItemButton
-                    onClick={() => handleNavigate(link.path)}
-                    sx={{
-                      borderRadius: 2,
-                      minHeight: 44,
-                      justifyContent: open ? "initial" : "center",
-                      px: 2,
-                      "&:hover": {
-                        bgcolor: "#667eea10",
-                        "& .MuiListItemIcon-root": {
-                          color: "#667eea",
-                        },
-                        "& .MuiListItemText-primary": {
-                          color: "#667eea",
-                        },
-                      },
-                    }}
-                  >
-                    <ListItemIcon
-                      sx={{
-                        minWidth: 0,
-                        mr: open ? 2 : "auto",
-                        justifyContent: "center",
-                        color: "#64748b",
-                      }}
-                    >
-                      {link.icon}
-                    </ListItemIcon>
-                    {open && (
-                      <ListItemText
-                        primary={link.title}
-                        primaryTypographyProps={{
-                          fontSize: "0.9rem",
-                          fontWeight: 500,
-                          color: "#1e293b",
-                        }}
-                      />
-                    )}
-                  </ListItemButton>
-                </Tooltip>
-              </ListItem>
-            ))}
-          </List>
-        )}
+        <List sx={{ px: 1, pt: 1 }}>
+          {mainLinks.map((link, index) => renderLink(link, index))}
+        </List>
       </Box>
 
       {/* ===== BOTTOM SECTION ===== */}
@@ -203,129 +266,24 @@ export default function AppSidebar() {
         <Divider sx={{ mx: 1 }} />
 
         <List sx={{ px: 1, py: 1 }}>
-          {/* Upgrade / Subscription */}
-          {bottomLinks.map((link, index) => (
-            <ListItem key={index} disablePadding sx={{ mb: 0.5 }}>
-              <Tooltip title={!open ? link.title : ""} placement="right" arrow>
-                <ListItemButton
-                  onClick={() => handleNavigate(link.path)}
-                  sx={{
-                    borderRadius: 2,
-                    minHeight: 44,
-                    justifyContent: open ? "initial" : "center",
-                    px: 2,
-                    // Special style for Upgrade button
-                    ...(link.title === "Upgrade to Premium" && {
-                      background: "linear-gradient(135deg, #667eea15 0%, #764ba215 100%)",
-                      border: "1px solid #667eea30",
-                      "&:hover": {
-                        background: "linear-gradient(135deg, #667eea25 0%, #764ba225 100%)",
-                      },
-                    }),
-                    // Special style for Subscription
-                    ...(link.title === "Subscription" && {
-                      background: "linear-gradient(135deg, #667eea15 0%, #764ba215 100%)",
-                      border: "1px solid #667eea30",
-                      "&:hover": {
-                        background: "linear-gradient(135deg, #667eea25 0%, #764ba225 100%)",
-                      },
-                    }),
-                    "&:hover": {
-                      bgcolor: "#667eea10",
-                      "& .MuiListItemIcon-root": {
-                        color: "#667eea",
-                      },
-                    },
-                  }}
-                >
-                  <ListItemIcon
-                    sx={{
-                      minWidth: 0,
-                      mr: open ? 2 : "auto",
-                      justifyContent: "center",
-                      color:
-                        link.title === "Upgrade to Premium"
-                          ? "#EAB308"
-                          : link.title === "Subscription"
-                          ? "#764ba2"
-                          : "#64748b",
-                    }}
-                  >
-                    {link.icon}
-                  </ListItemIcon>
-                  {open && (
-                    <ListItemText
-                      primary={link.title}
-                      primaryTypographyProps={{
-                        fontSize: "0.9rem",
-                        fontWeight:
-                          link.title === "Upgrade to Premium" ||
-                          link.title === "Subscription"
-                            ? 700
-                            : 500,
-                        color:
-                          link.title === "Upgrade to Premium"
-                            ? "#EAB308"
-                            : link.title === "Subscription"
-                            ? "#764ba2"
-                            : "#1e293b",
-                      }}
-                    />
-                  )}
-                </ListItemButton>
-              </Tooltip>
-            </ListItem>
-          ))}
-
-          {/* Logout */}
-          <ListItem disablePadding sx={{ mb: 0.5 }}>
-            <Tooltip title={!open ? "Logout" : ""} placement="right" arrow>
-              <ListItemButton
-                onClick={handleLogout}
-                disabled={logoutMutation.isPending}
-                sx={{
-                  borderRadius: 2,
-                  minHeight: 44,
-                  justifyContent: open ? "initial" : "center",
-                  px: 2,
-                  "&:hover": {
-                    bgcolor: "#ef444410",
-                    "& .MuiListItemIcon-root": {
-                      color: "#ef4444",
-                    },
-                    "& .MuiListItemText-primary": {
-                      color: "#ef4444",
-                    },
-                  },
-                }}
-              >
-                <ListItemIcon
-                  sx={{
-                    minWidth: 0,
-                    mr: open ? 2 : "auto",
-                    justifyContent: "center",
-                    color: "#ef4444",
-                  }}
-                >
-                  <LogoutIcon />
-                </ListItemIcon>
-                {open && (
-                  <ListItemText
-                    primary="Logout"
-                    primaryTypographyProps={{
-                      fontSize: "0.9rem",
-                      fontWeight: 500,
-                      color: "#ef4444",
-                    }}
-                  />
-                )}
-              </ListItemButton>
-            </Tooltip>
-          </ListItem>
+          {renderLink(homeLink, 0, "home")}
+          {bottomLinks.map((link, index) =>
+            renderLink(
+              link,
+              index + 1,
+              link.title === "Upgrade to Premium" ? "upgrade" : "subscription"
+            )
+          )}
+          {renderLink(settingsLink, bottomLinks.length + 1)}
+          {renderLink(
+            { title: "Logout", icon: LogOut, path: "" },
+            bottomLinks.length + 2,
+            "logout"
+          )}
         </List>
 
         {/* Footer */}
-        {open && (
+        {isExpanded && (
           <Box sx={{ p: 2, pt: 0 }}>
             <Typography variant="caption" color="#94a3b8">
               © 2026 CVtify
@@ -333,6 +291,53 @@ export default function AppSidebar() {
           </Box>
         )}
       </Box>
+    </>
+  );
+
+  if (isMobile) {
+    return (
+      <Drawer
+        variant="temporary"
+        anchor="left"
+        open={open}
+        onClose={() => setOpen(false)}
+        ModalProps={{ keepMounted: true }}
+        sx={{
+          "& .MuiDrawer-paper": {
+            width: drawerWidth,
+            boxSizing: "border-box",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "space-between",
+            borderRight: "1px solid #e2e8f0",
+          },
+        }}
+      >
+        {sidebarContent}
+      </Drawer>
+    );
+  }
+
+  return (
+    <Drawer
+      variant="permanent"
+      sx={{
+        width: open ? drawerWidth : railWidth,
+        flexShrink: 0,
+        display: { xs: "none", md: "block" },
+        "& .MuiDrawer-paper": {
+          width: open ? drawerWidth : railWidth,
+          transition: "width 0.25s ease",
+          overflowX: "hidden",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          borderRight: "1px solid #e2e8f0",
+          boxSizing: "border-box",
+        },
+      }}
+    >
+      {sidebarContent}
     </Drawer>
   );
 }

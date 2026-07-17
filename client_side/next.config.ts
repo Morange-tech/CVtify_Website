@@ -1,5 +1,8 @@
 import type { NextConfig } from "next";
 
+const backendOrigin = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+const backendUrl = new URL(backendOrigin);
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   images: {
@@ -11,9 +14,9 @@ const nextConfig: NextConfig = {
         pathname: "/**",
       },
       {
-        protocol: "http",
-        hostname: "localhost",
-        port: "8000",
+        protocol: backendUrl.protocol.replace(":", "") as "http" | "https",
+        hostname: backendUrl.hostname,
+        port: backendUrl.port,
         pathname: "/storage/**",
       },
     ],
@@ -21,12 +24,9 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [
       {
-        source: "/api/auth/:path*",
-        destination: "/api/auth/:path*",
-      },
-      {
-        source: "/api/:path*",
-        destination: "http://localhost:8000/api/:path*",
+        // Exclude /api/auth/* (handled locally by next-auth) from the Laravel proxy
+        source: "/api/:path((?!auth/).*)",
+        destination: `${backendOrigin}/api/:path`,
       },
     ];
   },

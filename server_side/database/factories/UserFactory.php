@@ -41,4 +41,22 @@ class UserFactory extends Factory
             'email_verified_at' => null,
         ]);
     }
+
+    /**
+     * Indicate that the model has an active premium plan.
+     *
+     * `plan`/`subscription_status`/`plan_expires_at` aren't mass-assignable
+     * (see App\Models\User::$fillable), so `create(['plan' => 'premium'])` would
+     * silently no-op — this state forceFills them after the model is created.
+     */
+    public function premium(): static
+    {
+        return $this->afterCreating(function (\App\Models\User $user) {
+            $user->forceFill([
+                'plan' => 'premium',
+                'subscription_status' => 'active',
+                'plan_expires_at' => null,
+            ])->save();
+        });
+    }
 }

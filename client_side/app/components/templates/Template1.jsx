@@ -15,6 +15,11 @@ import {
   CssBaseline
 } from '@mui/material';
 
+import SportsIcon from '@mui/icons-material/Sports';
+import StarIcon from '@mui/icons-material/Star';
+import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
+import RocketLaunchIcon from '@mui/icons-material/RocketLaunch';
+import AddBoxIcon from '@mui/icons-material/AddBox';
 import PersonIcon from '@mui/icons-material/Person';
 import PhoneIcon from '@mui/icons-material/Phone';
 import LanguageIcon from '@mui/icons-material/Language';
@@ -99,11 +104,11 @@ const getLevelPercentage = (levelCode) => {
   return levelMap[levelCode] || 0;
 };
 
-const SkillBar = ({ skill, value }) => (
+const SkillBar = ({ skill, value, dark }) => (
   <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
     <Typography
       variant="body2"
-      sx={{ width: '120px', fontWeight: 'bold', mr: 2 }}
+      sx={{ width: '120px', fontWeight: 'bold', mr: 2, color: dark ? 'white' : 'text.primary' }}
     >
       {skill}
     </Typography>
@@ -114,9 +119,9 @@ const SkillBar = ({ skill, value }) => (
         flexGrow: 1,
         height: 8,
         borderRadius: 5,
-        bgcolor: '#e0e0e0',
+        bgcolor: dark ? 'rgba(255,255,255,0.3)' : '#e0e0e0',
         '& .MuiLinearProgress-bar': {
-          bgcolor: 'primary.main',
+          bgcolor: dark ? 'white' : 'primary.main',
           borderRadius: 5,
         },
       }}
@@ -124,10 +129,31 @@ const SkillBar = ({ skill, value }) => (
   </Box>
 );
 
+// Default column ("left" = dark sidebar, "right" = white content column) per section,
+// overridable per-CV via the "Colonne de gauche/droite" section menu (sectionColumn prop).
+const DEFAULT_COLUMN = {
+  3: 'left',   // Education
+  2: 'right',  // Profile / About me
+  4: 'right',  // Experience
+  5: 'left',   // Skills
+  6: 'left',   // Languages
+  7: 'left',   // Interests
+  references: 'left',
+  courses: 'right',
+  internships: 'right',
+  extracurricular: 'right',
+  qualities: 'right',
+  certificates: 'right',
+  achievements: 'right',
+  custom: 'right',
+  signature: 'right',
+  footer: 'right',
+};
+
 // =============================================
 // MAIN TEMPLATE - NOW ACCEPTS cvData
 // =============================================
-const ResumeTemplate2 = ({ cvData, sectionTitleOverrides = {}, sectionColumn = {}, sectionPageBreak = {} }) => {
+const ResumeTemplate1 = ({ cvData, sectionTitleOverrides = {}, sectionColumn = {}, sectionPageBreak = {} }) => {
   // Safe defaults
   const personalInfo = cvData?.personalInfo || {};
   const profile = cvData?.profile || '';
@@ -138,21 +164,26 @@ const ResumeTemplate2 = ({ cvData, sectionTitleOverrides = {}, sectionColumn = {
   const interests = cvData?.interests || [];
   const references = cvData?.references || [];
 
-
   // Return renamed title or default
   const getTitle = (id, defaultTitle) =>
     sectionTitleOverrides?.[id] || defaultTitle;
 
-  // Check if section should go left
-  const isLeft = (id) => sectionColumn?.[id] === "left";
-
-  // Check if section should go right
-  const isRight = (id) => sectionColumn?.[id] === "right";
+  // Which column (left dark sidebar / right white column) a section renders in
+  const getColumn = (id) =>
+    sectionColumn?.[id] === 'left' || sectionColumn?.[id] === 'right'
+      ? sectionColumn[id]
+      : DEFAULT_COLUMN[id] || 'right';
 
   // Page break style
   const pageBreakStyle = (id) => ({
     pageBreakBefore: sectionPageBreak?.[id] ? "always" : "auto",
     breakBefore: sectionPageBreak?.[id] ? "page" : "auto",
+  });
+
+  // Text colors that stay legible on both the dark sidebar and the white column
+  const textColor = (dark) => ({
+    primary: dark ? 'white' : 'text.primary',
+    secondary: dark ? 'rgba(255,255,255,0.75)' : 'text.secondary',
   });
 
   // Build full name
@@ -177,6 +208,532 @@ const ResumeTemplate2 = ({ cvData, sectionTitleOverrides = {}, sectionColumn = {
   };
 
   const profileText = stripHtml(profile);
+
+  const now = new Date();
+  const currentMonth = String(now.getMonth() + 1).padStart(2, '0');
+  const currentYear = now.getFullYear();
+
+  // =============================================
+  // SECTION RENDERERS — each returns a node (or null) for either column.
+  // `dark` is true when the section is placed in the black sidebar.
+  // =============================================
+  const renderEducation = (dark) => {
+    if (!education.length) return null;
+    const c = textColor(dark);
+    const Header = dark ? DarkSectionHeader : SectionHeader;
+    return (
+      <Box key="education" sx={{ mb: dark ? 0 : 5, ...pageBreakStyle(3) }}>
+        <Header icon={<SchoolIcon />} title={getTitle(3, "Education")} />
+        {education.map((edu, index) => (
+          <Box key={edu.id || index} sx={{ mb: 3 }}>
+            <Typography variant="subtitle2" sx={{ color: c.primary }}>
+              {edu.school || 'School Name'}
+            </Typography>
+            <Typography variant="body2" sx={{ color: c.secondary }}>
+              {edu.education || 'Degree'}
+            </Typography>
+            <Typography variant="body2" sx={{ color: c.secondary }}>
+              {[
+                [edu.startMonth, edu.startYear].filter(Boolean).join('-'),
+                edu.isPresent
+                  ? `${currentMonth}-${currentYear}`
+                  : [edu.endMonth, edu.endYear].filter(Boolean).join('-'),
+              ]
+                .filter(Boolean)
+                .join(' / ')}
+            </Typography>
+            {edu.city && (
+              <Typography variant="body2" sx={{ color: c.secondary }}>
+                {edu.city}
+              </Typography>
+            )}
+            {edu.description && (
+              <Typography
+                variant="body2"
+                sx={{ color: c.secondary, mt: 0.5 }}
+                dangerouslySetInnerHTML={{ __html: edu.description }}
+              />
+            )}
+          </Box>
+        ))}
+      </Box>
+    );
+  };
+
+  const renderReferences = (dark) => {
+    if (!references.length) return null;
+    const c = textColor(dark);
+    const Header = dark ? DarkSectionHeader : SectionHeader;
+    return (
+      <Box key="references" sx={{ mb: dark ? 0 : 5, ...pageBreakStyle("references") }}>
+        <Header icon={<GroupIcon />} title={getTitle("references", "References")} />
+        {references.map((ref, index) => (
+          <Box key={ref.id || index} sx={{ mb: 3 }}>
+            <Typography variant="subtitle2" sx={{ color: c.primary }}>
+              {ref.name || 'Reference Name'}
+            </Typography>
+            {ref.company && (
+              <Typography variant="body2" sx={{ color: c.secondary }}>
+                {ref.company}
+              </Typography>
+            )}
+            {ref.city && (
+              <Typography variant="body2" sx={{ color: c.secondary }}>
+                {ref.city}
+              </Typography>
+            )}
+            {ref.phone && (
+              <Typography variant="body2" sx={{ color: c.secondary }}>
+                Tel: {ref.phone}
+              </Typography>
+            )}
+            {ref.email && (
+              <Typography variant="body2" sx={{ color: c.secondary }}>
+                Email: {ref.email}
+              </Typography>
+            )}
+          </Box>
+        ))}
+      </Box>
+    );
+  };
+
+  const renderProfile = (dark) => {
+    if (!profileText) return null;
+    const c = textColor(dark);
+    const Header = dark ? DarkSectionHeader : SectionHeader;
+    return (
+      <Box key="profile" sx={{ mb: dark ? 0 : 5, ...pageBreakStyle(2) }}>
+        <Header icon={<PersonIcon />} title={getTitle(2, "ABOUT ME")} />
+        <Typography variant="body1" sx={{ color: c.secondary, textAlign: 'justify' }}>
+          {profileText}
+        </Typography>
+      </Box>
+    );
+  };
+
+  const renderExperience = (dark) => {
+    if (!experience.length) return null;
+    const c = textColor(dark);
+    const Header = dark ? DarkSectionHeader : SectionHeader;
+    return (
+      <Box key="experience" sx={{ mb: dark ? 0 : 5, ...pageBreakStyle(4) }}>
+        <Header icon={<WorkIcon />} title={getTitle(4, "JOB EXPERIENCE")} />
+        {experience.map((exp, index) => (
+          <Box key={exp.id || index} sx={{ mb: 3 }}>
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: 0.5,
+                mb: 0.5,
+              }}
+            >
+              <Typography variant="subtitle1" sx={{ color: c.primary }}>
+                {exp.position || 'Position'}
+              </Typography>
+              <Typography variant="body2" fontWeight="bold" sx={{ color: c.primary }}>
+                {[
+                  [exp.startMonth, exp.startYear].filter(Boolean).join('-'),
+                  exp.isPresent
+                    ? 'Present'
+                    : [exp.endMonth, exp.endYear].filter(Boolean).join('-'),
+                ]
+                  .filter(Boolean)
+                  .join(' / ')}
+              </Typography>
+            </Box>
+            <Typography variant="body2" sx={{ color: c.secondary, fontStyle: 'italic', mb: 1 }}>
+              {[exp.employer, exp.city].filter(Boolean).join(' / ')}
+            </Typography>
+            {exp.description && (
+              <Typography
+                variant="body2"
+                sx={{ color: c.secondary }}
+                dangerouslySetInnerHTML={{ __html: exp.description }}
+              />
+            )}
+          </Box>
+        ))}
+      </Box>
+    );
+  };
+
+  const renderSkills = (dark) => {
+    if (!skills.length) return null;
+    const Header = dark ? DarkSectionHeader : SectionHeader;
+    const bars = (items) =>
+      items.map((skill, index) => (
+        <SkillBar
+          key={skill.id || index}
+          skill={skill.skill || 'Skill'}
+          value={getLevelPercentage(skill.level)}
+          dark={dark}
+        />
+      ));
+    return (
+      <Box key="skills" sx={{ mb: dark ? 0 : 5, ...pageBreakStyle(5) }}>
+        <Header icon={<SpeedIcon />} title={getTitle(5, "SKILLS")} />
+        {dark ? (
+          bars(skills)
+        ) : (
+          <Grid container spacing={4}>
+            <Grid item xs={12} sm={6}>
+              {bars(skills.filter((_, i) => i % 2 === 0))}
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              {bars(skills.filter((_, i) => i % 2 !== 0))}
+            </Grid>
+          </Grid>
+        )}
+      </Box>
+    );
+  };
+
+  const renderLanguages = (dark) => {
+    if (!languages.length) return null;
+    const c = textColor(dark);
+    const Header = dark ? DarkSectionHeader : SectionHeader;
+    return (
+      <Box key="languages" sx={{ mb: dark ? 0 : 5, ...pageBreakStyle(6) }}>
+        <Header icon={<PublicIcon />} title={getTitle(6, "LANGUAGES")} />
+        <List dense disablePadding>
+          {languages.map((lang, index) => (
+            <ListItem key={lang.id || index} sx={{ p: 0, pb: 1.5 }}>
+              <ListItemText
+                primary={`• ${(lang.language || 'Language').toUpperCase()}`}
+                primaryTypographyProps={{
+                  variant: 'body2',
+                  fontWeight: 'bold',
+                  sx: { color: c.primary },
+                }}
+              />
+            </ListItem>
+          ))}
+        </List>
+      </Box>
+    );
+  };
+
+  const renderInterests = (dark) => {
+    if (!interests.length) return null;
+    const c = textColor(dark);
+    const Header = dark ? DarkSectionHeader : SectionHeader;
+    return (
+      <Box key="interests" sx={{ mb: dark ? 0 : 5, ...pageBreakStyle(7) }}>
+        <Header icon={<FlagIcon />} title={getTitle(7, "HOBBIES")} />
+        <List dense disablePadding>
+          {interests.map((item, index) => (
+            <ListItem key={item.id || index} sx={{ p: 0, pb: 1.5 }}>
+              <ListItemText
+                primary={`• ${(item.interest || 'Interest').toUpperCase()}`}
+                primaryTypographyProps={{
+                  variant: 'body2',
+                  fontWeight: 'bold',
+                  sx: { color: c.primary },
+                }}
+              />
+            </ListItem>
+          ))}
+        </List>
+      </Box>
+    );
+  };
+
+  const renderCourses = (dark) => {
+    if (!cvData.courses?.length) return null;
+    const c = textColor(dark);
+    const Header = dark ? DarkSectionHeader : SectionHeader;
+    return (
+      <Box key="courses" sx={{ mb: dark ? 0 : 5, ...pageBreakStyle("courses") }}>
+        <Header icon={<SchoolIcon />} title={getTitle("courses", "Courses")} />
+        {cvData.courses.map((course, index) => (
+          <Box key={course.id || index} sx={{ mb: 2 }}>
+            <Typography fontWeight="bold" sx={{ color: c.primary }}>
+              {course.course}
+            </Typography>
+            <Typography variant="body2" sx={{ color: c.secondary }}>
+              {course.isPresent
+                ? `${currentMonth}/${currentYear}`
+                : [course.month, course.year].filter(Boolean).join("/")}
+            </Typography>
+            {course.description && (
+              <Typography
+                variant="body2"
+                sx={{ color: c.secondary }}
+                dangerouslySetInnerHTML={{ __html: course.description }}
+              />
+            )}
+          </Box>
+        ))}
+      </Box>
+    );
+  };
+
+  const renderInternships = (dark) => {
+    if (!cvData.internships?.length) return null;
+    const c = textColor(dark);
+    const Header = dark ? DarkSectionHeader : SectionHeader;
+    return (
+      <Box key="internships" sx={{ mb: dark ? 0 : 5, ...pageBreakStyle("internships") }}>
+        <Header icon={<WorkIcon />} title={getTitle("internships", "Internships")} />
+        {cvData.internships.map((item, index) => (
+          <Box key={item.id || index} sx={{ mb: 2 }}>
+            <Typography fontWeight="bold" sx={{ color: c.primary }}>
+              {item.position}
+            </Typography>
+            <Typography variant="body2" sx={{ color: c.secondary }}>
+              {[item.employer, item.city].filter(Boolean).join(" - ")}
+            </Typography>
+            <Typography variant="body2" sx={{ color: c.secondary }}>
+              {[item.startMonth, item.startYear].filter(Boolean).join("/")} -{" "}
+              {item.isPresent
+                ? `${currentMonth}/${currentYear}`
+                : [item.endMonth, item.endYear].filter(Boolean).join("/")}
+            </Typography>
+            {item.description && (
+              <Typography
+                variant="body2"
+                sx={{ color: c.secondary }}
+                dangerouslySetInnerHTML={{ __html: item.description }}
+              />
+            )}
+          </Box>
+        ))}
+      </Box>
+    );
+  };
+
+  const renderExtracurricular = (dark) => {
+    if (!cvData.extracurricular?.length) return null;
+    const c = textColor(dark);
+    const Header = dark ? DarkSectionHeader : SectionHeader;
+    return (
+      <Box key="extracurricular" sx={{ mb: dark ? 0 : 5, ...pageBreakStyle("extracurricular") }}>
+        <Header
+          icon={<SportsIcon />}
+          title={getTitle("extracurricular", "Extracurricular Activities")}
+        />
+        {cvData.extracurricular.map((item, index) => (
+          <Box key={item.id || index} sx={{ mb: 2 }}>
+            <Typography fontWeight="bold" sx={{ color: c.primary }}>
+              {item.position}
+            </Typography>
+            <Typography variant="body2" sx={{ color: c.secondary }}>
+              {[item.employer, item.city].filter(Boolean).join(" - ")}
+            </Typography>
+            <Typography variant="body2" sx={{ color: c.secondary }}>
+              {[item.startMonth, item.startYear].filter(Boolean).join("/")} -{" "}
+              {item.isPresent
+                ? `${currentMonth}/${currentYear}`
+                : [item.endMonth, item.endYear].filter(Boolean).join("/")}
+            </Typography>
+            {item.description && (
+              <Typography
+                variant="body2"
+                sx={{ color: c.secondary }}
+                dangerouslySetInnerHTML={{ __html: item.description }}
+              />
+            )}
+          </Box>
+        ))}
+      </Box>
+    );
+  };
+
+  const renderQualities = (dark) => {
+    if (!cvData.qualities?.length) return null;
+    const c = textColor(dark);
+    const Header = dark ? DarkSectionHeader : SectionHeader;
+    return (
+      <Box key="qualities" sx={{ mb: dark ? 0 : 5, ...pageBreakStyle("qualities") }}>
+        <Header icon={<StarIcon />} title={getTitle("qualities", "Qualities")} />
+        {cvData.qualities.map((item, index) => (
+          <Typography key={index} variant="body2" sx={{ color: c.secondary }}>
+            • {item.quality}
+          </Typography>
+        ))}
+      </Box>
+    );
+  };
+
+  const renderCertificates = (dark) => {
+    if (!cvData.certificates?.length) return null;
+    const c = textColor(dark);
+    const Header = dark ? DarkSectionHeader : SectionHeader;
+    return (
+      <Box key="certificates" sx={{ mb: dark ? 0 : 5, ...pageBreakStyle("certificates") }}>
+        <Header icon={<EmojiEventsIcon />} title={getTitle("certificates", "Certificates")} />
+        {cvData.certificates.map((item, index) => (
+          <Box key={item.id || index} sx={{ mb: 2 }}>
+            <Typography fontWeight="bold" sx={{ color: c.primary }}>
+              {item.certificate}
+            </Typography>
+            <Typography variant="body2" sx={{ color: c.secondary }}>
+              {item.isPresent
+                ? `${currentMonth}/${currentYear}`
+                : [item.month, item.year].filter(Boolean).join("/")}
+            </Typography>
+            {item.description && item.description !== "<p><br></p>" && (
+              <Typography
+                variant="body2"
+                sx={{ color: c.secondary, mt: 1 }}
+                dangerouslySetInnerHTML={{ __html: item.description }}
+              />
+            )}
+          </Box>
+        ))}
+      </Box>
+    );
+  };
+
+  const renderAchievements = (dark) => {
+    if (!cvData.achievements?.length) return null;
+    const c = textColor(dark);
+    const Header = dark ? DarkSectionHeader : SectionHeader;
+    return (
+      <Box key="achievements" sx={{ mb: dark ? 0 : 5, ...pageBreakStyle("achievements") }}>
+        <Header icon={<RocketLaunchIcon />} title={getTitle("achievements", "Achievements")} />
+        {cvData.achievements.map((item, index) => (
+          <Typography
+            key={index}
+            variant="body2"
+            sx={{ color: c.secondary }}
+            dangerouslySetInnerHTML={{ __html: item.description }}
+          />
+        ))}
+      </Box>
+    );
+  };
+
+  const renderCustomSections = (dark) => {
+    if (!cvData.customSections?.length) return null;
+    const c = textColor(dark);
+    const Header = dark ? DarkSectionHeader : SectionHeader;
+    return (
+      <Box key="custom" sx={pageBreakStyle("custom")}>
+        {cvData.customSections.map((section, index) => (
+          <Box key={index} sx={{ mb: dark ? 0 : 5 }}>
+            <Header icon={<AddBoxIcon />} title={section.title || "Custom Section"} />
+
+            {section.type === "description" && section.description && (
+              <Typography
+                variant="body2"
+                sx={{ color: c.secondary }}
+                dangerouslySetInnerHTML={{ __html: section.description }}
+              />
+            )}
+
+            {section.type === "entries" &&
+              section.entries?.map((entry, i) => (
+                <Box key={i} sx={{ mb: 2 }}>
+                  <Typography fontWeight="bold" sx={{ color: c.primary }}>
+                    {entry.title} - {entry.summary}
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: c.secondary }}>
+                    {entry.startDate} - {entry.endDate || "Present"}
+                  </Typography>
+                  {entry.description && (
+                    <Typography
+                      variant="body2"
+                      sx={{ color: c.secondary }}
+                      dangerouslySetInnerHTML={{ __html: entry.description }}
+                    />
+                  )}
+                </Box>
+              ))}
+
+            {section.type === "skills" &&
+              section.skills?.map((skill, i) => (
+                <Typography key={i} variant="body2" sx={{ color: c.secondary }}>
+                  • {skill.name} ({skill.level})
+                </Typography>
+              ))}
+
+            {section.type === "list" &&
+              section.list?.map((item, i) => (
+                <Typography key={i} variant="body2" sx={{ color: c.secondary }}>
+                  • {item.text}
+                </Typography>
+              ))}
+          </Box>
+        ))}
+      </Box>
+    );
+  };
+
+  const renderSignature = (dark) => {
+    if (!cvData.signature?.length) return null;
+    const c = textColor(dark);
+    return (
+      <Box
+        key="signature"
+        sx={{ mt: dark ? 3 : 6, textAlign: dark ? 'left' : 'right', ...pageBreakStyle("signature") }}
+      >
+        {cvData.signature.map((sig, index) => (
+          <Box key={index}>
+            <Typography sx={{ color: c.secondary }}>{sig.city}</Typography>
+            <Typography sx={{ color: c.secondary }}>{sig.date}</Typography>
+            {sig.signatureType === "type" ? (
+              <Typography sx={{ fontFamily: "cursive", fontSize: 20, color: c.primary }}>
+                {sig.signature}
+              </Typography>
+            ) : (
+              <Box component="img" src={sig.signature} sx={{ height: 60 }} />
+            )}
+          </Box>
+        ))}
+      </Box>
+    );
+  };
+
+  const renderFooter = (dark) => {
+    if (!cvData.footer?.length) return null;
+    const c = textColor(dark);
+    return (
+      <Box key="footer" sx={{ mt: dark ? 3 : 6, ...pageBreakStyle("footer") }}>
+        {cvData.footer.map((item, index) => (
+          <Typography
+            key={index}
+            variant="body2"
+            sx={{ color: c.secondary }}
+            dangerouslySetInnerHTML={{ __html: item.description }}
+          />
+        ))}
+      </Box>
+    );
+  };
+
+  // Core sections first, additional sections after — keeps additional sections
+  // anchored near the bottom of whichever column they end up in.
+  const SECTION_ORDER = [
+    { id: 3, render: renderEducation },
+    { id: 2, render: renderProfile },
+    { id: 4, render: renderExperience },
+    { id: 5, render: renderSkills },
+    { id: 6, render: renderLanguages },
+    { id: 7, render: renderInterests },
+    { id: 'references', render: renderReferences },
+    { id: 'courses', render: renderCourses },
+    { id: 'internships', render: renderInternships },
+    { id: 'extracurricular', render: renderExtracurricular },
+    { id: 'qualities', render: renderQualities },
+    { id: 'certificates', render: renderCertificates },
+    { id: 'achievements', render: renderAchievements },
+    { id: 'custom', render: renderCustomSections },
+    { id: 'signature', render: renderSignature },
+    { id: 'footer', render: renderFooter },
+  ];
+
+  const leftSections = [];
+  const rightSections = [];
+  SECTION_ORDER.forEach(({ id, render }) => {
+    const dark = getColumn(id) === 'left';
+    const node = render(dark);
+    if (!node) return;
+    (dark ? leftSections : rightSections).push(node);
+  });
 
   return (
     <ThemeProvider theme={theme}>
@@ -242,7 +799,7 @@ const ResumeTemplate2 = ({ cvData, sectionTitleOverrides = {}, sectionColumn = {
             }}
           >
             <Avatar
-              src={personalInfo.profileImage || ''}
+              src={personalInfo.profileImage || undefined}
               sx={{
                 width: 170,
                 height: 170,
@@ -335,6 +892,77 @@ const ResumeTemplate2 = ({ cvData, sectionTitleOverrides = {}, sectionColumn = {
                 </ListItem>
               )}
             </List>
+            {/* Birth Date */}
+            {personalInfo.birthDate && (
+              <ListItem disablePadding sx={{ mb: 2 }}>
+                <ListItemIcon sx={{ minWidth: 35 }}>
+                  <PersonIcon fontSize="small" />
+                </ListItemIcon>
+                <Typography variant="body2">
+                  {personalInfo.birthDate}
+                </Typography>
+              </ListItem>
+            )}
+
+            {/* Place of Birth */}
+            {personalInfo.placeOfBirth && (
+              <ListItem disablePadding sx={{ mb: 2 }}>
+                <ListItemIcon sx={{ minWidth: 35 }}>
+                  <LocationOnIcon fontSize="small" />
+                </ListItemIcon>
+                <Typography variant="body2">
+                  {personalInfo.placeOfBirth}
+                </Typography>
+              </ListItem>
+            )}
+
+            {/* Driving License */}
+            {personalInfo.drivingLicense && (
+              <ListItem disablePadding sx={{ mb: 2 }}>
+                <ListItemIcon sx={{ minWidth: 35 }}>
+                  <FlagIcon fontSize="small" />
+                </ListItemIcon>
+                <Typography variant="body2">
+                  {personalInfo.drivingLicense}
+                </Typography>
+              </ListItem>
+            )}
+
+            {/* Nationality */}
+            {personalInfo.nationality && (
+              <ListItem disablePadding sx={{ mb: 2 }}>
+                <ListItemIcon sx={{ minWidth: 35 }}>
+                  <FlagIcon fontSize="small" />
+                </ListItemIcon>
+                <Typography variant="body2">
+                  {personalInfo.nationality}
+                </Typography>
+              </ListItem>
+            )}
+
+            {/*sex */}
+            {personalInfo.sex && (
+              <ListItem disablePadding sx={{ mb: 2 }}>
+                <ListItemIcon sx={{ minWidth: 35 }}>
+                  <PersonIcon fontSize="small" />
+                </ListItemIcon>
+                <Typography variant="body2">
+                  {personalInfo.sex}
+                </Typography>
+              </ListItem>
+            )}
+
+            {/* LinkedIn */}
+            {cvData.personalInfo.linkedIn && (
+              <ListItem disablePadding sx={{ mb: 2 }}>
+                <ListItemIcon sx={{ minWidth: 35 }}>
+                  <LanguageIcon fontSize="small" />
+                </ListItemIcon>
+                <Typography variant="body2">
+                  {personalInfo.linkedIn}
+                </Typography>
+              </ListItem>
+            )}
           </Box>
 
           {/* --- BOTTOM DARK SECTION --- */}
@@ -352,81 +980,7 @@ const ResumeTemplate2 = ({ cvData, sectionTitleOverrides = {}, sectionColumn = {
               mx: 2,
             }}
           >
-            {/* EDUCATION */}
-            {education.length > 0 && isLeft(3) && (
-              <Box sx={pageBreakStyle(3)}>
-                <DarkSectionHeader
-                  icon={<SchoolIcon />}
-                  title={getTitle(3, "Education")}
-                />
-                {education.map((edu, index) => (
-                  <Box key={edu.id || index} sx={{ mb: 3 }}>
-                    <Typography variant="subtitle2" sx={{ color: 'white' }}>
-                      {edu.school || 'School Name'}
-                    </Typography>
-                    <Typography variant="body2" sx={{ opacity: 0.7 }}>
-                      {edu.education || 'Degree'}
-                    </Typography>
-                    <Typography variant="body2" sx={{ opacity: 0.7 }}>
-                      {[
-                        [edu.startMonth, edu.startYear].filter(Boolean).join('-'),
-                        edu.isPresent
-                          ? 'Present'
-                          : [edu.endMonth, edu.endYear].filter(Boolean).join('-'),
-                      ]
-                        .filter(Boolean)
-                        .join(' / ')}
-                    </Typography>
-                    {edu.city && (
-                      <Typography variant="body2" sx={{ opacity: 0.7 }}>
-                        {edu.city}
-                      </Typography>
-                    )}
-                    {edu.description && (
-                      <Typography
-                        variant="body2"
-                        sx={{ opacity: 0.7, mt: 0.5 }}
-                        dangerouslySetInnerHTML={{ __html: edu.description }}
-                      />
-                    )}
-                  </Box>
-                ))}
-              </Box>
-            )}
-
-            {/* REFERENCES */}
-            {references.length > 0 && (
-              <>
-                <DarkSectionHeader icon={<GroupIcon />} title="References" />
-                {references.map((ref, index) => (
-                  <Box key={ref.id || index} sx={{ mb: 3 }}>
-                    <Typography variant="subtitle2" sx={{ color: 'white' }}>
-                      {ref.name || 'Reference Name'}
-                    </Typography>
-                    {ref.company && (
-                      <Typography variant="body2" sx={{ opacity: 0.7 }}>
-                        {ref.company}
-                      </Typography>
-                    )}
-                    {ref.city && (
-                      <Typography variant="body2" sx={{ opacity: 0.7 }}>
-                        {ref.city}
-                      </Typography>
-                    )}
-                    {ref.phone && (
-                      <Typography variant="body2" sx={{ opacity: 0.7 }}>
-                        Tel: {ref.phone}
-                      </Typography>
-                    )}
-                    {ref.email && (
-                      <Typography variant="body2" sx={{ opacity: 0.7 }}>
-                        Email: {ref.email}
-                      </Typography>
-                    )}
-                  </Box>
-                ))}
-              </>
-            )}
+            {leftSections}
           </Box>
         </Box>
 
@@ -438,212 +992,11 @@ const ResumeTemplate2 = ({ cvData, sectionTitleOverrides = {}, sectionColumn = {
             p: 6,
           }}
         >
-          {/* ABOUT ME / PROFILE */}
-          {profileText && (
-            <Box sx={{ mb: 5, ...pageBreakStyle(2) }}>
-              <SectionHeader
-                icon={<PersonIcon />}
-                title={getTitle(2, "ABOUT ME")}
-              />
-              <Typography
-                variant="body1"
-                color="text.secondary"
-                sx={{ textAlign: 'justify' }}
-              >
-                {profileText}
-              </Typography>
-            </Box>
-          )}
-
-          {/* EDUCATION (Right if not Left) */}
-          {education.length > 0 && !isLeft(3) && (
-            <Box sx={{ mb: 5, ...pageBreakStyle(3) }}>
-              <SectionHeader
-                icon={<SchoolIcon />}
-                title={getTitle(3, "Education")}
-              />
-              {education.map((edu, index) => (
-                <Box key={edu.id || index} sx={{ mb: 3 }}>
-                  <Typography variant="subtitle1">
-                    {edu.school || 'School Name'}
-                  </Typography>
-                  <Typography variant="body2">
-                    {edu.education || 'Degree'}
-                  </Typography>
-                </Box>
-              ))}
-            </Box>
-          )}
-
-          {/* JOB EXPERIENCE */}
-          {experience.length > 0 && (
-            <Box sx={{ mb: 5, ...pageBreakStyle(4) }}>
-              <SectionHeader icon={<WorkIcon />} title={getTitle(4, "JOB EXPERIENCE")} />
-              {experience.map((exp, index) => (
-                <Box key={exp.id || index} sx={{ mb: 3 }}>
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      mb: 0.5,
-                    }}
-                  >
-                    <Typography variant="subtitle1">
-                      {exp.position || 'Position'}
-                    </Typography>
-                    <Typography variant="body2" fontWeight="bold">
-                      {[
-                        [exp.startMonth, exp.startYear].filter(Boolean).join('-'),
-                        exp.isPresent
-                          ? 'Present'
-                          : [exp.endMonth, exp.endYear].filter(Boolean).join('-'),
-                      ]
-                        .filter(Boolean)
-                        .join(' / ')}
-                    </Typography>
-                  </Box>
-                  <Typography
-                    variant="body2"
-                    sx={{ fontStyle: 'italic', mb: 1 }}
-                  >
-                    {[exp.employer, exp.city].filter(Boolean).join(' / ')}
-                  </Typography>
-                  {exp.description && (
-                    <Typography
-                      variant="body2"
-                      color="text.secondary"
-                      dangerouslySetInnerHTML={{ __html: exp.description }}
-                    />
-                  )}
-                </Box>
-              ))}
-            </Box>
-          )}
-
-          {/* SKILLS */}
-          {skills.length > 0 && (
-            <Box sx={{ mb: 5, ...pageBreakStyle(5) }}>
-              <SectionHeader icon={<SpeedIcon />} title={getTitle(5, "SKILLS")} />
-              <Grid container spacing={4}>
-                {/* Split skills into two columns */}
-                <Grid item xs={12} sm={6}>
-                  {skills
-                    .filter((_, i) => i % 2 === 0)
-                    .map((skill, index) => (
-                      <SkillBar
-                        key={skill.id || index}
-                        skill={skill.skill || 'Skill'}
-                        value={getLevelPercentage(skill.level)}
-                      />
-                    ))}
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  {skills
-                    .filter((_, i) => i % 2 !== 0)
-                    .map((skill, index) => (
-                      <SkillBar
-                        key={skill.id || index}
-                        skill={skill.skill || 'Skill'}
-                        value={getLevelPercentage(skill.level)}
-                      />
-                    ))}
-                </Grid>
-              </Grid>
-            </Box>
-          )}
-
-          {/* LANGUAGE & HOBBIES GRID */}
-          <Grid container spacing={6}>
-            {/* LANGUAGES */}
-            {languages.length > 0 && (
-              <Grid item xs={6} sx={pageBreakStyle(6)}>
-                <SectionHeader icon={<PublicIcon />} title={getTitle(6, "LANGUAGES")} />
-                <Grid container columnGap={3}>
-                  <Grid item xs={5}>
-                    <List dense disablePadding>
-                      {languages
-                        .filter((_, i) => i % 2 === 0)
-                        .map((lang, index) => (
-                          <ListItem key={lang.id || index} sx={{ p: 0, pb: 1.5 }}>
-                            <ListItemText
-                              primary={`• ${(lang.language || 'Language').toUpperCase()}`}
-                              primaryTypographyProps={{
-                                variant: 'body2',
-                                fontWeight: 'bold',
-                              }}
-                            />
-                          </ListItem>
-                        ))}
-                    </List>
-                  </Grid>
-                  <Grid item xs={5}>
-                    <List dense disablePadding>
-                      {languages
-                        .filter((_, i) => i % 2 !== 0)
-                        .map((lang, index) => (
-                          <ListItem key={lang.id || index} sx={{ p: 0, pb: 1.5 }}>
-                            <ListItemText
-                              primary={`• ${(lang.language || 'Language').toUpperCase()}`}
-                              primaryTypographyProps={{
-                                variant: 'body2',
-                                fontWeight: 'bold',
-                              }}
-                            />
-                          </ListItem>
-                        ))}
-                    </List>
-                  </Grid>
-                </Grid>
-              </Grid>
-            )}
-
-            {/* INTERESTS / HOBBIES */}
-            {interests.length > 0 && (
-              <Grid item xs={6} sx={pageBreakStyle(7)}>
-                <SectionHeader icon={<FlagIcon />} title={getTitle(7, "HOBBIES")} />
-                <Grid container columnGap={3}>
-                  <Grid item xs={5}>
-                    <List dense disablePadding>
-                      {interests
-                        .filter((_, i) => i % 2 === 0)
-                        .map((item, index) => (
-                          <ListItem key={item.id || index} sx={{ p: 0, pb: 1.5 }}>
-                            <ListItemText
-                              primary={`• ${(item.interest || 'Interest').toUpperCase()}`}
-                              primaryTypographyProps={{
-                                variant: 'body2',
-                                fontWeight: 'bold',
-                              }}
-                            />
-                          </ListItem>
-                        ))}
-                    </List>
-                  </Grid>
-                  <Grid item xs={5}>
-                    <List dense disablePadding>
-                      {interests
-                        .filter((_, i) => i % 2 !== 0)
-                        .map((item, index) => (
-                          <ListItem key={item.id || index} sx={{ p: 0, pb: 1.5 }}>
-                            <ListItemText
-                              primary={`• ${(item.interest || 'Interest').toUpperCase()}`}
-                              primaryTypographyProps={{
-                                variant: 'body2',
-                                fontWeight: 'bold',
-                              }}
-                            />
-                          </ListItem>
-                        ))}
-                    </List>
-                  </Grid>
-                </Grid>
-              </Grid>
-            )}
-          </Grid>
+          {rightSections}
         </Box>
       </Paper>
     </ThemeProvider>
   );
 };
 
-export default ResumeTemplate2;
+export default ResumeTemplate1;

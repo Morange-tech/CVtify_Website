@@ -13,7 +13,8 @@ import {
     ListItemIcon,
     ListItemText,
     Chip,
-    styled
+    styled,
+    ListItem
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -91,6 +92,8 @@ const PersonalInfoForm = ({
         setAnchorEl(event.currentTarget);
         setActiveField(field);
     };
+
+    const personalInfo = cvData.personalInfo;
 
     // Handle menu close
     const handleMenuClose = () => {
@@ -318,17 +321,6 @@ const PersonalInfoForm = ({
                                     </AddFieldButton>
                                 )
                             ))}
-                        </Box>
-
-                        {/* Personalised Field Button */}
-                        <Box>
-                            <AddFieldButton
-                                variant="outlined"
-                                startIcon={<AddIcon />}
-                                size="small"
-                            >
-                                Personalised Field
-                            </AddFieldButton>
                         </Box>
                     </Stack>
                 </Grid>

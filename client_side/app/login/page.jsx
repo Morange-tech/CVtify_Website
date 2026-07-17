@@ -15,6 +15,8 @@ import {
     useTheme,
     useMediaQuery,
     CircularProgress,
+    Alert,
+    Collapse,
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import Link from 'next/link';
@@ -28,6 +30,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import DescriptionIcon from '@mui/icons-material/Description';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useAuth } from '../hooks/useAuth';
+import { useLanguage } from '../hooks/useLanguage';
 import SuccessModal from '../components/SuccessModal';
 import { useRouter } from 'next/navigation';
 import { signIn } from 'next-auth/react';
@@ -45,7 +48,7 @@ const PageContainer = styled(Box)({
 
 const LeftPanel = styled(Box)(({ theme }) => ({
     flex: 1,
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
     display: 'flex',
     flexDirection: 'column',
     justifyContent: 'center',
@@ -94,6 +97,11 @@ const BackgroundDecoration2 = styled(Box)({
 const FormContainer = styled(Box)(({ theme }) => ({
     width: '100%',
     maxWidth: 450,
+    animation: 'formFadeIn 0.5s ease',
+    '@keyframes formFadeIn': {
+        from: { opacity: 0, transform: 'translateY(16px)' },
+        to: { opacity: 1, transform: 'translateY(0)' },
+    },
     [theme.breakpoints.down('sm')]: {
         maxWidth: '100%',
     },
@@ -128,10 +136,10 @@ const PrimaryButton = styled(Button)(({ theme }) => ({
     fontWeight: 600,
     textTransform: 'none',
     background: 'linear-gradient(135deg, #EAB308)',
-    boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
+    boxShadow: '0 4px 15px rgba(0, 0, 0, 0.4)',
     transition: 'all 0.3s ease',
     '&:hover': {
-        boxShadow: '0 6px 20px rgba(102, 126, 234, 0.5)',
+        boxShadow: '0 6px 20px rgba(0, 0, 0, 0.5)',
         transform: 'translateY(-2px)',
     },
 }));
@@ -147,8 +155,8 @@ const SocialButton = styled(Button)(({ theme }) => ({
     transition: 'all 0.3s ease',
     '&:hover': {
         borderColor: '#ff8d8d',
-        backgroundColor: 'rgba(102, 126, 234, 0.05)',
-        color: '#667eea',
+        backgroundColor: 'rgba(0, 0, 0, 0.05)',
+        color: '#000000',
     },
 }));
 
@@ -171,7 +179,7 @@ const LogoIcon = styled(Box)(({ theme }) => ({
     width: 45,
     height: 45,
     borderRadius: theme.spacing(1.5),
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -210,6 +218,7 @@ const BackLink = styled(Link)(({ theme }) => ({
 export default function LoginPage() {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+    const { t } = useLanguage();
 
 
     const handleGoogleLogin = () => {
@@ -223,9 +232,6 @@ export default function LoginPage() {
     const { loginMutation, isAuthenticated, user } = useAuth();
     const [showSuccess, setShowSuccess] = useState(false);
     const router = useRouter();
-    const isAdmin = user?.role === 'admin';
-
-
 
     const [showPassword, setShowPassword] = useState(false);
     const [formData, setFormData] = useState({
@@ -234,30 +240,33 @@ export default function LoginPage() {
         rememberMe: false,
     });
     const [redirecting, setRedirecting] = useState(false);
+    const [loginError, setLoginError] = useState('');
 
     const [errors, setErrors] = useState({});
 
-    useEffect(() => {
-        if (isAuthenticated && !loginMutation.isPending && user) {
-            router.push(getRedirectPath(user));
-        }
-    }, [isAuthenticated, loginMutation.isPending, user, router]);
+    const getRedirectPath = (user) => {
+        return user?.role === 'admin' ? '/admin' : '/dashboard';
+    };
 
-    useEffect(() => {
-        if (loginMutation.isSuccess && user) {
-            setShowSuccess(true);
+    // useEffect(() => {
+    //     if (isAuthenticated && !loginMutation.isPending && user) {
+    //         router.push(getRedirectPath(user));
+    //     }
+    // }, [isAuthenticated, loginMutation.isPending, user, router]);
 
-            setTimeout(() => {
-                setRedirecting(true);
-            }, 1500);
+    // useEffect(() => {
+    //     if (loginMutation.isSuccess && user) {
+    //         setShowSuccess(true);
 
-            setTimeout(() => {
-                router.push(getRedirectPath(user));
-            }, 3000);
-        }
-    }, [loginMutation.isSuccess, user, router]);
+    //         setTimeout(() => {
+    //             setRedirecting(true);
+    //         }, 1500);
 
-    console.log('Logged in user:', user);
+    //         setTimeout(() => {
+    //             router.push(getRedirectPath(user));
+    //         }, 3000);
+    //     }
+    // }, [loginMutation.isSuccess, user, router]);
 
     const handleChange = (e) => {
         const { name, value, checked } = e.target;
@@ -267,53 +276,65 @@ export default function LoginPage() {
         }));
 
         if (errors[name]) {
-            setErrors((prev) => ({
-                ...prev,
-                [name]: '',
-            }));
+            setErrors((prev) => ({ ...prev, [name]: '' }));
         }
-    };
-
-    const getRedirectPath = (user) => {
-        return user?.role === 'admin' ? '/admin' : '/dashboard';
+        if (loginError) setLoginError('');
     };
 
     const validateForm = () => {
         const newErrors = {};
 
         if (!formData.email.trim()) {
-            newErrors.email = 'Email is required';
+            newErrors.email = t('login.emailRequired');
         } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-            newErrors.email = 'Email is invalid';
+            newErrors.email = t('login.emailInvalid');
         }
 
         if (!formData.password) {
-            newErrors.password = 'Password is required';
+            newErrors.password = t('login.passwordRequired');
         }
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
 
-    const handleSubmit = (e) => {
+    // const handleSubmit = (e) => {
+    //     e.preventDefault();
+
+    //     if (validateForm()) {
+    //         loginMutation.mutate({
+    //             email: formData.email,
+    //             password: formData.password,
+    //             rememberMe: formData.rememberMe,
+    //         });
+    //     }
+    // };
+
+    const handleSubmit = async (e) => {
         e.preventDefault();
 
-        if (validateForm()) {
-            loginMutation.mutate({
+        if (!validateForm()) return;
+
+        setLoginError('');
+
+        try {
+            const data = await loginMutation.mutateAsync({
                 email: formData.email,
                 password: formData.password,
                 rememberMe: formData.rememberMe,
             });
+
+            setShowSuccess(true);
+
+            setTimeout(() => setRedirecting(true), 1500);
+            setTimeout(() => router.push(getRedirectPath(data.user)), 3000);
+
+        } catch (error) {
+            setLoginError(error?.message || t('login.invalidCredentials'));
         }
     };
 
-    const features = [
-        'Access your saved CVs anytime',
-        'Continue where you left off',
-        'Sync across all your devices',
-        'Track your application progress',
-        'Get personalized recommendations',
-    ];
+    const features = t('login.features');
 
     return (
         <PageContainer>
@@ -350,9 +371,9 @@ export default function LoginPage() {
                         color="#ffffff"
                         sx={{ mb: 2, lineHeight: 1.2 }}
                     >
-                        Welcome Back,
+                        {t('login.welcomeBack')}
                         <Box component="span" sx={{ color: '#EAB308', display: 'block' }}>
-                            Resume Builder!
+                            {t('login.resumeBuilder')}
                         </Box>
                     </Typography>
 
@@ -360,8 +381,7 @@ export default function LoginPage() {
                         variant="body1"
                         sx={{ color: 'rgba(255, 255, 255, 0.8)', mb: 5, lineHeight: 1.7 }}
                     >
-                        Sign in to access your saved CVs, templates, and continue
-                        building your professional career.
+                        {t('login.heroText')}
                     </Typography>
 
                     {/* Features */}
@@ -389,7 +409,7 @@ export default function LoginPage() {
                                 250K+
                             </Typography>
                             <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
-                                Active Users
+                                {t('login.activeUsers')}
                             </Typography>
                         </Box>
                         <Box>
@@ -397,7 +417,7 @@ export default function LoginPage() {
                                 500K+
                             </Typography>
                             <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
-                                CVs Created
+                                {t('login.cvsCreated')}
                             </Typography>
                         </Box>
                         <Box>
@@ -405,7 +425,7 @@ export default function LoginPage() {
                                 95%
                             </Typography>
                             <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
-                                Success Rate
+                                {t('login.successRate')}
                             </Typography>
                         </Box>
                     </Box>
@@ -418,7 +438,7 @@ export default function LoginPage() {
                     {/* Back to Home */}
                     <BackLink href="/">
                         <ArrowBackIcon sx={{ fontSize: 18 }} />
-                        Back to Home
+                        {t('login.backToHome')}
                     </BackLink>
 
                     {/* Mobile Logo */}
@@ -436,12 +456,12 @@ export default function LoginPage() {
                     {/* Header */}
                     <Box sx={{ mb: 4 }}>
                         <Typography variant="h4" fontWeight="700" color="#1e293b" gutterBottom>
-                            Sign In
+                            {t('login.signIn')}
                         </Typography>
                         <Typography variant="body1" color="#64748b">
-                            Don&apos;t have an account?{' '}
+                            {t('login.noAccount')}{' '}
                             <StyledLink href="/signup">
-                                Create one
+                                {t('login.createOne')}
                             </StyledLink>
                         </Typography>
                     </Box>
@@ -465,15 +485,22 @@ export default function LoginPage() {
                     {/* Divider */}
                     <Divider sx={{ my: 3 }}>
                         <Typography variant="body2" color="#94a3b8">
-                            or sign in with email
+                            {t('login.orSignInWithEmail')}
                         </Typography>
                     </Divider>
+
+                    {/* Login Error */}
+                    <Collapse in={!!loginError}>
+                        <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }} onClose={() => setLoginError('')}>
+                            {loginError}
+                        </Alert>
+                    </Collapse>
 
                     {/* Login Form */}
                     <form onSubmit={handleSubmit}>
                         <StyledTextField
                             fullWidth
-                            label="Email Address"
+                            label={t('login.emailAddress')}
                             name="email"
                             type="email"
                             value={formData.email}
@@ -490,7 +517,7 @@ export default function LoginPage() {
 
                         <StyledTextField
                             fullWidth
-                            label="Password"
+                            label={t('login.password')}
                             name="password"
                             type={showPassword ? 'text' : 'password'}
                             value={formData.password}
@@ -544,12 +571,12 @@ export default function LoginPage() {
                                 }
                                 label={
                                     <Typography variant="body2" color="#64748b">
-                                        Remember me
+                                        {t('login.rememberMe')}
                                     </Typography>
                                 }
                             />
                             <StyledLink href="/forgot-password" style={{ fontSize: '0.875rem' }}>
-                                Forgot password?
+                                {t('login.forgotPassword')}
                             </StyledLink>
                         </Box>
 
@@ -564,10 +591,10 @@ export default function LoginPage() {
                             {loginMutation.isPending ? (
                                 <>
                                     <CircularProgress size={20} color="inherit" sx={{ mr: 1 }} />
-                                    Signing In...
+                                    {t('login.signingIn')}
                                 </>
                             ) : (
-                                'Sign In'
+                                t('login.signIn')
                             )}
                         </PrimaryButton>
                     </form>
@@ -586,7 +613,7 @@ export default function LoginPage() {
                     >
                         <LockIcon sx={{ color: '#10b981', fontSize: 20 }} />
                         <Typography variant="caption" color="#64748b">
-                            Your data is protected with 256-bit SSL encryption
+                            {t('login.sslNotice')}
                         </Typography>
                     </Box>
                 </FormContainer>
@@ -595,9 +622,9 @@ export default function LoginPage() {
             <SuccessModal
                 open={showSuccess}
                 loading={redirecting}
-                loadingText={isAdmin ? "Redirecting to admin dashboard..." : "Redirecting to dashboard..."}
-                title="Login Successful!"
-                message={isAdmin ? "Welcome back! Redirecting to your admin dashboard..." : "Welcome back! Redirecting to your dashboard..."}
+                loadingText={user?.role === 'admin' ? t('login.redirectingAdmin') : t('login.redirectingDashboard')}
+                title={t('login.loginSuccessful')}
+                message={user?.role === 'admin' ? t('login.welcomeBackAdminMessage') : t('login.welcomeBackMessage')}
             />
         </PageContainer>
     );

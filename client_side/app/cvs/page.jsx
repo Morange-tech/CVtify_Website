@@ -41,6 +41,7 @@ import useTemplates from '../hooks/useTemplate';
 import Navbar from '../components/Navbar';
 import { useAuth } from '../hooks/useAuth'; // adjust path
 import LockIcon from '@mui/icons-material/Lock';
+import { useLanguage } from '../hooks/useLanguage';
 
 
 // ─── Styled Components (outside component to avoid re-creation) ───
@@ -83,8 +84,8 @@ const TemplateCard = styled(Card)(({ theme }) => ({
   cursor: 'pointer',
   '&:hover': {
     transform: 'translateY(-8px)',
-    boxShadow: '0 25px 50px rgba(102, 126, 234, 0.2)',
-    borderColor: '#667eea',
+    boxShadow: '0 25px 50px rgba(0, 0, 0, 0.2)',
+    borderColor: '#000000',
     '& .overlay': { opacity: 1 },
     '& .template-image': { transform: 'scale(1.05)' },
   },
@@ -107,7 +108,7 @@ const TemplateImageBox = styled(Box)({
 const Overlay = styled(Box)(({ theme }) => ({
   position: 'absolute',
   top: 0, left: 0, right: 0, bottom: 0,
-  background: 'linear-gradient(135deg, rgba(102,126,234,0.9) 0%, rgba(118,75,162,0.9) 100%)',
+  background: 'linear-gradient(135deg, rgba(0, 0, 0,0.9) 0%, rgba(26, 26, 26,0.9) 100%)',
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
@@ -131,7 +132,7 @@ const StyledChip = styled(Chip)(({ badgetype }) => {
   const styles = {
     popular: { background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', color: '#fff' },
     free: { background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: '#fff' },
-    premium: { background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)', color: '#fff' },
+    premium: { background: 'linear-gradient(135deg, #eab308 0%, #000000 100%)', color: '#fff' },
     new: { background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)', color: '#fff' },
   };
   return { ...styles[badgetype], fontWeight: 700, fontSize: '0.7rem', letterSpacing: '0.5px', height: '24px' };
@@ -239,30 +240,12 @@ const TemplateCardSkeleton = () => (
   </Card>
 );
 
-// ─── Tab Filters ────────────────────────────────────────────────
-const TAB_FILTERS = [
-  { label: 'All Templates', value: 'all' },
-  { label: 'Free', value: 'free' },
-  { label: 'Premium', value: 'premium' },
-  { label: 'Popular', value: 'popular' },
-];
-
-// ─── Badge Helper ───────────────────────────────────────────────
-const getBadgeLabel = (badge) => {
-  const labels = {
-    popular: { label: 'Most Popular', icon: <StarIcon sx={{ fontSize: 14 }} /> },
-    free: { label: 'Free', icon: null },
-    premium: { label: 'Premium', icon: <WorkspacePremiumIcon sx={{ fontSize: 14 }} /> },
-    new: { label: 'New', icon: null },
-  };
-  return labels[badge] || { label: badge, icon: null };
-};
-
 // ─── Main Component ─────────────────────────────────────────────
 const TemplatesSection = () => {
   const theme = useTheme();
   const router = useRouter();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const { t } = useLanguage();
 
   // Backend data
   const {
@@ -284,6 +267,25 @@ const TemplatesSection = () => {
     const { user } = useAuth();
     const isPremium = user?.plan === 'premium';
 
+  // ─── Tab Filters ────────────────────────────────────────────
+  const TAB_FILTERS = useMemo(() => [
+    { label: t('cvsPage.filters.allTemplates'), value: 'all' },
+    { label: t('templatesSection.badges.free'), value: 'free' },
+    { label: t('templatesSection.badges.premium'), value: 'premium' },
+    { label: t('cvsPage.filters.popular'), value: 'popular' },
+  ], [t]);
+
+  // ─── Badge Helper ───────────────────────────────────────────
+  const getBadgeLabel = (badge) => {
+    const labels = {
+      popular: { label: t('templatesSection.badges.mostPopular'), icon: <StarIcon sx={{ fontSize: 14 }} /> },
+      free: { label: t('templatesSection.badges.free'), icon: null },
+      premium: { label: t('templatesSection.badges.premium'), icon: <WorkspacePremiumIcon sx={{ fontSize: 14 }} /> },
+      new: { label: t('templatesSection.badges.new'), icon: null },
+    };
+    return labels[badge] || { label: badge, icon: null };
+  };
+
   // ─── Filter templates based on active tab ─────────────────
   const filteredTemplates = useMemo(() => {
     if (!templates || templates.length === 0) return [];
@@ -300,7 +302,7 @@ const TemplatesSection = () => {
       default:
         return templates;
     }
-  }, [activeTab, templates]);
+  }, [activeTab, templates, TAB_FILTERS]);
 
   // ─── Snackbar ─────────────────────────────────────────────
   const showSnackbar = (message, severity = 'success') => {
@@ -322,17 +324,17 @@ const TemplatesSection = () => {
     try {
       const result = await toggleWishlist(templateId);
       if (result?.error === 'auth_required') {
-        showSnackbar('Please log in to save templates to your wishlist', 'warning');
+        showSnackbar(t('cvsPage.wishlistLoginRequired'), 'warning');
         return;
       }
       showSnackbar(
-        result.is_wishlisted ? 'Added to wishlist!' : 'Removed from wishlist',
+        result.is_wishlisted ? t('cvsPage.addedToWishlist') : t('cvsPage.removedFromWishlist'),
         'success'
       );
     } catch {
-      showSnackbar('Failed to update wishlist', 'error');
+      showSnackbar(t('cvsPage.wishlistUpdateFailed'), 'error');
     }
-  }, [toggleWishlist]);
+  }, [toggleWishlist, t]);
 
   // ─── Card Click → Preview ────────────────────────────────
   const handleCardClick = (template) => {
@@ -390,12 +392,12 @@ const TemplatesSection = () => {
       {/* Navigation Loading */}
       {isNavigating && (
         <LoadingOverlay>
-          <CircularProgress size={60} sx={{ color: '#667eea' }} />
+          <CircularProgress size={60} sx={{ color: '#000000' }} />
           <Typography variant="h6" color="text.primary" fontWeight={600}>
-            Loading {navigatingTemplateName}...
+            {t('cvsPage.loadingTemplate', { name: navigatingTemplateName })}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Preparing your CV Builder
+            {t('cvsPage.preparingCvBuilder')}
           </Typography>
         </LoadingOverlay>
       )}
@@ -416,7 +418,7 @@ const TemplatesSection = () => {
         <Container maxWidth="lg">
           {/* Header */}
           <Box mb={4} textAlign="center">
-            <HighlightChip>Templates</HighlightChip>
+            <HighlightChip>{t('templatesSection.badge')}</HighlightChip>
             <Typography
               variant={isMobile ? 'h4' : 'h3'}
               component="h2"
@@ -425,7 +427,7 @@ const TemplatesSection = () => {
               gutterBottom
               sx={{ mb: 2 }}
             >
-              Choose Your Perfect
+              {t('templatesSection.headingLine1')}
               <Box
                 component="span"
                 sx={{
@@ -436,7 +438,7 @@ const TemplatesSection = () => {
                   display: 'block',
                 }}
               >
-                CV Template
+                {t('templatesSection.headingLine2')}
               </Box>
             </Typography>
             <Typography
@@ -444,7 +446,7 @@ const TemplatesSection = () => {
               color="text.secondary"
               sx={{ maxWidth: 600, margin: '0 auto', fontWeight: 400, mb: 4 }}
             >
-              Professionally designed templates that help you stand out and get hired faster.
+              {t('templatesSection.subheading')}
             </Typography>
           </Box>
 
@@ -470,7 +472,7 @@ const TemplatesSection = () => {
                 severity="error"
                 action={
                   <Button color="inherit" size="small" onClick={refresh} startIcon={<RefreshIcon />}>
-                    Retry
+                    {t('templatesSection.retry')}
                   </Button>
                 }
                 sx={{ maxWidth: 600, width: '100%' }}
@@ -544,14 +546,14 @@ const TemplatesSection = () => {
                         color="#ffffff"
                         sx={{ textAlign: 'center' }}
                       >
-                        Premium Template
+                        {t('cvsPage.premiumTemplate')}
                       </Typography>
                       <Button
                         variant="contained"
                         size="small"
                         sx={{
                           bgcolor: '#ffffff',
-                          color: '#667eea',
+                          color: '#000000',
                           fontWeight: 600,
                           textTransform: 'none',
                           borderRadius: 2,
@@ -561,7 +563,7 @@ const TemplatesSection = () => {
                           },
                         }}
                       >
-                        Upgrade to Unlock
+                        {t('cvsPage.upgradeToUnlock')}
                       </Button>
                     </Box>
                   )}
@@ -580,7 +582,7 @@ const TemplatesSection = () => {
                       <Box
                         component="img"
                         src={template.image}
-                        alt={`${template.name} CV Template`}
+                        alt={t('cvsPage.templateAltText', { name: template.name })}
                         sx={{
                           width: '100%',
                           height: '100%',
@@ -598,12 +600,12 @@ const TemplatesSection = () => {
                         endIcon={<ArrowForwardIcon />}
                         onClick={(e) => handleUseTemplate(template, e)}
                         sx={{
-                          background: '#ffffff', color: '#667eea', fontWeight: 600,
+                          background: '#ffffff', color: '#000000', fontWeight: 600,
                           textTransform: 'none', borderRadius: 3, px: 4, py: 1.5,
                           '&:hover': { background: '#f8fafc', transform: 'scale(1.05)' },
                         }}
                       >
-                        Start with this template
+                        {t('templatesSection.startWithTemplate')}
                       </Button>
                       <Button
                         variant="outlined"
@@ -616,7 +618,7 @@ const TemplatesSection = () => {
                           '&:hover': { borderColor: '#ffffff', background: 'rgba(255,255,255,0.1)' },
                         }}
                       >
-                        Preview
+                        {t('templatesSection.preview')}
                       </Button>
                     </Overlay>
                   </ImageWrapper>
@@ -630,18 +632,18 @@ const TemplatesSection = () => {
                       <Box display="flex" alignItems="center" gap={0.5}>
                         <StarIcon sx={{ fontSize: 16, color: '#f59e0b' }} />
                         <Typography variant="body2" color="text.secondary">
-                          {template.rating} • {template.uses} uses
+                          {template.rating} • {template.uses} {t('templatesSection.uses')}
                         </Typography>
                       </Box>
                     </Box>
                     <Chip
-                      label={template.isFree ? 'Free' : 'Pro'}
+                      label={template.isFree ? t('templatesSection.free') : t('templatesSection.pro')}
                       size="small"
                       sx={{
                         fontWeight: 600, fontSize: '0.75rem',
                         background: template.isFree
                           ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
-                          : 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+                          : 'linear-gradient(135deg, #eab308 0%, #000000 100%)',
                         color: '#ffffff',
                       }}
                     />
@@ -654,8 +656,8 @@ const TemplatesSection = () => {
           {/* Empty State */}
           {!loading && !error && filteredTemplates.length === 0 && (
             <NoResults>
-              <Typography variant="h6" gutterBottom>No templates found</Typography>
-              <Typography variant="body2">Try selecting a different filter.</Typography>
+              <Typography variant="h6" gutterBottom>{t('templatesSection.noTemplatesFound')}</Typography>
+              <Typography variant="body2">{t('templatesSection.tryDifferentFilter')}</Typography>
             </NoResults>
           )}
         </Container>
@@ -680,16 +682,16 @@ const TemplatesSection = () => {
                       <Box display="flex" alignItems="center" gap={1}>
                         <StarIcon sx={{ fontSize: 16, color: '#f59e0b' }} />
                         <Typography variant="body2" color="text.secondary">
-                          {selectedTemplate.rating} • {selectedTemplate.uses} uses
+                          {selectedTemplate.rating} • {selectedTemplate.uses} {t('templatesSection.uses')}
                         </Typography>
                         <Chip
-                          label={selectedTemplate.isFree ? 'Free' : 'Pro'}
+                          label={selectedTemplate.isFree ? t('templatesSection.free') : t('templatesSection.pro')}
                           size="small"
                           sx={{
                             fontWeight: 600, fontSize: '0.65rem', height: '20px',
                             background: selectedTemplate.isFree
                               ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
-                              : 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+                              : 'linear-gradient(135deg, #eab308 0%, #000000 100%)',
                             color: '#ffffff',
                           }}
                         />
@@ -702,14 +704,14 @@ const TemplatesSection = () => {
                         endIcon={<ArrowForwardIcon />}
                         onClick={(e) => handleUseTemplate(selectedTemplate, e)}
                         sx={{
-                          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                          background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
                           color: '#ffffff', fontWeight: 600, textTransform: 'none',
                           borderRadius: 2, px: 2,
                           '&:hover': { background: 'linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%)' },
                           display: { xs: 'none', sm: 'flex' },
                         }}
                       >
-                        Use Template
+                        {t('templatesSection.useTemplate')}
                       </Button>
                       <IconButton
                         onClick={handleCloseModal}
@@ -743,7 +745,7 @@ const TemplatesSection = () => {
                         <Box
                           component="img"
                           src={selectedTemplate.image}
-                          alt={`${selectedTemplate.name} CV Template Preview`}
+                          alt={t('cvsPage.templatePreviewAltText', { name: selectedTemplate.name })}
                           sx={{
                             width: '100%',
                             height: '100%',
@@ -763,8 +765,8 @@ const TemplatesSection = () => {
                     <Slider
                       value={zoomLevel} onChange={handleZoomSliderChange} min={50} max={200} step={5}
                       sx={{
-                        width: { xs: 100, sm: 200 }, color: '#667eea',
-                        '& .MuiSlider-thumb': { width: 16, height: 16, '&:hover': { boxShadow: '0 0 0 8px rgba(102,126,234,0.16)' } },
+                        width: { xs: 100, sm: 200 }, color: '#000000',
+                        '& .MuiSlider-thumb': { width: 16, height: 16, '&:hover': { boxShadow: '0 0 0 8px rgba(0, 0, 0,0.16)' } },
                         '& .MuiSlider-track': { height: 4 },
                         '& .MuiSlider-rail': { height: 4, backgroundColor: '#e2e8f0' },
                       }}
@@ -784,14 +786,14 @@ const TemplatesSection = () => {
                       variant="contained" size="small"
                       onClick={(e) => handleUseTemplate(selectedTemplate, e)}
                       sx={{
-                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
                         color: '#ffffff', fontWeight: 600, textTransform: 'none',
                         borderRadius: 2, px: 2, ml: 'auto',
                         '&:hover': { background: 'linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%)' },
                         display: { xs: 'flex', sm: 'none' },
                       }}
                     >
-                      Use
+                      {t('cvsPage.useShort')}
                     </Button>
                   </ZoomControls>
                 </>

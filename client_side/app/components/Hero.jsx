@@ -3,8 +3,11 @@
 import Image from 'next/image';
 import { Box, Button, Container, Typography } from '@mui/material';
 import Link from 'next/link';
+import { useLanguage } from '../hooks/useLanguage';
 
 export default function Hero() {
+  const { t } = useLanguage();
+
   return (
     <Box bgcolor="white">
 
@@ -30,7 +33,7 @@ export default function Hero() {
                 color="primary"
                 letterSpacing={1}
               >
-                Build a professional CV in minutes
+                {t('hero.eyebrow')}
               </Typography>
 
               <Typography
@@ -39,18 +42,18 @@ export default function Hero() {
                 mt={2}
                 sx={{ fontSize: { xs: '2.5rem', md: '4rem', xl: '5rem' } }}
               >
-                ATS-friendly, modern templates, free to start
+                {t('hero.heading')}
               </Typography>
 
               <Typography mt={2} fontSize={18}>
-                Grow your career fast with right mentor.
+                {t('hero.subheading')}
               </Typography>
 
               <Button
                 variant="contained"
                 sx={{
                   mt: 4,
-                  bgcolor: '#FACC15',
+                  bgcolor: '#EAB308',
                   color: 'black',
                   borderRadius: '999px',
                   px: 4,
@@ -61,13 +64,13 @@ export default function Hero() {
                   },
                 }}
               >
-                Browse Templates
+                {t('hero.browseTemplates')}
               </Button>
 
               <Typography mt={2} color="text.secondary">
-                Already joined us?{' '}
+                {t('hero.alreadyJoined')}{' '}
                 <Link href="/login" style={{ color: 'black', fontWeight: 500 }}>
-                  Log in
+                  {t('hero.login')}
                 </Link>
               </Typography>
             </Box>

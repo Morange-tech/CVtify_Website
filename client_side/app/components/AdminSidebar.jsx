@@ -21,10 +21,12 @@ import ChatIcon from '@mui/icons-material/Chat';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import SettingsIcon from '@mui/icons-material/Settings';
 import HistoryIcon from '@mui/icons-material/History';
+import ArticleIcon from '@mui/icons-material/Article';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import MenuIcon from '@mui/icons-material/Menu';
 import MenuOpenIcon from '@mui/icons-material/MenuOpen';
 import LogoutIcon from '@mui/icons-material/Logout';
+import HomeIcon from '@mui/icons-material/Home';
 import { useAdminSidebar } from './AdminSidebarContext';
 import { useAuth } from '../hooks/useAuth'; // adjust path
 import Link from 'next/link';
@@ -41,9 +43,9 @@ const menuItems = [
 
   { section: 'Content' },
   { label: 'CVs', icon: <DescriptionIcon />, path: '/admin/cvs' },
-  { label: 'Motivational Letters', icon: <DescriptionIcon />, path: '/admin/motivational-letters' },
   { label: 'CV Templates', icon: <BrushIcon />, path: '/admin/templates' },
   { label: 'Letters Templates', icon: <BrushIcon />, path: '/admin/motivation-letters' },
+  { label: 'Resources', icon: <ArticleIcon />, path: '/admin/resources' },
   { label: 'Downloads', icon: <DownloadIcon />, path: '/admin/downloads' },
 
   { section: 'Insights' },
@@ -416,6 +418,55 @@ export default function AdminSidebar() {
             </Box>
           )}
         </Box>
+
+        {/* Back to Home Button */}
+        {isOpen ? (
+          <Box
+            component={Link}
+            href="/"
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1.5,
+              px: 2,
+              py: 1,
+              mb: 0.5,
+              borderRadius: 2,
+              cursor: 'pointer',
+              color: '#94a3b8',
+              textDecoration: 'none',
+              transition: 'all 0.2s ease',
+              '&:hover': {
+                bgcolor: '#1e293b',
+                color: '#ffffff',
+              },
+            }}
+          >
+            <HomeIcon sx={{ fontSize: 18 }} />
+            <Typography variant="body2" fontWeight="500" sx={{ fontSize: '0.85rem' }}>
+              Retour à l&apos;accueil
+            </Typography>
+          </Box>
+        ) : (
+          <Tooltip title="Retour à l'accueil" placement="right" arrow>
+            <IconButton
+              component={Link}
+              href="/"
+              sx={{
+                color: '#94a3b8',
+                mx: 'auto',
+                mb: 0.5,
+                display: 'flex',
+                '&:hover': {
+                  bgcolor: '#1e293b',
+                  color: '#ffffff',
+                },
+              }}
+            >
+              <HomeIcon sx={{ fontSize: 18 }} />
+            </IconButton>
+          </Tooltip>
+        )}
 
         {/* Logout Button */}
         {isOpen ? (

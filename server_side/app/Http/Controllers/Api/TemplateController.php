@@ -132,7 +132,7 @@ class TemplateController extends Controller
         }
 
         $exists = $user->wishlistedTemplates()
-                       ->where('template_id', $template->id)
+                       ->where('template_wishlists.template_id', $template->id)
                        ->exists();
 
         if ($exists) {

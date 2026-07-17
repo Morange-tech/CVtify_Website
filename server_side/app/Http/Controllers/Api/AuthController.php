@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Mail\WelcomeEmail;
+use App\Models\ActivityLog;
 use App\Models\User;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\Request;
@@ -53,6 +54,8 @@ class AuthController extends Controller
         ]);
 
         event(new Registered($user));
+
+        ActivityLog::log('user_registered', "{$user->name} registered an account", $user->id);
 
         // Send welcome email
         Mail::to($user->email)->send(new WelcomeEmail($user));
@@ -111,6 +114,8 @@ class AuthController extends Controller
             'last_login_at' => now(),
         ]);
 
+        ActivityLog::log('user_login', "{$user->name} logged in", $user->id);
+
         return response()->json([
             'message' => 'Login successful',
             'user' => [
@@ -155,10 +160,105 @@ class AuthController extends Controller
     )]
     public function logout(Request $request)
     {
-        $request->user()->currentAccessToken()->delete();
+        $user = $request->user();
+
+        ActivityLog::log('user_logout', "{$user->name} logged out", $user->id);
+
+        $user->currentAccessToken()->delete();
 
         return response()->json([
             'message' => 'Logged out successfully',
+        ]);
+    }
+
+    #[OA\Patch(
+        path: "/profile",
+        summary: "Update the authenticated user's profile",
+        tags: ["User"],
+        security: [["sanctum" => []]],
+        responses: [
+            new OA\Response(response: 200, description: "Profile updated"),
+            new OA\Response(response: 422, description: "Validation error")
+        ]
+    )]
+    public function updateProfile(Request $request)
+    {
+        $user = $request->user();
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email,' . $user->id],
+        ]);
+
+        $user->update($validated);
+
+        ActivityLog::log('profile_updated', "{$user->name} updated their profile", $user->id);
+
+        return response()->json([
+            'message' => 'Profile updated successfully.',
+            'user' => $user->fresh(),
+        ]);
+    }
+
+    #[OA\Post(
+        path: "/change-password",
+        summary: "Change the authenticated user's password",
+        tags: ["User"],
+        security: [["sanctum" => []]],
+        responses: [
+            new OA\Response(response: 200, description: "Password changed"),
+            new OA\Response(response: 422, description: "Validation error")
+        ]
+    )]
+    public function changePassword(Request $request)
+    {
+        $user = $request->user();
+
+        $validated = $request->validate([
+            'current_password' => ['required', 'string'],
+            'new_password' => ['required', 'confirmed', PasswordRule::min(8)],
+        ]);
+
+        if (!Hash::check($validated['current_password'], $user->password)) {
+            throw ValidationException::withMessages([
+                'current_password' => ['The current password is incorrect.'],
+            ]);
+        }
+
+        $user->update([
+            'password' => Hash::make($validated['new_password']),
+        ]);
+
+        ActivityLog::log('password_changed', "{$user->name} changed their password", $user->id);
+
+        return response()->json([
+            'message' => 'Password changed successfully.',
+        ]);
+    }
+
+    #[OA\Delete(
+        path: "/account",
+        summary: "Delete the authenticated user's own account",
+        tags: ["User"],
+        security: [["sanctum" => []]],
+        responses: [
+            new OA\Response(response: 200, description: "Account deleted")
+        ]
+    )]
+    public function deleteAccount(Request $request)
+    {
+        $user = $request->user();
+
+        ActivityLog::log('account_deleted', "{$user->name} deleted their account", $user->id);
+
+        $user->cvs()->delete();
+        $user->motivationLetters()->delete();
+        $user->downloadHistories()->delete();
+        $user->tokens()->delete();
+        $user->delete();
+
+        return response()->json([
+            'message' => 'Account deleted successfully.',
         ]);
     }
 
@@ -320,6 +420,14 @@ class AuthController extends Controller
 
         // Create token
         $token = $user->createToken('auth_token')->plainTextToken;
+
+        ActivityLog::log(
+            $isNewUser ? 'user_registered' : 'user_login',
+            $isNewUser
+                ? "{$user->name} registered via {$validated['provider']}"
+                : "{$user->name} logged in via {$validated['provider']}",
+            $user->id
+        );
 
         return response()->json([
             'message' => $isNewUser ? 'Registration successful!' : 'Login successful',

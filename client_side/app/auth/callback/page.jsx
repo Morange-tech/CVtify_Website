@@ -120,7 +120,7 @@ export default function AuthCallback() {
                 bgcolor: '#f8fafc',
             }}
         >
-            <CircularProgress size={48} sx={{ color: '#667eea' }} />
+            <CircularProgress size={48} sx={{ color: '#000000' }} />
             <Typography variant="h6" color="#64748b">
                 Completing login...
             </Typography>

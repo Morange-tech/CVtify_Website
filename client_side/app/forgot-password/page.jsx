@@ -2,6 +2,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useLanguage } from '../hooks/useLanguage';
 import {
     Box,
     Typography,
@@ -34,7 +35,7 @@ const PageContainer = styled(Box)({
 
 const LeftPanel = styled(Box)(({ theme }) => ({
     flex: 1,
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
     display: 'flex',
     flexDirection: 'column',
     justifyContent: 'center',
@@ -117,10 +118,10 @@ const PrimaryButton = styled(Button)(({ theme }) => ({
     fontWeight: 600,
     textTransform: 'none',
     background: 'linear-gradient(135deg, #EAB308)',
-    boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
+    boxShadow: '0 4px 15px rgba(0, 0, 0, 0.4)',
     transition: 'all 0.3s ease',
     '&:hover': {
-        boxShadow: '0 6px 20px rgba(102, 126, 234, 0.5)',
+        boxShadow: '0 6px 20px rgba(0, 0, 0, 0.5)',
         transform: 'translateY(-2px)',
     },
     '&:disabled': {
@@ -135,13 +136,13 @@ const SecondaryButton = styled(Button)(({ theme }) => ({
     fontSize: '1rem',
     fontWeight: 600,
     textTransform: 'none',
-    border: '2px solid #667eea',
-    color: '#667eea',
+    border: '2px solid #000000',
+    color: '#000000',
     transition: 'all 0.3s ease',
     '&:hover': {
-        backgroundColor: 'rgba(102, 126, 234, 0.05)',
-        borderColor: '#764ba2',
-        color: '#764ba2',
+        backgroundColor: 'rgba(0, 0, 0, 0.05)',
+        borderColor: '#1a1a1a',
+        color: '#1a1a1a',
     },
 }));
 
@@ -164,7 +165,7 @@ const LogoIcon = styled(Box)(({ theme }) => ({
     width: 45,
     height: 45,
     borderRadius: theme.spacing(1.5),
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -192,7 +193,7 @@ const IconContainer = styled(Box)(({ theme }) => ({
     width: 80,
     height: 80,
     borderRadius: '50%',
-    background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%)',
+    background: 'linear-gradient(135deg, rgba(0, 0, 0, 0.1) 0%, rgba(26, 26, 26, 0.1) 100%)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -221,12 +222,12 @@ const StepIndicator = styled(Box)(({ theme, active, completed }) => ({
     backgroundColor: completed 
         ? 'rgba(16, 185, 129, 0.1)' 
         : active 
-            ? 'rgba(102, 126, 234, 0.1)' 
+            ? 'rgba(0, 0, 0, 0.1)' 
             : '#f1f5f9',
     color: completed 
         ? '#10b981' 
         : active 
-            ? '#667eea' 
+            ? '#000000' 
             : '#94a3b8',
     fontSize: '0.8rem',
     fontWeight: 600,
@@ -235,6 +236,7 @@ const StepIndicator = styled(Box)(({ theme, active, completed }) => ({
 export default function ForgotPasswordPage() {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+    const { t } = useLanguage();
 
     const [email, setEmail] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -248,12 +250,12 @@ export default function ForgotPasswordPage() {
 
         // Basic email validation
         if (!email) {
-            setError('Please enter your email address');
+            setError(t('forgotPasswordPage.emailRequiredError'));
             return;
         }
 
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-            setError('Please enter a valid email address');
+            setError(t('forgotPasswordPage.emailInvalidError'));
             return;
         }
 
@@ -276,7 +278,7 @@ export default function ForgotPasswordPage() {
             startCountdown();
         } else {
             const data = await response.json();
-            setError(error.message || 'Something went wrong. Please try again.');
+            setError(error.message || t('forgotPasswordPage.genericError'));
         }
     };
 
@@ -313,22 +315,24 @@ export default function ForgotPasswordPage() {
         startCountdown();
     };
 
+    const featureTexts = t('forgotPasswordPage.features');
+
     const features = [
         {
             icon: <SecurityIcon sx={{ color: '#EAB308', fontSize: 24 }} />,
-            text: 'Secure password reset process',
+            text: featureTexts[0],
         },
         {
             icon: <TimerIcon sx={{ color: '#EAB308', fontSize: 24 }} />,
-            text: 'Reset link expires in 1 hour',
+            text: featureTexts[1],
         },
         {
             icon: <MarkEmailReadIcon sx={{ color: '#EAB308', fontSize: 24 }} />,
-            text: 'Check your spam folder if needed',
+            text: featureTexts[2],
         },
         {
             icon: <SupportAgentIcon sx={{ color: '#EAB308', fontSize: 24 }} />,
-            text: '24/7 support if you need help',
+            text: featureTexts[3],
         },
     ];
 
@@ -367,9 +371,9 @@ export default function ForgotPasswordPage() {
                         color="#ffffff"
                         sx={{ mb: 2, lineHeight: 1.2 }}
                     >
-                        Forgot Your
+                        {t('forgotPasswordPage.headingLine1')}
                         <Box component="span" sx={{ color: '#EAB308', display: 'block' }}>
-                            Password?
+                            {t('forgotPasswordPage.headingLine2')}
                         </Box>
                     </Typography>
 
@@ -377,8 +381,7 @@ export default function ForgotPasswordPage() {
                         variant="body1"
                         sx={{ color: 'rgba(255, 255, 255, 0.8)', mb: 5, lineHeight: 1.7 }}
                     >
-                        Don&apos;t worry, it happens to the best of us. We&apos;ll help you 
-                        get back into your account in no time.
+                        {t('forgotPasswordPage.subtitle')}
                     </Typography>
 
                     {/* Features */}
@@ -407,13 +410,13 @@ export default function ForgotPasswordPage() {
                             variant="body2"
                             sx={{ color: '#ffffff', mb: 2, fontWeight: 600 }}
                         >
-                            Still having trouble?
+                            {t('forgotPasswordPage.helpTitle')}
                         </Typography>
                         <Typography
                             variant="body2"
                             sx={{ color: 'rgba(255, 255, 255, 0.8)', lineHeight: 1.6 }}
                         >
-                            Contact our support team at{' '}
+                            {t('forgotPasswordPage.helpTextBefore')}{' '}
                             <Box
                                 component="a"
                                 href="mailto:support@cvtify.com"
@@ -421,7 +424,7 @@ export default function ForgotPasswordPage() {
                             >
                                 support@cvtify.com
                             </Box>{' '}
-                            and we&apos;ll help you recover your account.
+                            {t('forgotPasswordPage.helpTextAfter')}
                         </Typography>
                     </Box>
                 </Box>
@@ -433,7 +436,7 @@ export default function ForgotPasswordPage() {
                     {/* Back Link */}
                     <BackLink href="/login">
                         <ArrowBackIcon sx={{ fontSize: 18 }} />
-                        Back to Login
+                        {t('forgotPasswordPage.backToLogin')}
                     </BackLink>
 
                     {/* Mobile Logo */}
@@ -453,7 +456,7 @@ export default function ForgotPasswordPage() {
                         <>
                             {/* Icon */}
                             <IconContainer>
-                                <LockResetIcon sx={{ fontSize: 40, color: '#667eea' }} />
+                                <LockResetIcon sx={{ fontSize: 40, color: '#000000' }} />
                             </IconContainer>
 
                             {/* Header */}
@@ -464,11 +467,10 @@ export default function ForgotPasswordPage() {
                                     color="#1e293b" 
                                     gutterBottom
                                 >
-                                    Reset Password
+                                    {t('forgotPasswordPage.resetPasswordHeading')}
                                 </Typography>
                                 <Typography variant="body1" color="#64748b">
-                                    Enter your email address and we&apos;ll send you 
-                                    a link to reset your password.
+                                    {t('forgotPasswordPage.resetPasswordSubtitle')}
                                 </Typography>
                             </Box>
 
@@ -487,11 +489,11 @@ export default function ForgotPasswordPage() {
                             <form onSubmit={handleSubmit}>
                                 <StyledTextField
                                     fullWidth
-                                    label="Email Address"
+                                    label={t('forgotPasswordPage.emailLabel')}
                                     type="email"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
-                                    placeholder="baesara803@example.com"
+                                    placeholder={t('forgotPasswordPage.emailPlaceholder')}
                                     InputProps={{
                                         startAdornment: (
                                             <InputAdornment position="start">
@@ -513,14 +515,14 @@ export default function ForgotPasswordPage() {
                                         ) : null
                                     }
                                 >
-                                    {isLoading ? 'Sending...' : 'Send Reset Link'}
+                                    {isLoading ? t('forgotPasswordPage.sending') : t('forgotPasswordPage.sendResetLink')}
                                 </PrimaryButton>
                             </form>
 
                             {/* Divider */}
                             <Box sx={{ textAlign: 'center', mt: 4 }}>
                                 <Typography variant="body2" color="#64748b">
-                                    Remember your password?{' '}
+                                    {t('forgotPasswordPage.rememberPassword')}{' '}
                                     <Link
                                         href="/login"
                                         style={{
@@ -529,7 +531,7 @@ export default function ForgotPasswordPage() {
                                             textDecoration: 'none',
                                         }}
                                     >
-                                        Sign in
+                                        {t('forgotPasswordPage.signIn')}
                                     </Link>
                                 </Typography>
                             </Box>
@@ -552,10 +554,10 @@ export default function ForgotPasswordPage() {
                                     color="#1e293b" 
                                     gutterBottom
                                 >
-                                    Check Your Email
+                                    {t('forgotPasswordPage.checkEmailHeading')}
                                 </Typography>
                                 <Typography variant="body1" color="#64748b" sx={{ mb: 2 }}>
-                                    We&apos;ve sent a password reset link to:
+                                    {t('forgotPasswordPage.emailSentTo')}
                                 </Typography>
                                 <Typography 
                                     variant="body1" 
@@ -587,17 +589,17 @@ export default function ForgotPasswordPage() {
                                     color="#1e293b" 
                                     gutterBottom
                                 >
-                                    Next steps:
+                                    {t('forgotPasswordPage.nextStepsTitle')}
                                 </Typography>
                                 <Box component="ol" sx={{ pl: 2, m: 0, color: '#64748b' }}>
                                     <Typography component="li" variant="body2" sx={{ mb: 1 }}>
-                                        Check your email inbox
+                                        {t('forgotPasswordPage.nextSteps')[0]}
                                     </Typography>
                                     <Typography component="li" variant="body2" sx={{ mb: 1 }}>
-                                        Click the reset link in the email
+                                        {t('forgotPasswordPage.nextSteps')[1]}
                                     </Typography>
                                     <Typography component="li" variant="body2">
-                                        Create a new password
+                                        {t('forgotPasswordPage.nextSteps')[2]}
                                     </Typography>
                                 </Box>
                             </Box>
@@ -605,7 +607,7 @@ export default function ForgotPasswordPage() {
                             {/* Resend Button */}
                             <Box sx={{ textAlign: 'center', mb: 3 }}>
                                 <Typography variant="body2" color="#64748b" sx={{ mb: 2 }}>
-                                    Didn&apos;t receive the email?
+                                    {t('forgotPasswordPage.didntReceiveEmail')}
                                 </Typography>
                                 <SecondaryButton
                                     onClick={handleResendEmail}
@@ -617,11 +619,11 @@ export default function ForgotPasswordPage() {
                                         ) : null
                                     }
                                 >
-                                    {countdown > 0 
-                                        ? `Resend in ${countdown}s` 
-                                        : isLoading 
-                                            ? 'Sending...' 
-                                            : 'Resend Email'
+                                    {countdown > 0
+                                        ? t('forgotPasswordPage.resendIn', { countdown })
+                                        : isLoading
+                                            ? t('forgotPasswordPage.sending')
+                                            : t('forgotPasswordPage.resendEmail')
                                     }
                                 </SecondaryButton>
                             </Box>
@@ -640,7 +642,7 @@ export default function ForgotPasswordPage() {
                                     }}
                                 >
                                     <ArrowBackIcon sx={{ fontSize: 18 }} />
-                                    Back to Login
+                                    {t('forgotPasswordPage.backToLogin')}
                                 </Link>
                             </Box>
 
@@ -659,8 +661,7 @@ export default function ForgotPasswordPage() {
                             >
                                 <MarkEmailReadIcon sx={{ color: '#EAB308', fontSize: 20, mt: 0.2 }} />
                                 <Typography variant="caption" color="#92400e">
-                                    <strong>Tip:</strong> If you don&apos;t see the email in your inbox, 
-                                    please check your spam or junk folder.
+                                    <strong>{t('forgotPasswordPage.tipLabel')}</strong> {t('forgotPasswordPage.spamTipText')}
                                 </Typography>
                             </Box>
                         </>

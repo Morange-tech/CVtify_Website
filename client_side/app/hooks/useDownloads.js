@@ -43,13 +43,14 @@ async function apiRequest(path, options = {}) {
   }
 
   const hasJsonBody = options.body && !(options.body instanceof FormData);
+  const token = localStorage.getItem('token');
 
   const response = await fetch(`${API_URL}${path}`, {
-    credentials: 'include', // Sanctum / cookie auth
     ...options,
     headers: {
       Accept: options.accept || 'application/json',
       ...(hasJsonBody ? { 'Content-Type': 'application/json' } : {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(options.headers || {}),
     },
   });
@@ -122,7 +123,7 @@ export default function useDownloads({
           ...overrides,
         });
 
-        const response = await apiRequest(`/api/downloads${query ? `?${query}` : ''}`);
+        const response = await apiRequest(`/downloads${query ? `?${query}` : ''}`);
         const result = await response.json();
 
         setDownloads(Array.isArray(result.data) ? result.data : []);
@@ -156,7 +157,7 @@ export default function useDownloads({
       setError('');
 
       try {
-        await apiRequest(`/api/downloads/${id}`, {
+        await apiRequest(`/downloads/${id}`, {
           method: 'DELETE',
         });
 
@@ -177,7 +178,7 @@ export default function useDownloads({
     setError('');
 
     try {
-      await apiRequest('/api/downloads', {
+      await apiRequest('/downloads', {
         method: 'DELETE',
       });
 
@@ -198,7 +199,7 @@ export default function useDownloads({
     setError('');
 
     try {
-      const response = await apiRequest(`/api/downloads/${id}/file`, {
+      const response = await apiRequest(`/downloads/${id}/file`, {
         method: 'GET',
         accept: 'application/octet-stream',
       });
@@ -226,7 +227,7 @@ export default function useDownloads({
       setError('');
 
       try {
-        const response = await apiRequest('/api/downloads', {
+        const response = await apiRequest('/downloads', {
           method: 'POST',
           body: JSON.stringify(payload),
         });

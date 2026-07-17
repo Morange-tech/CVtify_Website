@@ -1,7 +1,8 @@
 // app/resources/page.jsx
 'use client';
 
-import React, { useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
     Box,
     Container,
@@ -20,11 +21,29 @@ import {
     useMediaQuery,
     TextField,
     InputAdornment,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    Select,
+    MenuItem,
+    FormControl,
+    InputLabel,
+    Modal,
+    Fade,
+    Backdrop,
+    CircularProgress,
+    Skeleton,
+    Alert,
+    keyframes,
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import Link from 'next/link';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import { useAuth } from '../hooks/useAuth';
+import { useLanguage } from '../hooks/useLanguage';
+import useResources from '../hooks/useResources';
 
 // Icons
 import DescriptionIcon from '@mui/icons-material/Description';
@@ -38,7 +57,6 @@ import SearchIcon from '@mui/icons-material/Search';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import LightbulbIcon from '@mui/icons-material/Lightbulb';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
-import BookmarkIcon from '@mui/icons-material/Bookmark';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import PersonIcon from '@mui/icons-material/Person';
 import SchoolIcon from '@mui/icons-material/School';
@@ -46,6 +64,35 @@ import BusinessCenterIcon from '@mui/icons-material/BusinessCenter';
 import PsychologyIcon from '@mui/icons-material/Psychology';
 import EmojiObjectsIcon from '@mui/icons-material/EmojiObjects';
 import FormatQuoteIcon from '@mui/icons-material/FormatQuote';
+import CancelIcon from '@mui/icons-material/Cancel';
+import RefreshIcon from '@mui/icons-material/Refresh';
+
+// Maps an icon key stored on the backend to the matching MUI icon component
+const RESOURCE_ICON_MAP = {
+    Person: PersonIcon,
+    Lightbulb: LightbulbIcon,
+    BusinessCenter: BusinessCenterIcon,
+    AutoAwesome: AutoAwesomeIcon,
+    FormatQuote: FormatQuoteIcon,
+    CheckCircle: CheckCircleIcon,
+    School: SchoolIcon,
+    TrendingUp: TrendingUpIcon,
+    Psychology: PsychologyIcon,
+};
+const getResourceIcon = (name, Fallback = DescriptionIcon) => {
+    const IconComponent = RESOURCE_ICON_MAP[name] || Fallback;
+    return <IconComponent />;
+};
+
+const scaleIn = keyframes`
+    from { transform: scale(0); }
+    to { transform: scale(1); }
+`;
+
+const SUPPORT_CATEGORY_VALUES = ['general', 'bug', 'billing', 'feature', 'account', 'template'];
+const SUPPORT_PRIORITY_VALUES = ['low', 'medium', 'high', 'urgent'];
+
+const EMPTY_SUPPORT_FORM = { subject: '', category: 'general', priority: 'medium', message: '' };
 
 // Styled Components
 const PageWrapper = styled(Box)({
@@ -55,7 +102,7 @@ const PageWrapper = styled(Box)({
 });
 
 const HeroSection = styled(Box)(({ theme }) => ({
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
     padding: theme.spacing(20, 2, 12),
     position: 'relative',
     overflow: 'hidden',
@@ -100,14 +147,14 @@ const CategoryCard = styled(Card, {
 })(({ theme, active }) => ({
     height: '100%',
     borderRadius: theme.spacing(2),
-    border: active ? '2px solid #667eea' : '2px solid transparent',
-    boxShadow: active ? '0 10px 40px rgba(102, 126, 234, 0.2)' : '0 4px 20px rgba(0, 0, 0, 0.05)',
+    border: active ? '2px solid #000000' : '2px solid transparent',
+    boxShadow: active ? '0 10px 40px rgba(0, 0, 0, 0.2)' : '0 4px 20px rgba(0, 0, 0, 0.05)',
     cursor: 'pointer',
     transition: 'all 0.3s ease',
     '&:hover': {
         transform: 'translateY(-5px)',
-        boxShadow: '0 15px 40px rgba(102, 126, 234, 0.15)',
-        borderColor: '#667eea',
+        boxShadow: '0 15px 40px rgba(0, 0, 0, 0.15)',
+        borderColor: '#000000',
     },
 }));
 
@@ -120,7 +167,7 @@ const IconWrapper = styled(Box, {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    background: bgcolor || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    background: bgcolor || 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
     marginBottom: 16,
     '& .MuiSvgIcon-root': {
         fontSize: '1.75rem',
@@ -138,13 +185,13 @@ const ArticleCard = styled(Card)(({ theme }) => ({
     '&:hover': {
         transform: 'translateY(-5px)',
         boxShadow: '0 15px 40px rgba(0, 0, 0, 0.1)',
-        borderColor: '#667eea',
+        borderColor: '#000000',
     },
 }));
 
 const ArticleImage = styled(Box)(({ theme }) => ({
     height: 180,
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -171,8 +218,8 @@ const StyledAccordion = styled(Accordion)(({ theme }) => ({
     },
     '&.Mui-expanded': {
         margin: `0 0 ${theme.spacing(2)} 0`,
-        borderColor: '#667eea',
-        boxShadow: '0 4px 20px rgba(102, 126, 234, 0.15)',
+        borderColor: '#000000',
+        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
     },
 }));
 
@@ -182,7 +229,7 @@ const StyledAccordionSummary = styled(AccordionSummary)(({ theme }) => ({
         margin: '12px 0',
     },
     '&.Mui-expanded': {
-        backgroundColor: 'rgba(102, 126, 234, 0.03)',
+        backgroundColor: 'rgba(0, 0, 0, 0.03)',
     },
 }));
 
@@ -204,10 +251,10 @@ const StyledTabs = styled(Tabs)(({ theme }) => ({
         transition: 'all 0.3s ease',
         '&.Mui-selected': {
             color: '#ffffff',
-            backgroundColor: '#667eea',
+            backgroundColor: '#000000',
         },
         '&:hover:not(.Mui-selected)': {
-            backgroundColor: 'rgba(102, 126, 234, 0.1)',
+            backgroundColor: 'rgba(0, 0, 0, 0.1)',
         },
     },
 }));
@@ -246,8 +293,8 @@ const TipCard = styled(Box)(({ theme }) => ({
     border: '1px solid #e2e8f0',
     transition: 'all 0.3s ease',
     '&:hover': {
-        borderColor: '#667eea',
-        boxShadow: '0 4px 15px rgba(102, 126, 234, 0.1)',
+        borderColor: '#000000',
+        boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)',
     },
 }));
 
@@ -259,236 +306,177 @@ const ResourcesPage = () => {
     const [activeCategory, setActiveCategory] = useState(0);
     const [expandedFaq, setExpandedFaq] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
+    const router = useRouter();
+    const { isAuthenticated } = useAuth();
+    const { t } = useLanguage();
+
+    const supportCategories = SUPPORT_CATEGORY_VALUES.map((value) => ({
+        value,
+        label: t(`resourcesPage.contactModal.categories.${value}`),
+    }));
+    const supportPriorities = SUPPORT_PRIORITY_VALUES.map((value) => ({
+        value,
+        label: t(`resourcesPage.contactModal.priorities.${value}`),
+    }));
+
+    // Real content, managed from the admin dashboard
+    const {
+        cvGuides: cvWritingGuidesRaw,
+        coverLetterTips: coverLetterTipsRaw,
+        interviewPrep: interviewPrepRaw,
+        careerAdvice: careerAdviceRaw,
+        faqs: faqContentRaw,
+        loading: resourcesLoading,
+        error: resourcesError,
+        refetch: refetchResources,
+    } = useResources();
+
+    // Live search — filters instantly as the user types, no debounce/network round-trip
+    const q = searchQuery.trim().toLowerCase();
+    const matches = useCallback(
+        (...fields) => !q || fields.some((f) => (f || '').toLowerCase().includes(q)),
+        [q]
+    );
+
+    const cvWritingGuides = useMemo(
+        () => cvWritingGuidesRaw.filter((a) => matches(a.title, a.description)),
+        [cvWritingGuidesRaw, matches]
+    );
+    const coverLetterTips = useMemo(
+        () => coverLetterTipsRaw.filter((t) => matches(t.title, t.description)),
+        [coverLetterTipsRaw, matches]
+    );
+    const interviewPrepContent = useMemo(
+        () => interviewPrepRaw.filter((a) => matches(a.title, a.description)),
+        [interviewPrepRaw, matches]
+    );
+    const careerAdviceArticles = useMemo(
+        () => careerAdviceRaw.filter((a) => matches(a.title, a.description)),
+        [careerAdviceRaw, matches]
+    );
+    const faqContent = useMemo(
+        () => faqContentRaw.filter((f) => matches(f.question, f.answer)),
+        [faqContentRaw, matches]
+    );
 
     // Categories
     const categories = [
         {
             id: 0,
-            title: 'CV Writing Guide',
+            title: t('resourcesPage.categories.cvGuide.title'),
             icon: <DescriptionIcon />,
-            color: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            description: 'Master the art of writing compelling CVs',
-            articleCount: 12,
+            color: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
+            description: t('resourcesPage.categories.cvGuide.description'),
+            articleCount: cvWritingGuidesRaw.length,
         },
         {
             id: 1,
-            title: 'Cover Letter Tips',
+            title: t('resourcesPage.categories.coverLetterTip.title'),
             icon: <MailOutlineIcon />,
             color: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-            description: 'Create cover letters that get noticed',
-            articleCount: 8,
+            description: t('resourcesPage.categories.coverLetterTip.description'),
+            articleCount: coverLetterTipsRaw.length,
         },
         {
             id: 2,
-            title: 'Interview Prep',
+            title: t('resourcesPage.categories.interviewPrep.title'),
             icon: <WorkIcon />,
             color: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-            description: 'Ace your interviews with confidence',
-            articleCount: 15,
+            description: t('resourcesPage.categories.interviewPrep.description'),
+            articleCount: interviewPrepRaw.length,
         },
         {
             id: 3,
-            title: 'Career Advice',
+            title: t('resourcesPage.categories.careerAdvice.title'),
             icon: <TrendingUpIcon />,
-            color: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
-            description: 'Navigate your career path successfully',
-            articleCount: 10,
+            color: 'linear-gradient(135deg, #eab308 0%, #000000 100%)',
+            description: t('resourcesPage.categories.careerAdvice.description'),
+            articleCount: careerAdviceRaw.length,
         },
         {
             id: 4,
-            title: 'FAQ',
+            title: t('resourcesPage.categories.faq.title'),
             icon: <HelpOutlineIcon />,
             color: 'linear-gradient(135deg, #ec4899 0%, #db2777 100%)',
-            description: 'Find answers to common questions',
-            articleCount: 20,
+            description: t('resourcesPage.categories.faq.description'),
+            articleCount: faqContentRaw.length,
         },
     ];
 
-    // CV Writing Guide Content
-    const cvWritingGuides = [
-        {
-            id: 1,
-            title: 'How to Write a Perfect CV in 2024',
-            description: 'Learn the essential components of a modern CV that gets results.',
-            readTime: '8 min read',
-            category: 'Beginner',
-            featured: true,
-        },
-        {
-            id: 2,
-            title: 'ATS-Friendly CV: Complete Guide',
-            description: 'Optimize your CV to pass Applicant Tracking Systems.',
-            readTime: '10 min read',
-            category: 'Advanced',
-            featured: true,
-        },
-        {
-            id: 3,
-            title: 'CV Format: Which One is Right for You?',
-            description: 'Chronological, functional, or combination? Find out which works best.',
-            readTime: '6 min read',
-            category: 'Beginner',
-            featured: false,
-        },
-        {
-            id: 4,
-            title: 'Power Words to Make Your CV Stand Out',
-            description: 'Use action verbs and power words to make an impact.',
-            readTime: '5 min read',
-            category: 'Tips',
-            featured: false,
-        },
-        {
-            id: 5,
-            title: 'Common CV Mistakes to Avoid',
-            description: 'Learn what not to do when writing your CV.',
-            readTime: '7 min read',
-            category: 'Beginner',
-            featured: false,
-        },
-        {
-            id: 6,
-            title: 'How to Quantify Your Achievements',
-            description: 'Use numbers and metrics to showcase your impact.',
-            readTime: '6 min read',
-            category: 'Advanced',
-            featured: false,
-        },
-    ];
+    // ── Contact Support modal ──────────────────────────────────
+    const [contactModalOpen, setContactModalOpen] = useState(false);
+    const [supportForm, setSupportForm] = useState(EMPTY_SUPPORT_FORM);
+    const [supportFieldErrors, setSupportFieldErrors] = useState({});
+    const [isSubmittingSupport, setIsSubmittingSupport] = useState(false);
+    const [resultModal, setResultModal] = useState({ open: false, type: 'success', message: '' });
 
-    // Cover Letter Tips
-    const coverLetterTips = [
-        {
-            icon: <PersonIcon />,
-            title: 'Personalize Every Letter',
-            description: 'Address the hiring manager by name and tailor content to the specific role.',
-        },
-        {
-            icon: <LightbulbIcon />,
-            title: 'Lead with Your Best',
-            description: 'Start with a compelling hook that showcases your most relevant achievement.',
-        },
-        {
-            icon: <BusinessCenterIcon />,
-            title: 'Show Company Knowledge',
-            description: "Demonstrate you've researched the company and understand their needs.",
-        },
-        {
-            icon: <AutoAwesomeIcon />,
-            title: 'Highlight Unique Value',
-            description: "Explain what makes you different and why you're the perfect fit.",
-        },
-        {
-            icon: <FormatQuoteIcon />,
-            title: 'Tell a Story',
-            description: 'Use storytelling to make your experience memorable and engaging.',
-        },
-        {
-            icon: <CheckCircleIcon />,
-            title: 'Include a Clear CTA',
-            description: 'End with a strong call-to-action requesting an interview.',
-        },
-    ];
+    const handleOpenContactSupport = () => {
+        if (!isAuthenticated) {
+            router.push('/login');
+            return;
+        }
+        setSupportForm(EMPTY_SUPPORT_FORM);
+        setSupportFieldErrors({});
+        setContactModalOpen(true);
+    };
 
-    // Interview Prep Content
-    const interviewPrepContent = [
-        {
-            id: 1,
-            title: 'Top 50 Interview Questions & Answers',
-            description: 'Prepare for the most common interview questions with expert answers.',
-            readTime: '15 min read',
-            category: 'Essential',
-        },
-        {
-            id: 2,
-            title: 'STAR Method: Complete Guide',
-            description: 'Master behavioral interview questions with the STAR technique.',
-            readTime: '8 min read',
-            category: 'Technique',
-        },
-        {
-            id: 3,
-            title: 'Virtual Interview Tips',
-            description: 'Ace your video interviews with these proven strategies.',
-            readTime: '6 min read',
-            category: 'Remote',
-        },
-        {
-            id: 4,
-            title: 'Questions to Ask the Interviewer',
-            description: 'Impress hiring managers with thoughtful questions.',
-            readTime: '5 min read',
-            category: 'Strategy',
-        },
-    ];
+    const handleCloseContactSupport = () => {
+        if (isSubmittingSupport) return;
+        setContactModalOpen(false);
+    };
 
-    // Career Advice Articles
-    const careerAdviceArticles = [
-        {
-            id: 1,
-            title: 'How to Successfully Change Careers',
-            description: 'A complete guide to transitioning into a new industry.',
-            readTime: '12 min read',
-            icon: <SchoolIcon />,
-        },
-        {
-            id: 2,
-            title: 'Negotiating Your Salary: Expert Tips',
-            description: 'Get the compensation you deserve with these strategies.',
-            readTime: '8 min read',
-            icon: <TrendingUpIcon />,
-        },
-        {
-            id: 3,
-            title: 'Building Your Personal Brand',
-            description: 'Stand out in a competitive job market with strong personal branding.',
-            readTime: '10 min read',
-            icon: <AutoAwesomeIcon />,
-        },
-        {
-            id: 4,
-            title: 'Networking Strategies That Work',
-            description: 'Build meaningful professional relationships that advance your career.',
-            readTime: '7 min read',
-            icon: <PsychologyIcon />,
-        },
-    ];
+    const updateSupportField = (field, value) => {
+        setSupportForm((prev) => ({ ...prev, [field]: value }));
+    };
 
-    // FAQ Content
-    const faqContent = [
-        {
-            question: 'How long should my CV be?',
-            answer: 'For most professionals, a CV should be 1-2 pages. Entry-level candidates should aim for 1 page, while experienced professionals can extend to 2 pages. Academic CVs can be longer. Focus on relevance over length – include only information that adds value to your application.',
-        },
-        {
-            question: 'Should I include a photo on my CV?',
-            answer: "It depends on your location and industry. In the US and UK, photos are generally not recommended to avoid potential bias. In Europe and some Asian countries, photos are more common. When in doubt, research the norms for your target country and industry.",
-        },
-        {
-            question: 'How far back should my work history go?',
-            answer: "Generally, include the last 10-15 years of relevant work experience. Older positions can be summarized briefly or omitted unless they're directly relevant to the role you're applying for. Focus on quality over quantity.",
-        },
-        {
-            question: 'What file format should I use for my CV?',
-            answer: 'PDF is the most universally accepted format as it preserves formatting across devices. Some ATS systems prefer Word documents (.docx). When in doubt, check the job posting for specific requirements or submit both formats.',
-        },
-        {
-            question: 'How do I explain employment gaps?',
-            answer: "Be honest and brief. Focus on any productive activities during the gap – freelancing, volunteering, education, or personal development. If asked in an interview, explain what you learned and how it makes you a better candidate.",
-        },
-        {
-            question: 'Should I customize my CV for each job application?',
-            answer: 'Yes! Tailoring your CV to each role significantly increases your chances. Focus on relevant keywords from the job description, highlight matching skills and experiences, and adjust your professional summary to align with the specific position.',
-        },
-        {
-            question: 'What should I include in my cover letter?',
-            answer: 'A strong cover letter includes: a compelling opening that grabs attention, specific examples of relevant achievements, demonstration of company knowledge, explanation of why you\'re the ideal candidate, and a clear call-to-action. Keep it to one page.',
-        },
-        {
-            question: 'How do I prepare for a virtual interview?',
-            answer: 'Test your technology beforehand, ensure good lighting and a clean background, dress professionally, maintain eye contact by looking at the camera, minimize distractions, and have your CV and notes nearby but not visible on screen.',
-        },
-    ];
+    const showResultModal = (type, message) => {
+        setResultModal({ open: true, type, message });
+        setTimeout(() => {
+            setResultModal((prev) => ({ ...prev, open: false }));
+        }, 2500);
+    };
+
+    const handleSubmitSupport = async () => {
+        const errors = {};
+        const required = t('resourcesPage.contactModal.required');
+        if (!supportForm.subject.trim()) errors.subject = required;
+        if (!supportForm.category) errors.category = required;
+        if (!supportForm.priority) errors.priority = required;
+        if (!supportForm.message.trim()) errors.message = required;
+
+        if (Object.keys(errors).length > 0) {
+            setSupportFieldErrors(errors);
+            showResultModal('error', t('resourcesPage.contactModal.fillAllFields'));
+            return;
+        }
+
+        setIsSubmittingSupport(true);
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/support-tickets`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
+                body: JSON.stringify(supportForm),
+            });
+
+            const result = await res.json().catch(() => ({}));
+
+            if (!res.ok) {
+                throw new Error(result?.message || t('resourcesPage.contactModal.failedToSend'));
+            }
+
+            setContactModalOpen(false);
+            showResultModal('success', t('resourcesPage.contactModal.messageSent'));
+        } catch (err) {
+            showResultModal('error', err.message || t('resourcesPage.contactModal.genericError'));
+        } finally {
+            setIsSubmittingSupport(false);
+        }
+    };
 
     const handleCategoryChange = (newValue) => {
         setActiveCategory(newValue);
@@ -520,16 +508,15 @@ const ResourcesPage = () => {
     const renderCVWritingGuide = () => (
         <Box>
             <Typography variant="h4" fontWeight="700" color="text.primary" gutterBottom>
-                CV Writing Guide
+                {t('resourcesPage.cvGuideSection.title')}
             </Typography>
             <Typography variant="body1" color="text.secondary" sx={{ mb: 4, maxWidth: 700 }}>
-                Master the art of CV writing with our comprehensive guides. From basics to advanced
-                techniques, learn everything you need to create a CV that stands out.
+                {t('resourcesPage.cvGuideSection.intro')}
             </Typography>
 
             {/* Featured Articles */}
             <Typography variant="h6" fontWeight="600" color="text.primary" sx={{ mb: 3 }}>
-                Featured Guides
+                {t('resourcesPage.cvGuideSection.featuredGuides')}
             </Typography>
             <Grid container spacing={3} sx={{ mb: 5 }}>
                 {cvWritingGuides.filter(a => a.featured).map((article) => (
@@ -544,8 +531,8 @@ const ResourcesPage = () => {
                                         label={article.category}
                                         size="small"
                                         sx={{
-                                            backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                                            color: '#667eea',
+                                            backgroundColor: 'rgba(0, 0, 0, 0.1)',
+                                            color: '#000000',
                                             fontWeight: 600,
                                         }}
                                     />
@@ -568,17 +555,17 @@ const ResourcesPage = () => {
                                 <Button
                                     endIcon={<ArrowForwardIcon />}
                                     sx={{
-                                        color: '#667eea',
+                                        color: '#000000',
                                         fontWeight: 600,
                                         textTransform: 'none',
                                         p: 0,
                                         '&:hover': {
                                             backgroundColor: 'transparent',
-                                            color: '#764ba2',
+                                            color: '#1a1a1a',
                                         },
                                     }}
                                 >
-                                    Read Guide
+                                    {t('resourcesPage.cvGuideSection.readGuide')}
                                 </Button>
                             </CardContent>
                         </ArticleCard>
@@ -588,7 +575,7 @@ const ResourcesPage = () => {
 
             {/* All Articles */}
             <Typography variant="h6" fontWeight="600" color="text.primary" sx={{ mb: 3 }}>
-                All Guides
+                {t('resourcesPage.cvGuideSection.allGuides')}
             </Typography>
             <Grid container spacing={3}>
                 {cvWritingGuides.filter(a => !a.featured).map((article) => (
@@ -600,8 +587,8 @@ const ResourcesPage = () => {
                                         label={article.category}
                                         size="small"
                                         sx={{
-                                            backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                                            color: '#667eea',
+                                            backgroundColor: 'rgba(0, 0, 0, 0.1)',
+                                            color: '#000000',
                                             fontWeight: 600,
                                             fontSize: '0.7rem',
                                         }}
@@ -631,11 +618,10 @@ const ResourcesPage = () => {
     const renderCoverLetterTips = () => (
         <Box>
             <Typography variant="h4" fontWeight="700" color="text.primary" gutterBottom>
-                Cover Letter Tips
+                {t('resourcesPage.coverLetterSection.title')}
             </Typography>
             <Typography variant="body1" color="text.secondary" sx={{ mb: 4, maxWidth: 700 }}>
-                Learn how to write compelling cover letters that complement your CV and
-                help you stand out from other applicants.
+                {t('resourcesPage.coverLetterSection.intro')}
             </Typography>
 
             {/* Quick Tips Grid */}
@@ -647,7 +633,7 @@ const ResourcesPage = () => {
                                 bgcolor="linear-gradient(135deg, #10b981 0%, #059669 100%)"
                                 sx={{ width: 48, height: 48, borderRadius: 2, flexShrink: 0 }}
                             >
-                                {tip.icon}
+                                {getResourceIcon(tip.icon, LightbulbIcon)}
                             </IconWrapper>
                             <Box>
                                 <Typography variant="subtitle1" fontWeight="700" gutterBottom>
@@ -674,10 +660,10 @@ const ResourcesPage = () => {
             >
                 <MailOutlineIcon sx={{ fontSize: 48, mb: 2, opacity: 0.9 }} />
                 <Typography variant="h5" fontWeight="700" gutterBottom>
-                    Ready to Write Your Cover Letter?
+                    {t('resourcesPage.coverLetterSection.ctaTitle')}
                 </Typography>
                 <Typography variant="body1" sx={{ mb: 3, opacity: 0.9, maxWidth: 500, margin: '0 auto 24px' }}>
-                    Use our professional cover letter templates and AI-powered writing assistant.
+                    {t('resourcesPage.coverLetterSection.ctaText')}
                 </Typography>
                 <Link href="/motivation-letters" passHref style={{ textDecoration: 'none' }}>
                     <Button
@@ -696,7 +682,7 @@ const ResourcesPage = () => {
                             },
                         }}
                     >
-                        Browse Templates
+                        {t('resourcesPage.coverLetterSection.browseTemplates')}
                     </Button>
                 </Link>
             </Box>
@@ -707,11 +693,10 @@ const ResourcesPage = () => {
     const renderInterviewPrep = () => (
         <Box>
             <Typography variant="h4" fontWeight="700" color="text.primary" gutterBottom>
-                Interview Preparation
+                {t('resourcesPage.interviewPrepSection.title')}
             </Typography>
             <Typography variant="body1" color="text.secondary" sx={{ mb: 4, maxWidth: 700 }}>
-                Prepare for your next interview with confidence. From common questions to
-                advanced techniques, we've got you covered.
+                {t('resourcesPage.interviewPrepSection.intro')}
             </Typography>
 
             {/* Interview Prep Articles */}
@@ -759,7 +744,7 @@ const ResourcesPage = () => {
                                         },
                                     }}
                                 >
-                                    Read Article
+                                    {t('resourcesPage.interviewPrepSection.readArticle')}
                                 </Button>
                             </CardContent>
                         </ArticleCard>
@@ -778,19 +763,10 @@ const ResourcesPage = () => {
             >
                 <Typography variant="h6" fontWeight="700" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <EmojiObjectsIcon sx={{ color: '#f59e0b' }} />
-                    Quick Interview Checklist
+                    {t('resourcesPage.interviewPrepSection.checklistTitle')}
                 </Typography>
                 <Grid container spacing={2} sx={{ mt: 2 }}>
-                    {[
-                        'Research the company thoroughly',
-                        'Prepare your STAR stories',
-                        'Review the job description',
-                        'Prepare questions to ask',
-                        'Plan your outfit the night before',
-                        'Test your tech for virtual interviews',
-                        'Arrive 10-15 minutes early',
-                        'Bring extra copies of your CV',
-                    ].map((item, index) => (
+                    {t('resourcesPage.interviewPrepSection.checklist').map((item, index) => (
                         <Grid item xs={12} sm={6} key={index}>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                                 <CheckCircleIcon sx={{ color: '#10b981', fontSize: 20 }} />
@@ -807,11 +783,10 @@ const ResourcesPage = () => {
     const renderCareerAdvice = () => (
         <Box>
             <Typography variant="h4" fontWeight="700" color="text.primary" gutterBottom>
-                Career Advice
+                {t('resourcesPage.careerAdviceSection.title')}
             </Typography>
             <Typography variant="body1" color="text.secondary" sx={{ mb: 4, maxWidth: 700 }}>
-                Navigate your career path with expert advice on job searching,
-                networking, salary negotiation, and professional development.
+                {t('resourcesPage.careerAdviceSection.intro')}
             </Typography>
 
             {/* Career Advice Articles */}
@@ -821,10 +796,10 @@ const ResourcesPage = () => {
                         <ArticleCard sx={{ height: '100%' }}>
                             <CardContent sx={{ p: 3 }}>
                                 <IconWrapper
-                                    bgcolor="linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)"
+                                    bgcolor="linear-gradient(135deg, #eab308 0%, #000000 100%)"
                                     sx={{ width: 48, height: 48, borderRadius: 2 }}
                                 >
-                                    {article.icon}
+                                    {getResourceIcon(article.icon, TrendingUpIcon)}
                                 </IconWrapper>
                                 <Typography variant="h6" fontWeight="700" gutterBottom>
                                     {article.title}
@@ -842,16 +817,16 @@ const ResourcesPage = () => {
                                     <Button
                                         endIcon={<ArrowForwardIcon />}
                                         sx={{
-                                            color: '#8b5cf6',
+                                            color: '#eab308',
                                             fontWeight: 600,
                                             textTransform: 'none',
                                             '&:hover': {
                                                 backgroundColor: 'transparent',
-                                                color: '#7c3aed',
+                                                color: '#000000',
                                             },
                                         }}
                                     >
-                                        Read
+                                        {t('resourcesPage.careerAdviceSection.read')}
                                     </Button>
                                 </Box>
                             </CardContent>
@@ -866,11 +841,10 @@ const ResourcesPage = () => {
     const renderFAQ = () => (
         <Box>
             <Typography variant="h4" fontWeight="700" color="text.primary" gutterBottom>
-                Frequently Asked Questions
+                {t('resourcesPage.faqSection.title')}
             </Typography>
             <Typography variant="body1" color="text.secondary" sx={{ mb: 4, maxWidth: 700 }}>
-                Find answers to the most common questions about CV writing,
-                cover letters, and job searching.
+                {t('resourcesPage.faqSection.intro')}
             </Typography>
 
             {/* FAQ Accordions */}
@@ -882,7 +856,7 @@ const ResourcesPage = () => {
                         onChange={handleFaqChange(index)}
                     >
                         <StyledAccordionSummary
-                            expandIcon={<ExpandMoreIcon sx={{ color: '#667eea' }} />}
+                            expandIcon={<ExpandMoreIcon sx={{ color: '#000000' }} />}
                         >
                             <Typography variant="subtitle1" fontWeight="600">
                                 {faq.question}
@@ -903,23 +877,24 @@ const ResourcesPage = () => {
                     mt: 5,
                     p: 4,
                     borderRadius: 3,
-                    background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%)',
+                    background: 'linear-gradient(135deg, rgba(0, 0, 0, 0.05) 0%, rgba(26, 26, 26, 0.05) 100%)',
                     textAlign: 'center',
                 }}
             >
-                <HelpOutlineIcon sx={{ fontSize: 48, color: '#667eea', mb: 2 }} />
+                <HelpOutlineIcon sx={{ fontSize: 48, color: '#000000', mb: 2 }} />
                 <Typography variant="h5" fontWeight="700" gutterBottom>
-                    Still Have Questions?
+                    {t('resourcesPage.faqSection.stillHaveQuestions')}
                 </Typography>
                 <Typography variant="body1" color="text.secondary" sx={{ mb: 3, maxWidth: 500, margin: '0 auto 24px' }}>
-                    Can't find what you're looking for? Our support team is here to help.
+                    {t('resourcesPage.faqSection.stillHaveQuestionsText')}
                 </Typography>
                 <Button
                     variant="outlined"
                     size="large"
+                    onClick={handleOpenContactSupport}
                     sx={{
-                        borderColor: '#667eea',
-                        color: '#667eea',
+                        borderColor: '#000000',
+                        color: '#000000',
                         fontWeight: 600,
                         textTransform: 'none',
                         borderRadius: 3,
@@ -927,12 +902,12 @@ const ResourcesPage = () => {
                         borderWidth: 2,
                         '&:hover': {
                             borderWidth: 2,
-                            backgroundColor: '#667eea',
+                            backgroundColor: '#000000',
                             color: '#ffffff',
                         },
                     }}
                 >
-                    Contact Support
+                    {t('resourcesPage.faqSection.contactSupport')}
                 </Button>
             </Box>
         </Box>
@@ -953,9 +928,9 @@ const ResourcesPage = () => {
                             fontWeight="700"
                             gutterBottom
                         >
-                            Career Resources
+                            {t('resourcesPage.heroTitle')}
                             <Box component="span" sx={{ color: '#EAB308', display: 'block' }}>
-                                & Guides
+                                {t('resourcesPage.heroTitleAccent')}
                             </Box>
                         </Typography>
                         <Typography
@@ -967,15 +942,14 @@ const ResourcesPage = () => {
                                 lineHeight: 1.7,
                             }}
                         >
-                            Everything you need to succeed in your job search. From CV writing
-                            tips to interview preparation, we've got you covered.
+                            {t('resourcesPage.heroSubtitle')}
                         </Typography>
 
                         {/* Search Bar */}
                         <Box sx={{ maxWidth: 500, width: '100%', margin: '0 auto' }}>
                             <TextField
                                 fullWidth
-                                placeholder="Search resources..."
+                                placeholder={t('resourcesPage.searchPlaceholder')}
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 InputProps={{
@@ -1052,10 +1026,152 @@ const ResourcesPage = () => {
 
                     {/* Content Area */}
                     <Box sx={{ backgroundColor: '#ffffff', borderRadius: 4, p: { xs: 3, md: 5 } }}>
-                        {renderContent()}
+                        {resourcesError ? (
+                            <Alert
+                                severity="error"
+                                action={
+                                    <Button color="inherit" size="small" onClick={refetchResources} startIcon={<RefreshIcon />}>
+                                        Retry
+                                    </Button>
+                                }
+                            >
+                                {resourcesError}
+                            </Alert>
+                        ) : resourcesLoading ? (
+                            <Grid container spacing={3}>
+                                {[...Array(6)].map((_, i) => (
+                                    <Grid item xs={12} sm={6} lg={4} key={i}>
+                                        <Skeleton variant="rounded" height={220} />
+                                    </Grid>
+                                ))}
+                            </Grid>
+                        ) : (
+                            renderContent()
+                        )}
                     </Box>
                 </Container>
             </MainContent>
+
+            {/* Contact Support Modal */}
+            <Dialog open={contactModalOpen} onClose={handleCloseContactSupport} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+                <DialogTitle sx={{ fontWeight: 700 }}>{t('resourcesPage.contactModal.title')}</DialogTitle>
+                <DialogContent>
+                    <TextField
+                        fullWidth
+                        label={t('resourcesPage.contactModal.subject')}
+                        value={supportForm.subject}
+                        onChange={(e) => updateSupportField('subject', e.target.value)}
+                        error={Boolean(supportFieldErrors.subject)}
+                        helperText={supportFieldErrors.subject}
+                        sx={{ mt: 1, mb: 2 }}
+                    />
+                    <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+                        <FormControl fullWidth error={Boolean(supportFieldErrors.category)}>
+                            <InputLabel>{t('resourcesPage.contactModal.category')}</InputLabel>
+                            <Select
+                                label={t('resourcesPage.contactModal.category')}
+                                value={supportForm.category}
+                                onChange={(e) => updateSupportField('category', e.target.value)}
+                            >
+                                {supportCategories.map((opt) => (
+                                    <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                        <FormControl fullWidth error={Boolean(supportFieldErrors.priority)}>
+                            <InputLabel>{t('resourcesPage.contactModal.priority')}</InputLabel>
+                            <Select
+                                label={t('resourcesPage.contactModal.priority')}
+                                value={supportForm.priority}
+                                onChange={(e) => updateSupportField('priority', e.target.value)}
+                            >
+                                {supportPriorities.map((opt) => (
+                                    <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                    </Box>
+                    <TextField
+                        fullWidth
+                        multiline
+                        rows={4}
+                        label={t('resourcesPage.contactModal.message')}
+                        value={supportForm.message}
+                        onChange={(e) => updateSupportField('message', e.target.value)}
+                        error={Boolean(supportFieldErrors.message)}
+                        helperText={supportFieldErrors.message}
+                    />
+                </DialogContent>
+                <DialogActions sx={{ px: 3, pb: 2 }}>
+                    <Button onClick={handleCloseContactSupport} disabled={isSubmittingSupport} sx={{ textTransform: 'none', color: '#64748b' }}>
+                        {t('resourcesPage.contactModal.cancel')}
+                    </Button>
+                    <Button
+                        onClick={handleSubmitSupport}
+                        variant="contained"
+                        disabled={isSubmittingSupport}
+                        sx={{
+                            textTransform: 'none',
+                            borderRadius: 2,
+                            background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
+                        }}
+                    >
+                        {isSubmittingSupport ? <CircularProgress size={20} sx={{ color: '#ffffff' }} /> : t('resourcesPage.contactModal.sendMessage')}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Success / Error result modal */}
+            <Modal
+                open={resultModal.open}
+                onClose={() => setResultModal((prev) => ({ ...prev, open: false }))}
+                closeAfterTransition
+                slots={{ backdrop: Backdrop }}
+                slotProps={{ backdrop: { timeout: 300, sx: { backgroundColor: 'rgba(0, 0, 0, 0.4)' } } }}
+            >
+                <Fade in={resultModal.open}>
+                    <Box
+                        sx={{
+                            position: 'absolute',
+                            top: '50%',
+                            left: '50%',
+                            transform: 'translate(-50%, -50%)',
+                            backgroundColor: '#ffffff',
+                            borderRadius: 3,
+                            boxShadow: '0 25px 50px rgba(0, 0, 0, 0.25)',
+                            p: 4,
+                            maxWidth: 340,
+                            width: '90%',
+                            textAlign: 'center',
+                            outline: 'none',
+                        }}
+                    >
+                        <Box
+                            sx={{
+                                width: 64,
+                                height: 64,
+                                borderRadius: '50%',
+                                backgroundColor: resultModal.type === 'success' ? '#dcfce7' : '#fee2e2',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                mx: 'auto',
+                                mb: 2,
+                                animation: `${scaleIn} 0.4s ease-out`,
+                            }}
+                        >
+                            {resultModal.type === 'success' ? (
+                                <CheckCircleIcon sx={{ fontSize: 36, color: '#16a34a' }} />
+                            ) : (
+                                <CancelIcon sx={{ fontSize: 36, color: '#dc2626' }} />
+                            )}
+                        </Box>
+                        <Typography variant="body1" fontWeight="600" color="text.primary">
+                            {resultModal.message}
+                        </Typography>
+                    </Box>
+                </Fade>
+            </Modal>
 
             <Footer />
         </PageWrapper>

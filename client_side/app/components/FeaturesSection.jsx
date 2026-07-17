@@ -16,6 +16,7 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import PhoneIphoneIcon from '@mui/icons-material/PhoneIphone';
 import DownloadIcon from '@mui/icons-material/Download';
 import ColorLensIcon from '@mui/icons-material/ColorLens';
+import { useLanguage } from '../hooks/useLanguage';
 
 // Styled components
 const StyledSection = styled(Box)(({ theme }) => ({
@@ -55,7 +56,7 @@ const StyledCard = styled(Card)(({ theme }) => ({
   backgroundColor: '#ffffff',
   '&:hover': {
     transform: 'translateY(-8px)',
-    boxShadow: '0 20px 40px rgba(102, 126, 234, 0.15)',
+    boxShadow: '0 20px 40px rgba(0, 0, 0, 0.15)',
     borderColor: '#EAB308',
   },
 }));
@@ -69,7 +70,7 @@ const IconWrapper = styled(Box)(({ theme, bgcolor }) => ({
   justifyContent: 'center',
   margin: '0 auto',
   marginBottom: theme.spacing(2.5),
-  background: bgcolor || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+  background: bgcolor || 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
   '& .MuiSvgIcon-root': {
     fontSize: '2rem',
     color: '#ffffff',
@@ -92,6 +93,7 @@ const HighlightChip = styled(Box)(({ theme }) => ({
 const FeaturesSection = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const { t } = useLanguage();
 
   const features = [
     // {
@@ -103,7 +105,7 @@ const FeaturesSection = () => {
     // },
     // {
     //   icon: <AutoAwesomeIcon />,
-    //   bgcolor: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+    //   bgcolor: 'linear-gradient(135deg, #eab308 0%, #000000 100%)',
     //   title: 'AI-Powered Writing',
     //   subtitle: 'Smart Suggestions',
     //   description: 'Let AI help you write compelling bullet points and summaries that highlight your achievements.',
@@ -112,30 +114,30 @@ const FeaturesSection = () => {
     {
       icon: <DescriptionIcon />,
       bgcolor: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-      title: 'Complete Package',
-      subtitle: 'CV + Cover Letters',
-      description: 'Create matching CVs and motivation letters that work together to tell your professional story.',
+      title: t('features.items.completePackage.title'),
+      subtitle: t('features.items.completePackage.subtitle'),
+      description: t('features.items.completePackage.description'),
     },
     {
       icon: <PhoneIphoneIcon />,
       bgcolor: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
-      title: 'Edit Anywhere',
-      subtitle: 'Mobile-Friendly',
-      description: 'Update your CV on the go. Our editor works beautifully on any device, anytime.',
+      title: t('features.items.editAnywhere.title'),
+      subtitle: t('features.items.editAnywhere.subtitle'),
+      description: t('features.items.editAnywhere.description'),
     },
     {
       icon: <DownloadIcon />,
       bgcolor: 'linear-gradient(135deg, #ec4899 0%, #db2777 100%)',
-      title: 'Instant Download',
-      subtitle: 'PDF & Word Formats',
-      description: 'Download your polished CV instantly in multiple formats, ready to send to employers.',
+      title: t('features.items.instantDownload.title'),
+      subtitle: t('features.items.instantDownload.subtitle'),
+      description: t('features.items.instantDownload.description'),
     },
     {
       icon: <ColorLensIcon />,
       bgcolor: 'linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)',
-      title: 'Stand Out',
-      subtitle: 'Beautiful Templates',
-      description: 'Choose from professionally designed templates that make a lasting first impression.',
+      title: t('features.items.standOut.title'),
+      subtitle: t('features.items.standOut.subtitle'),
+      description: t('features.items.standOut.description'),
     },
   ];
 
@@ -144,8 +146,8 @@ const FeaturesSection = () => {
       <Container maxWidth="lg">
         {/* Header */}
         <Box mb={6} textAlign="center">
-          <HighlightChip>Why Choose Us</HighlightChip>
-          
+          <HighlightChip>{t('features.badge')}</HighlightChip>
+
           <Typography
             variant={isMobile ? 'h4' : 'h3'}
             component="h2"
@@ -154,10 +156,10 @@ const FeaturesSection = () => {
             gutterBottom
             sx={{ mb: 2 }}
           >
-            Everything You Need to
-            <Box 
-              component="span" 
-              sx={{ 
+            {t('features.headingLine1')}
+            <Box
+              component="span"
+              sx={{
                 background: 'linear-gradient(135deg, #EAB308)',
                 backgroundClip: 'text',
                 WebkitBackgroundClip: 'text',
@@ -165,20 +167,20 @@ const FeaturesSection = () => {
                 display: 'block',
               }}
             >
-              Land Your Dream Job
+              {t('features.headingLine2')}
             </Box>
           </Typography>
-          
+
           <Typography
             variant={isMobile ? 'body1' : 'h6'}
             color="text.secondary"
-            sx={{ 
-              maxWidth: 600, 
+            sx={{
+              maxWidth: 600,
               margin: '0 auto',
               fontWeight: 400,
             }}
           >
-            Simple tools that help you create professional documents in minutes, not hours.
+            {t('features.subheading')}
           </Typography>
         </Box>
 
@@ -192,7 +194,7 @@ const FeaturesSection = () => {
                     position: 'absolute',
                     top: 12,
                     right: 12,
-                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
                     color: 'white',
                     fontSize: '0.65rem',
                     fontWeight: 700,
@@ -202,7 +204,7 @@ const FeaturesSection = () => {
                     letterSpacing: '0.5px',
                   }}
                 >
-                  Popular
+                  {t('features.popular')}
                 </Box>
               )}
               
@@ -214,7 +216,7 @@ const FeaturesSection = () => {
                 <Typography
                   variant="overline"
                   sx={{ 
-                    color: '#667eea',
+                    color: '#000000',
                     fontWeight: 600,
                     letterSpacing: '1px',
                   }}

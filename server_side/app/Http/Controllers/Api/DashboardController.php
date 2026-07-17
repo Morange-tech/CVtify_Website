@@ -138,9 +138,7 @@ class DashboardController extends Controller
 
         if ($isPremium) {
             // Premium stats
-            $avgAts = $user->documents()
-                ->whereNotNull('ats_score')
-                ->avg('ats_score');
+            $profileStrengthScore = $this->getProfileStrength($user)['score'];
 
             $totalViews = $user->documents()
                 ->withCount('views')
@@ -155,11 +153,11 @@ class DashboardController extends Controller
             }
 
             $stats[] = [
-                'label' => 'ATS Score',
-                'value' => $avgAts ? (string) round($avgAts) : 'N/A',
+                'label' => 'Profile Strength Score',
+                'value' => (string) $profileStrengthScore,
                 'color' => '#764ba2',
                 'icon'  => '🎯',
-                'sub'   => $avgAts && $avgAts >= 70 ? 'Above average' : 'Needs improvement',
+                'sub'   => $profileStrengthScore >= 70 ? 'Well-optimized CV' : 'Needs improvement',
             ];
             $stats[] = [
                 'label' => 'Profile Views',
@@ -211,10 +209,18 @@ class DashboardController extends Controller
             'downloads'   => $doc->downloads,
             'status'      => ucfirst($doc->status),
             'statusColor' => $doc->status === 'complete' ? '#10b981' : '#f59e0b',
-            'atsScore'    => $doc->ats_score,
         ];
     }
 
+    /**
+     * Scores how complete the user's most recently edited CV is across 5 sections
+     * (Personal Info, Experience, Education, Skills, Summary), based purely on how
+     * many fields are filled in. This is NOT a real ATS (Applicant Tracking System)
+     * compatibility check — it doesn't parse formatting or match keywords against a
+     * job description. Surfaced to users as "Profile Strength Score" for that reason;
+     * do not relabel it "ATS Score" until genuine keyword-matching against a supplied
+     * job description is implemented.
+     */
     private function getProfileStrength($user): array
     {
         $lastDoc = $user->documents()->orderByDesc('updated_at')->first();
@@ -342,10 +348,8 @@ class DashboardController extends Controller
         $seconds = $avgTime % 60;
         $avgTimeFormatted = "{$minutes}m {$seconds}s";
 
-        // ATS Score
-        $avgAts = $user->documents()
-            ->whereNotNull('ats_score')
-            ->avg('ats_score');
+        // Profile Strength Score — see getProfileStrength() docblock for methodology.
+        $profileStrengthScore = $this->getProfileStrength($user)['score'];
 
         return [
             [
@@ -367,10 +371,10 @@ class DashboardController extends Controller
                 'changeColor' => '#64748b',
             ],
             [
-                'label'       => 'ATS Score',
-                'value'       => $avgAts ? round($avgAts) . '/100' : 'N/A',
-                'change'      => $avgAts && $avgAts >= 70 ? 'Good' : 'Improve',
-                'changeColor' => $avgAts && $avgAts >= 70 ? '#10b981' : '#f59e0b',
+                'label'       => 'Profile Strength Score',
+                'value'       => $profileStrengthScore . '/100',
+                'change'      => $profileStrengthScore >= 70 ? 'Good' : 'Improve',
+                'changeColor' => $profileStrengthScore >= 70 ? '#10b981' : '#f59e0b',
             ],
         ];
     }

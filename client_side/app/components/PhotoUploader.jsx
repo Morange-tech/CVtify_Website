@@ -225,7 +225,7 @@ const GradientButton = styled(Button)(({ theme }) => ({
     boxShadow: '0 10px 15px -3px rgba(59, 130, 246, 0.3)',
     transition: 'all 0.2s ease',
     '&:hover': {
-        background: 'linear-gradient(to right, #2563eb, #7c3aed)',
+        background: 'linear-gradient(to right, #2563eb, #000000)',
         boxShadow: '0 15px 20px -3px rgba(59, 130, 246, 0.4)',
         transform: 'translateY(-2px)',
     },
