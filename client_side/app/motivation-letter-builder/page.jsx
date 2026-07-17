@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
+import React, { Suspense, useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import {
@@ -253,7 +253,7 @@ const LETTER_DRAFT_PREFIX = "cvtify_letter_draft_";
 const getLetterDraftKey = (id) => `${LETTER_DRAFT_PREFIX}${id || "new"}`;
 
 // ─── Component ───────────────────────────────────────────────────
-export default function MotivationLetterBuilder() {
+function MotivationLetterBuilder() {
   const router = useRouter();
   const searchParams = useSearchParams();
   useAuth();
@@ -2086,5 +2086,13 @@ export default function MotivationLetterBuilder() {
         </Box>
       </Drawer>
     </MainContainer>
+  );
+}
+
+export default function MotivationLetterBuilderPage() {
+  return (
+    <Suspense fallback={null}>
+      <MotivationLetterBuilder />
+    </Suspense>
   );
 }

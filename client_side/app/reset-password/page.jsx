@@ -1,7 +1,7 @@
 // app/reset-password/page.jsx
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { useLanguage } from '../hooks/useLanguage';
 import {
     Box,
@@ -227,7 +227,7 @@ const StrengthBar = styled(LinearProgress, {
     };
 });
 
-export default function ResetPasswordPage() {
+function ResetPasswordPage() {
     const theme = useTheme();
     const router = useRouter();
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -644,5 +644,13 @@ export default function ResetPasswordPage() {
                 </FormContainer>
             </RightPanel>
         </PageContainer>
+    );
+}
+
+export default function ResetPasswordPageWrapper() {
+    return (
+        <Suspense fallback={null}>
+            <ResetPasswordPage />
+        </Suspense>
     );
 }

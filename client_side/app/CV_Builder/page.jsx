@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import React, { Suspense, useEffect, useState, useRef, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import {
@@ -2189,4 +2189,10 @@ const handleDownloadDOCX = async () => {
     );
 };
 
-export default CvBuilder;
+export default function CVBuilderPage() {
+    return (
+        <Suspense fallback={null}>
+            <CvBuilder />
+        </Suspense>
+    );
+}
