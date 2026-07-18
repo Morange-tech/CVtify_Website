@@ -269,7 +269,7 @@ export default function Navbar() {
                             >
                                 <MenuItem
                                     component={Link}
-                                    href="/dashboard"
+                                    href={user?.role === 'admin' ? '/admin' : '/dashboard'}
                                     onClick={handleMenuClose}
                                 >
                                     <DashboardIcon sx={{ mr: 1, fontSize: 20 }} />
@@ -454,7 +454,7 @@ export default function Navbar() {
 
                                     <Button
                                         component={Link}
-                                        href="/dashboard"
+                                        href={user?.role === 'admin' ? '/admin' : '/dashboard'}
                                         fullWidth
                                         onClick={() => setOpen(false)}
                                         sx={{
