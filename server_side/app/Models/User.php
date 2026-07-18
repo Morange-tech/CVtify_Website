@@ -32,6 +32,9 @@ class User extends Authenticatable
         'two_factor_enabled',
         'last_login_at',
         'role',
+        'plan',
+        'subscription_status',
+        'subscription_expires_at',
     ];
 
     /**

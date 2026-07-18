@@ -367,6 +367,23 @@ export const adminApi = {
     return apiFetch('/admin/users');
   },
 
+  getUser: async (id) => {
+    return apiFetch(`/admin/users/${id}`);
+  },
+
+  updateUser: async (id, data) => {
+    return apiFetch(`/admin/users/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  },
+
+  deleteUser: async (id) => {
+    return apiFetch(`/admin/users/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
   // ✅ Templates for filters/stats
   getTemplates: async () => {
     return apiFetch('/admin/templates');

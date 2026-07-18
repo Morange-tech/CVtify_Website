@@ -65,7 +65,7 @@ Route::get('/auth/linkedin/callback', [LinkedInAuthController::class, 'callback'
 | Protected Routes (Authentication Required)
 |--------------------------------------------------------------------------
 */
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', 'active'])->group(function () {
     Route::get('/user', [App\Http\Controllers\Api\AuthController::class, 'user']);
     Route::post('/logout', [App\Http\Controllers\Api\AuthController::class, 'logout']);
     Route::patch('/profile', [App\Http\Controllers\Api\AuthController::class, 'updateProfile']);
@@ -118,6 +118,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // ─── Admin Routes ───────────────────────────────────
     Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function () {
         Route::get('/users', [AdminUserController::class, 'index']);
+        Route::get('/users/{id}', [AdminUserController::class, 'show']);
+        Route::patch('/users/{id}', [AdminUserController::class, 'update']);
+        Route::delete('/users/{id}', [AdminUserController::class, 'destroy']);
 
         Route::get('/dashboard', [AdminDashboardController::class, 'index']);
         Route::get('/dashboard/stats', [AdminDashboardController::class, 'stats']);
