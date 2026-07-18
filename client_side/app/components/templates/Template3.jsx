@@ -19,6 +19,8 @@ import EmailIcon from '@mui/icons-material/Email';
 import LanguageIcon from '@mui/icons-material/Language';
 import HomeIcon from '@mui/icons-material/Home';
 
+import { makeSectionLayout } from '../../lib/sectionLayout';
+
 const theme = createTheme({
   typography: {
     fontFamily: '"Montserrat", "Poppins", sans-serif',
@@ -74,35 +76,35 @@ const RightHeader = ({ title }) => (
 );
 
 // 3. Timeline Item
-const TimelineItem = ({ date, title, subtitle, details, isLast }) => (
+const TimelineItem = ({ date, title, subtitle, details, isLast, dark }) => (
   <Box sx={{ display: 'flex', mb: isLast ? 0 : 4, position: 'relative' }}>
     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mr: 2 }}>
-      <Box sx={{ width: 12, height: 12, bgcolor: '#555', borderRadius: '50%', zIndex: 2 }} />
-      {!isLast && <Box sx={{ width: '1px', flexGrow: 1, bgcolor: '#999', my: 0.5 }} />}
+      <Box sx={{ width: 12, height: 12, bgcolor: dark ? 'rgba(255,255,255,0.7)' : '#555', borderRadius: '50%', zIndex: 2 }} />
+      {!isLast && <Box sx={{ width: '1px', flexGrow: 1, bgcolor: dark ? 'rgba(255,255,255,0.3)' : '#999', my: 0.5 }} />}
     </Box>
     <Box sx={{ mt: -0.5 }}>
       {date && (
-        <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5, color: '#888' }}>
+        <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5, color: dark ? 'rgba(255,255,255,0.6)' : '#888' }}>
           {date}
         </Typography>
       )}
-      <Typography variant="body1" sx={{ fontWeight: 'bold', color: '#444', mb: 0.2 }}>
+      <Typography variant="body1" sx={{ fontWeight: 'bold', color: dark ? 'white' : '#444', mb: 0.2 }}>
         {title}
       </Typography>
       {subtitle && (
-        <Typography variant="body2" sx={{ fontStyle: 'italic', mb: 0.5 }}>
+        <Typography variant="body2" sx={{ fontStyle: 'italic', mb: 0.5, color: dark ? 'rgba(255,255,255,0.85)' : '#555' }}>
           {subtitle}
         </Typography>
       )}
       {Array.isArray(details) ? (
-        <ul style={{ margin: 0, paddingLeft: '1.2rem', color: '#666', fontSize: '0.85rem' }}>
+        <ul style={{ margin: 0, paddingLeft: '1.2rem', color: dark ? 'rgba(255,255,255,0.75)' : '#666', fontSize: '0.85rem' }}>
           {details.map((item, i) => (
             <li key={i} style={{ marginBottom: '4px' }}>{item}</li>
           ))}
         </ul>
       ) : (
         details && (
-          <Typography variant="body2" sx={{ color: '#666' }}>
+          <Typography variant="body2" sx={{ color: dark ? 'rgba(255,255,255,0.75)' : '#666' }}>
             {details}
           </Typography>
         )
@@ -111,10 +113,21 @@ const TimelineItem = ({ date, title, subtitle, details, isLast }) => (
   </Box>
 );
 
+// Default column ("left" = dark sidebar, "right" = white content column) per
+// section, overridable per-CV via the "Colonne de gauche/droite" section menu.
+const DEFAULT_COLUMN = {
+  2: 'left',   // Profile / About me
+  5: 'left',   // Skills
+  6: 'left',   // Languages
+  7: 'left',   // Interests
+  3: 'right',  // Education
+  4: 'right',  // Experience
+};
+
 // =============================================
 // MAIN TEMPLATE - NOW ACCEPTS cvData
 // =============================================
-const ResumeDesign = ({ cvData }) => {
+const ResumeDesign = ({ cvData, sectionTitleOverrides = {}, sectionColumn = {}, sectionPageBreak = {} }) => {
 
   // Safe defaults
   const personalInfo = cvData?.personalInfo || {};
@@ -154,6 +167,160 @@ const ResumeDesign = ({ cvData }) => {
       : [item.endMonth, item.endYear].filter(Boolean).join('-');
     return [start, end].filter(Boolean).join(' / ');
   };
+
+  const { getTitle, getColumn, pageBreakStyle } = makeSectionLayout(
+    { sectionTitleOverrides, sectionColumn, sectionPageBreak },
+    DEFAULT_COLUMN
+  );
+
+  // Extract bullet points from an HTML description (used by Experience)
+  const getDetails = (html) => {
+    if (!html) return [];
+    if (typeof window === 'undefined') return [];
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    const items = tmp.querySelectorAll('li');
+    if (items.length > 0) {
+      return Array.from(items).map((li) => li.textContent);
+    }
+    return tmp.textContent ? [tmp.textContent] : [];
+  };
+
+  // =============================================
+  // SECTION RENDERERS — each returns a node (or null) for either column.
+  // `dark` is true when the section is placed in the dark (#333) sidebar.
+  // =============================================
+  const renderProfile = (dark) => {
+    if (!profileText) return null;
+    const Header = dark ? SidebarRibbon : RightHeader;
+    return (
+      <Box key="profile" sx={{ mb: dark ? 4 : 6, ...pageBreakStyle(2) }}>
+        <Header title={getTitle(2, "About Me")} />
+        <Box sx={{ px: dark ? 4 : 5 }}>
+          <Typography variant="body1" sx={{ lineHeight: 1.6, color: dark ? 'rgba(255,255,255,0.9)' : '#333' }}>
+            {profileText}
+          </Typography>
+        </Box>
+      </Box>
+    );
+  };
+
+  const renderSkills = (dark) => {
+    if (!skills.length) return null;
+    const Header = dark ? SidebarRibbon : RightHeader;
+    return (
+      <Box key="skills" sx={{ mb: dark ? 4 : 6, ...pageBreakStyle(5) }}>
+        <Header title={getTitle(5, "Expertise Skill")} />
+        <Box sx={{ px: dark ? 4 : 5 }}>
+          <ul style={{ paddingLeft: '1.2rem', margin: 0, lineHeight: 2, fontSize: '1rem', color: dark ? '#eee' : '#333' }}>
+            {skills.map((skill, index) => (
+              <li key={skill.id || index}>{skill.skill || 'Skill'}</li>
+            ))}
+          </ul>
+        </Box>
+      </Box>
+    );
+  };
+
+  const renderLanguages = (dark) => {
+    if (!languages.length) return null;
+    const Header = dark ? SidebarRibbon : RightHeader;
+    return (
+      <Box key="languages" sx={{ mb: dark ? 4 : 6, ...pageBreakStyle(6) }}>
+        <Header title={getTitle(6, "Languages")} />
+        <Box sx={{ px: dark ? 4 : 5 }}>
+          <ul style={{ paddingLeft: '1.2rem', margin: 0, lineHeight: 2, fontSize: '1rem', color: dark ? '#eee' : '#333' }}>
+            {languages.map((lang, index) => (
+              <li key={lang.id || index}>{lang.language || 'Language'}</li>
+            ))}
+          </ul>
+        </Box>
+      </Box>
+    );
+  };
+
+  const renderInterests = (dark) => {
+    if (!interests.length) return null;
+    const Header = dark ? SidebarRibbon : RightHeader;
+    return (
+      <Box key="interests" sx={{ mb: dark ? 4 : 6, ...pageBreakStyle(7) }}>
+        <Header title={getTitle(7, "Interests")} />
+        <Box sx={{ px: dark ? 4 : 5 }}>
+          <ul style={{ paddingLeft: '1.2rem', margin: 0, lineHeight: 2, fontSize: '1rem', color: dark ? '#eee' : '#333' }}>
+            {interests.map((item, index) => (
+              <li key={item.id || index}>{item.interest || 'Interest'}</li>
+            ))}
+          </ul>
+        </Box>
+      </Box>
+    );
+  };
+
+  const renderEducation = (dark) => {
+    if (!education.length) return null;
+    const Header = dark ? SidebarRibbon : RightHeader;
+    return (
+      <Box key="education" sx={{ mb: dark ? 4 : 6, ...pageBreakStyle(3) }}>
+        <Header title={getTitle(3, "Education")} />
+        <Box sx={{ px: dark ? 4 : 5 }}>
+          {education.map((edu, index) => (
+            <TimelineItem
+              key={edu.id || index}
+              date={formatDate(edu)}
+              title={edu.school || 'School Name'}
+              subtitle={edu.education || ''}
+              details={edu.city || ''}
+              isLast={index === education.length - 1}
+              dark={dark}
+            />
+          ))}
+        </Box>
+      </Box>
+    );
+  };
+
+  const renderExperience = (dark) => {
+    if (!experience.length) return null;
+    const Header = dark ? SidebarRibbon : RightHeader;
+    return (
+      <Box key="experience" sx={{ mb: dark ? 4 : 6, ...pageBreakStyle(4) }}>
+        <Header title={getTitle(4, "Work Experience")} />
+        <Box sx={{ px: dark ? 4 : 5 }}>
+          {experience.map((exp, index) => {
+            const details = getDetails(exp.description);
+            return (
+              <TimelineItem
+                key={exp.id || index}
+                title={exp.position || 'Position'}
+                subtitle={[exp.employer, formatDate(exp)].filter(Boolean).join(' | ')}
+                details={details.length > 0 ? details : exp.city || ''}
+                isLast={index === experience.length - 1}
+                dark={dark}
+              />
+            );
+          })}
+        </Box>
+      </Box>
+    );
+  };
+
+  const SECTION_ORDER = [
+    { id: 2, render: renderProfile },
+    { id: 5, render: renderSkills },
+    { id: 6, render: renderLanguages },
+    { id: 7, render: renderInterests },
+    { id: 3, render: renderEducation },
+    { id: 4, render: renderExperience },
+  ];
+
+  const leftSections = [];
+  const rightSections = [];
+  SECTION_ORDER.forEach(({ id, render }) => {
+    const dark = getColumn(id) === 'left';
+    const node = render(dark);
+    if (!node) return;
+    (dark ? leftSections : rightSections).push(node);
+  });
 
   return (
     <ThemeProvider theme={theme}>
@@ -226,83 +393,7 @@ const ResumeDesign = ({ cvData }) => {
 
           <Box sx={{ pt: 4, pb: 6 }}>
 
-            {/* ABOUT ME / PROFILE */}
-            {profileText && (
-              <>
-                <SidebarRibbon title="About Me" />
-                <Box sx={{ px: 4, mb: 4 }}>
-                  <Typography variant="body1" sx={{ lineHeight: 1.6, opacity: 0.9 }}>
-                    {profileText}
-                  </Typography>
-                </Box>
-              </>
-            )}
-
-            {/* SKILLS */}
-            {skills.length > 0 && (
-              <>
-                <SidebarRibbon title="Expertise Skill" />
-                <Box sx={{ px: 4, mb: 4 }}>
-                  <ul style={{
-                    paddingLeft: '1.2rem',
-                    margin: 0,
-                    lineHeight: 2,
-                    fontSize: '1rem',
-                    color: '#eee'
-                  }}>
-                    {skills.map((skill, index) => (
-                      <li key={skill.id || index}>
-                        {skill.skill || 'Skill'}
-                      </li>
-                    ))}
-                  </ul>
-                </Box>
-              </>
-            )}
-
-            {/* LANGUAGES */}
-            {languages.length > 0 && (
-              <>
-                <SidebarRibbon title="Languages" />
-                <Box sx={{ px: 4, mb: 4 }}>
-                  <ul style={{
-                    paddingLeft: '1.2rem',
-                    margin: 0,
-                    lineHeight: 2,
-                    fontSize: '1rem',
-                    color: '#eee'
-                  }}>
-                    {languages.map((lang, index) => (
-                      <li key={lang.id || index}>
-                        {lang.language || 'Language'}
-                      </li>
-                    ))}
-                  </ul>
-                </Box>
-              </>
-            )}
-
-            {/* INTERESTS */}
-            {interests.length > 0 && (
-              <>
-                <SidebarRibbon title="Interests" />
-                <Box sx={{ px: 4, mb: 4 }}>
-                  <ul style={{
-                    paddingLeft: '1.2rem',
-                    margin: 0,
-                    lineHeight: 2,
-                    fontSize: '1rem',
-                    color: '#eee'
-                  }}>
-                    {interests.map((item, index) => (
-                      <li key={item.id || index}>
-                        {item.interest || 'Interest'}
-                      </li>
-                    ))}
-                  </ul>
-                </Box>
-              </>
-            )}
+            {leftSections}
 
             {/* CONTACT */}
             <SidebarRibbon title="Contact Me" />
@@ -380,64 +471,7 @@ const ResumeDesign = ({ cvData }) => {
             </Typography>
           </Box>
 
-          {/* EDUCATION */}
-          {education.length > 0 && (
-            <>
-              <RightHeader title="Education" />
-              <Box sx={{ px: 5, mb: 2 }}>
-                {education.map((edu, index) => (
-                  <TimelineItem
-                    key={edu.id || index}
-                    date={formatDate(edu)}
-                    title={edu.school || 'School Name'}
-                    subtitle={edu.education || ''}
-                    details={edu.city || ''}
-                    isLast={index === education.length - 1}
-                  />
-                ))}
-              </Box>
-            </>
-          )}
-
-          {/* WORK EXPERIENCE */}
-          {experience.length > 0 && (
-            <>
-              <RightHeader title="Work Experience" />
-              <Box sx={{ px: 5 }}>
-                {experience.map((exp, index) => {
-                  // Extract bullet points from HTML description
-                  const getDetails = (html) => {
-                    if (!html) return [];
-                    if (typeof window === 'undefined') return [];
-                    const tmp = document.createElement('div');
-                    tmp.innerHTML = html;
-                    const items = tmp.querySelectorAll('li');
-                    if (items.length > 0) {
-                      return Array.from(items).map((li) => li.textContent);
-                    }
-                    return tmp.textContent ? [tmp.textContent] : [];
-                  };
-
-                  const details = getDetails(exp.description);
-
-                  return (
-                    <TimelineItem
-                      key={exp.id || index}
-                      title={exp.position || 'Position'}
-                      subtitle={[
-                        exp.employer,
-                        formatDate(exp),
-                      ]
-                        .filter(Boolean)
-                        .join(' | ')}
-                      details={details.length > 0 ? details : exp.city || ''}
-                      isLast={index === experience.length - 1}
-                    />
-                  );
-                })}
-              </Box>
-            </>
-          )}
+          {rightSections}
 
         </Box>
       </Paper>

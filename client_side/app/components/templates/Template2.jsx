@@ -11,6 +11,8 @@ import {
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 
+import { makeSectionLayout } from '../../lib/sectionLayout';
+
 // --- THEME CONFIGURATION ---
 const theme = createTheme({
   typography: {
@@ -59,9 +61,9 @@ const getLevelPercentage = (levelCode) => {
   return levelMap[levelCode] || 0;
 };
 
-const SkillBar = ({ skill, value }) => (
+const SkillBar = ({ skill, value, dark }) => (
   <Box sx={{ mb: 1.5 }}>
-    <Typography variant="body2" fontWeight="bold" sx={{ textTransform: 'uppercase', mb: 0.5 }}>
+    <Typography variant="body2" fontWeight="bold" sx={{ textTransform: 'uppercase', mb: 0.5, color: dark ? 'white' : 'inherit' }}>
       {skill}
     </Typography>
     <LinearProgress
@@ -69,7 +71,7 @@ const SkillBar = ({ skill, value }) => (
       value={value}
       sx={{
         height: 4,
-        bgcolor: '#1c1c1c',
+        bgcolor: dark ? 'rgba(255,255,255,0.25)' : '#1c1c1c',
         '& .MuiLinearProgress-bar': { bgcolor: '#f0aa14' }
       }}
     />
@@ -119,7 +121,19 @@ const ContactItem = ({ label, value }) => (
 // =============================================
 // MAIN TEMPLATE - NOW ACCEPTS cvData
 // =============================================
-const ResumeDesign3 = ({ cvData }) => {
+// Default column ("left" = photo/dark-lower-sidebar, "right" = white main area) per
+// section, overridable per-CV via the "Colonne de gauche/droite" section menu.
+const DEFAULT_COLUMN = {
+  3: 'left',          // Education
+  references: 'left',
+  2: 'right',         // Profile / About me
+  4: 'right',         // Experience
+  5: 'right',         // Skills
+  6: 'right',         // Languages
+  7: 'right',         // Interests
+};
+
+const ResumeDesign3 = ({ cvData, sectionTitleOverrides = {}, sectionColumn = {}, sectionPageBreak = {} }) => {
 
   // Safe defaults
   const personalInfo = cvData?.personalInfo || {};
@@ -151,6 +165,274 @@ const ResumeDesign3 = ({ cvData }) => {
   };
 
   const profileText = stripHtml(profile);
+
+  const { getTitle, getColumn, pageBreakStyle } = makeSectionLayout(
+    { sectionTitleOverrides, sectionColumn, sectionPageBreak },
+    DEFAULT_COLUMN
+  );
+
+  // Text colors that stay legible on both the dark lower-sidebar and the white main column
+  const textColor = (dark) => ({
+    primary: dark ? 'white' : 'text.primary',
+    secondary: dark ? 'rgba(255,255,255,0.6)' : 'text.secondary',
+    meta: dark ? 'primary.main' : 'text.primary',
+  });
+
+  // =============================================
+  // SECTION RENDERERS — each returns a node (or null) for either column.
+  // `dark` is true when the section is placed in the sidebar's dark lower box.
+  // =============================================
+  const renderEducation = (dark) => {
+    if (!education.length) return null;
+    const c = textColor(dark);
+    return (
+      <Box key="education" sx={{ ...(dark ? { px: 4 } : {}), mb: dark ? 4 : 6, ...pageBreakStyle(3) }}>
+        <SectionPill title={getTitle(3, "EDUCATION")} />
+        {education.map((edu, index) => (
+          <Box key={edu.id || index} sx={{ mb: 2 }}>
+            <Typography variant="body2" fontWeight="bold" sx={{ color: c.primary }}>
+              {edu.education || 'Degree'}
+            </Typography>
+            <Typography variant="body2" sx={{ color: c.secondary }}>
+              {edu.school || 'University Name'}
+            </Typography>
+            {edu.city && (
+              <Typography variant="body2" sx={{ color: c.secondary }}>
+                {edu.city}
+              </Typography>
+            )}
+            <Typography variant="caption" sx={{ color: c.meta }}>
+              {[
+                [edu.startMonth, edu.startYear].filter(Boolean).join('-'),
+                edu.isPresent
+                  ? 'Present'
+                  : [edu.endMonth, edu.endYear].filter(Boolean).join('-'),
+              ]
+                .filter(Boolean)
+                .join(' / ')}
+            </Typography>
+            {edu.description && (
+              <Typography
+                variant="body2"
+                sx={{ color: c.secondary, mt: 0.5 }}
+                dangerouslySetInnerHTML={{ __html: edu.description }}
+              />
+            )}
+          </Box>
+        ))}
+      </Box>
+    );
+  };
+
+  const renderReferences = (dark) => {
+    if (!references.length) return null;
+    const c = textColor(dark);
+    return (
+      <Box key="references" sx={{ ...(dark ? { px: 4 } : {}), mb: dark ? 4 : 6, ...pageBreakStyle("references") }}>
+        <SectionPill title={getTitle("references", "REFERENCE")} />
+        {references.map((ref, index) => (
+          <Box key={ref.id || index} sx={{ mb: 2 }}>
+            <Typography variant="body2" fontWeight="bold" sx={{ color: c.primary }}>
+              {ref.name || 'Reference Name'}
+            </Typography>
+            {ref.company && (
+              <Typography variant="caption" display="block" sx={{ color: c.secondary }}>
+                {ref.company}
+              </Typography>
+            )}
+            {ref.city && (
+              <Typography variant="caption" display="block" sx={{ color: c.secondary }}>
+                {ref.city}
+              </Typography>
+            )}
+            {ref.phone && (
+              <Typography variant="caption" sx={{ color: c.secondary }}>
+                T: {ref.phone}
+              </Typography>
+            )}
+            {ref.email && (
+              <Typography variant="caption" display="block" sx={{ color: c.secondary }}>
+                {ref.email}
+              </Typography>
+            )}
+          </Box>
+        ))}
+      </Box>
+    );
+  };
+
+  const renderProfile = (dark) => {
+    if (!profileText) return null;
+    const c = textColor(dark);
+    return (
+      <Box key="profile" sx={{ ...(dark ? { px: 4 } : {}), mb: dark ? 4 : 6, ...pageBreakStyle(2) }}>
+        <SectionPill title={getTitle(2, "ABOUT ME")} />
+        <Typography variant="body1" sx={{ color: c.secondary, textAlign: 'justify' }}>
+          {profileText}
+        </Typography>
+      </Box>
+    );
+  };
+
+  const renderExperience = (dark) => {
+    if (!experience.length) return null;
+    const c = textColor(dark);
+    return (
+      <Box key="experience" sx={{ ...(dark ? { px: 4 } : {}), mb: dark ? 4 : 6, ...pageBreakStyle(4) }}>
+        <SectionPill title={getTitle(4, "WORK EXPERIENCE")} />
+        {experience.map((exp, index) => (
+          <Grid container spacing={2} sx={{ mb: 3 }} key={exp.id || index}>
+            <Grid item xs={3}>
+              <Typography variant="body2" fontWeight="bold" sx={{ color: c.meta }}>
+                {[
+                  [exp.startMonth, exp.startYear].filter(Boolean).join('-'),
+                  exp.isPresent
+                    ? 'Present'
+                    : [exp.endMonth, exp.endYear].filter(Boolean).join('-'),
+                ]
+                  .filter(Boolean)
+                  .join(' / ')}
+              </Typography>
+            </Grid>
+            <Grid item xs={9}>
+              <Typography variant="subtitle1" sx={{ color: dark ? 'primary.main' : 'secondary.main' }}>
+                {exp.position || 'Position'}
+              </Typography>
+              <Typography variant="body2" sx={{
+                mb: 0.5,
+                fontStyle: 'italic',
+                fontSize: '0.7rem',
+                color: c.secondary,
+              }}>
+                {[exp.employer, exp.city].filter(Boolean).join(' / ')}
+              </Typography>
+              {exp.description && (
+                <Typography
+                  variant="body2"
+                  sx={{ color: c.secondary }}
+                  dangerouslySetInnerHTML={{ __html: exp.description }}
+                />
+              )}
+            </Grid>
+          </Grid>
+        ))}
+      </Box>
+    );
+  };
+
+  const renderSkills = (dark) => {
+    if (!skills.length) return null;
+    return (
+      <Box key="skills" sx={{ ...(dark ? { px: 4 } : {}), mb: dark ? 4 : 6, ...pageBreakStyle(5) }}>
+        <SectionPill title={getTitle(5, "SKILLS")} />
+        <Grid container spacing={dark ? 2 : 5}>
+          <Grid item xs={dark ? 12 : 6}>
+            {skills
+              .filter((_, i) => i % 2 === 0)
+              .map((skill, index) => (
+                <SkillBar
+                  key={skill.id || index}
+                  skill={skill.skill || 'Skill'}
+                  value={getLevelPercentage(skill.level)}
+                  dark={dark}
+                />
+              ))}
+          </Grid>
+          <Grid item xs={dark ? 12 : 6}>
+            {skills
+              .filter((_, i) => i % 2 !== 0)
+              .map((skill, index) => (
+                <SkillBar
+                  key={skill.id || index}
+                  skill={skill.skill || 'Skill'}
+                  value={getLevelPercentage(skill.level)}
+                  dark={dark}
+                />
+              ))}
+          </Grid>
+        </Grid>
+      </Box>
+    );
+  };
+
+  const renderLanguages = (dark) => {
+    if (!languages.length) return null;
+    const c = textColor(dark);
+    const cols = dark
+      ? [languages]
+      : [languages.filter((_, i) => i % 2 === 0), languages.filter((_, i) => i % 2 !== 0)];
+    return (
+      <Box key="languages" sx={{ ...(dark ? { px: 4 } : {}), mb: dark ? 4 : 6, ...pageBreakStyle(6) }}>
+        <SectionPill title={getTitle(6, "LANGUAGES")} />
+        <Grid container columnGap={3}>
+          {cols.map((col, ci) => (
+            <Grid item xs={dark ? 12 : 5} key={ci}>
+              {col.map((lang, index) => (
+                <Typography
+                  key={lang.id || index}
+                  variant="body2"
+                  fontWeight="bold"
+                  sx={{ textTransform: 'uppercase', mb: 1, color: c.primary }}
+                >
+                  • {lang.language || 'Language'}
+                </Typography>
+              ))}
+            </Grid>
+          ))}
+        </Grid>
+      </Box>
+    );
+  };
+
+  const renderInterests = (dark) => {
+    if (!interests.length) return null;
+    const c = textColor(dark);
+    const cols = dark
+      ? [interests]
+      : [interests.filter((_, i) => i % 2 === 0), interests.filter((_, i) => i % 2 !== 0)];
+    return (
+      <Box key="interests" sx={{ ...(dark ? { px: 4 } : {}), mb: dark ? 4 : 0, ...pageBreakStyle(7) }}>
+        <SectionPill title={getTitle(7, "HOBBIES")} />
+        <Grid container columnGap={3}>
+          {cols.map((col, ci) => (
+            <Grid item xs={dark ? 12 : 5} key={ci}>
+              {col.map((item, index) => (
+                <Typography
+                  key={item.id || index}
+                  variant="body2"
+                  fontWeight="bold"
+                  sx={{ textTransform: 'uppercase', mb: 1, color: c.primary }}
+                >
+                  • {item.interest || 'Interest'}
+                </Typography>
+              ))}
+            </Grid>
+          ))}
+        </Grid>
+      </Box>
+    );
+  };
+
+  // Core sections first, keeps relative ordering stable within whichever column
+  // each section ends up in.
+  const SECTION_ORDER = [
+    { id: 3, render: renderEducation },
+    { id: 'references', render: renderReferences },
+    { id: 2, render: renderProfile },
+    { id: 4, render: renderExperience },
+    { id: 5, render: renderSkills },
+    { id: 6, render: renderLanguages },
+    { id: 7, render: renderInterests },
+  ];
+
+  const leftSections = [];
+  const rightSections = [];
+  SECTION_ORDER.forEach(({ id, render }) => {
+    const dark = getColumn(id) === 'left';
+    const node = render(dark);
+    if (!node) return;
+    (dark ? leftSections : rightSections).push(node);
+  });
 
   return (
     <ThemeProvider theme={theme}>
@@ -229,79 +511,7 @@ const ResumeDesign3 = ({ cvData }) => {
             pb: 4
           }}>
 
-            {/* EDUCATION */}
-            {education.length > 0 && (
-              <Box sx={{ px: 4, mb: 4 }}>
-                <SectionPill title="EDUCATION" />
-                {education.map((edu, index) => (
-                  <Box key={edu.id || index} sx={{ mb: 2 }}>
-                    <Typography variant="body2" fontWeight="bold" color="white">
-                      {edu.education || 'Degree'}
-                    </Typography>
-                    <Typography variant="body2" color="rgba(255,255,255,0.6)">
-                      {edu.school || 'University Name'}
-                    </Typography>
-                    {edu.city && (
-                      <Typography variant="body2" color="rgba(255,255,255,0.6)">
-                        {edu.city}
-                      </Typography>
-                    )}
-                    <Typography variant="caption" color="primary.main">
-                      {[
-                        [edu.startMonth, edu.startYear].filter(Boolean).join('-'),
-                        edu.isPresent
-                          ? 'Present'
-                          : [edu.endMonth, edu.endYear].filter(Boolean).join('-'),
-                      ]
-                        .filter(Boolean)
-                        .join(' / ')}
-                    </Typography>
-                    {edu.description && (
-                      <Typography
-                        variant="body2"
-                        color="rgba(255,255,255,0.6)"
-                        dangerouslySetInnerHTML={{ __html: edu.description }}
-                        sx={{ mt: 0.5 }}
-                      />
-                    )}
-                  </Box>
-                ))}
-              </Box>
-            )}
-
-            {/* REFERENCES */}
-            {references.length > 0 && (
-              <Box sx={{ px: 4, mb: 4 }}>
-                <SectionPill title="REFERENCE" />
-                {references.map((ref, index) => (
-                  <Box key={ref.id || index} sx={{ mb: 2 }}>
-                    <Typography variant="body2" fontWeight="bold" color="white">
-                      {ref.name || 'Reference Name'}
-                    </Typography>
-                    {ref.company && (
-                      <Typography variant="caption" display="block" color="rgba(255,255,255,0.6)">
-                        {ref.company}
-                      </Typography>
-                    )}
-                    {ref.city && (
-                      <Typography variant="caption" display="block" color="rgba(255,255,255,0.6)">
-                        {ref.city}
-                      </Typography>
-                    )}
-                    {ref.phone && (
-                      <Typography variant="caption" color="rgba(255,255,255,0.6)">
-                        T: {ref.phone}
-                      </Typography>
-                    )}
-                    {ref.email && (
-                      <Typography variant="caption" display="block" color="rgba(255,255,255,0.6)">
-                        {ref.email}
-                      </Typography>
-                    )}
-                  </Box>
-                ))}
-              </Box>
-            )}
+            {leftSections}
 
             {/* CONTACT */}
             <Box sx={{ mt: 4 }}>
@@ -367,162 +577,7 @@ const ResumeDesign3 = ({ cvData }) => {
               </Typography>
             </Box>
 
-            {/* ABOUT ME */}
-            {profileText && (
-              <Box sx={{ mb: 6 }}>
-                <SectionPill title="ABOUT ME" />
-                <Typography variant="body1" color="text.secondary" sx={{ textAlign: 'justify' }}>
-                  {profileText}
-                </Typography>
-              </Box>
-            )}
-
-            {/* WORK EXPERIENCE */}
-            {experience.length > 0 && (
-              <Box sx={{ mb: 6 }}>
-                <SectionPill title="WORK EXPERIENCE" />
-                {experience.map((exp, index) => (
-                  <Grid container spacing={2} sx={{ mb: 3 }} key={exp.id || index}>
-                    <Grid item xs={3}>
-                      <Typography variant="body2" fontWeight="bold">
-                        {[
-                          [exp.startMonth, exp.startYear].filter(Boolean).join('-'),
-                          exp.isPresent
-                            ? 'Present'
-                            : [exp.endMonth, exp.endYear].filter(Boolean).join('-'),
-                        ]
-                          .filter(Boolean)
-                          .join(' / ')}
-                      </Typography>
-                    </Grid>
-                    <Grid item xs={9}>
-                      <Typography variant="subtitle1" color="secondary.main">
-                        {exp.position || 'Position'}
-                      </Typography>
-                      <Typography variant="body2" sx={{
-                        mb: 0.5,
-                        fontStyle: 'italic',
-                        fontSize: '0.7rem'
-                      }}>
-                        {[exp.employer, exp.city].filter(Boolean).join(' / ')}
-                      </Typography>
-                      {exp.description && (
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          dangerouslySetInnerHTML={{ __html: exp.description }}
-                        />
-                      )}
-                    </Grid>
-                  </Grid>
-                ))}
-              </Box>
-            )}
-
-            {/* SKILLS */}
-            {skills.length > 0 && (
-              <Box sx={{ mb: 6 }}>
-                <SectionPill title="SKILLS" />
-                <Grid container spacing={5}>
-                  <Grid item xs={6}>
-                    {skills
-                      .filter((_, i) => i % 2 === 0)
-                      .map((skill, index) => (
-                        <SkillBar
-                          key={skill.id || index}
-                          skill={skill.skill || 'Skill'}
-                          value={getLevelPercentage(skill.level)}
-                        />
-                      ))}
-                  </Grid>
-                  <Grid item xs={6}>
-                    {skills
-                      .filter((_, i) => i % 2 !== 0)
-                      .map((skill, index) => (
-                        <SkillBar
-                          key={skill.id || index}
-                          skill={skill.skill || 'Skill'}
-                          value={getLevelPercentage(skill.level)}
-                        />
-                      ))}
-                  </Grid>
-                </Grid>
-              </Box>
-            )}
-
-            {/* LANGUAGES */}
-            {languages.length > 0 && (
-              <Box sx={{ mb: 6 }}>
-                <SectionPill title="LANGUAGES" />
-                <Grid container columnGap={3}>
-                  <Grid item xs={5}>
-                    {languages
-                      .filter((_, i) => i % 2 === 0)
-                      .map((lang, index) => (
-                        <Typography
-                          key={lang.id || index}
-                          variant="body2"
-                          fontWeight="bold"
-                          sx={{ textTransform: 'uppercase', mb: 1 }}
-                        >
-                          • {lang.language || 'Language'}
-                        </Typography>
-                      ))}
-                  </Grid>
-                  <Grid item xs={5}>
-                    {languages
-                      .filter((_, i) => i % 2 !== 0)
-                      .map((lang, index) => (
-                        <Typography
-                          key={lang.id || index}
-                          variant="body2"
-                          fontWeight="bold"
-                          sx={{ textTransform: 'uppercase', mb: 1 }}
-                        >
-                          • {lang.language || 'Language'}
-                        </Typography>
-                      ))}
-                  </Grid>
-                </Grid>
-              </Box>
-            )}
-
-            {/* INTERESTS / HOBBIES */}
-            {interests.length > 0 && (
-              <Box>
-                <SectionPill title="HOBBIES" />
-                <Grid container columnGap={3}>
-                  <Grid item xs={5}>
-                    {interests
-                      .filter((_, i) => i % 2 === 0)
-                      .map((item, index) => (
-                        <Typography
-                          key={item.id || index}
-                          variant="body2"
-                          fontWeight="bold"
-                          sx={{ textTransform: 'uppercase', mb: 1 }}
-                        >
-                          • {item.interest || 'Interest'}
-                        </Typography>
-                      ))}
-                  </Grid>
-                  <Grid item xs={5}>
-                    {interests
-                      .filter((_, i) => i % 2 !== 0)
-                      .map((item, index) => (
-                        <Typography
-                          key={item.id || index}
-                          variant="body2"
-                          fontWeight="bold"
-                          sx={{ textTransform: 'uppercase', mb: 1 }}
-                        >
-                          • {item.interest || 'Interest'}
-                        </Typography>
-                      ))}
-                  </Grid>
-                </Grid>
-              </Box>
-            )}
+            {rightSections}
 
           </Box>
         </Box>

@@ -15,6 +15,8 @@ import {
 } from '@mui/material';
 import SquareIcon from '@mui/icons-material/Square';
 
+import { makeSectionLayout } from '../../lib/sectionLayout';
+
 const theme = createTheme({
   typography: {
     fontFamily: '"Montserrat", "Helvetica", "Arial", sans-serif',
@@ -48,17 +50,17 @@ const SectionHeader = ({ title }) => (
   </Box>
 );
 
-const BulletItem = ({ title, subtitle, description }) => (
+const BulletItem = ({ title, subtitle, description, dark }) => (
   <ListItem alignItems="flex-start" sx={{ p: 0, mb: 2 }}>
     <ListItemIcon sx={{ minWidth: '24px', mt: 0.8 }}>
-      <SquareIcon sx={{ fontSize: 10, color: 'primary.main' }} />
+      <SquareIcon sx={{ fontSize: 10, color: dark ? 'white' : 'primary.main' }} />
     </ListItemIcon>
     <Box sx={{ m: 0 }}>
-      <Typography variant="subtitle1" color="text.primary">
+      <Typography variant="subtitle1" sx={{ color: dark ? 'white' : 'text.primary' }}>
         {title}
       </Typography>
       {subtitle && (
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+        <Typography variant="body2" sx={{ mt: 0.5, color: dark ? 'rgba(255,255,255,0.8)' : 'text.secondary' }}>
           {subtitle}
         </Typography>
       )}
@@ -67,7 +69,7 @@ const BulletItem = ({ title, subtitle, description }) => (
           sx={{
             mt: 0.5,
             fontSize: '0.85rem',
-            color: 'text.secondary',
+            color: dark ? 'rgba(255,255,255,0.8)' : 'text.secondary',
             '& p': { margin: 0 },
             '& ul, & ol': { margin: 0, paddingLeft: '1.2rem' },
           }}
@@ -78,10 +80,34 @@ const BulletItem = ({ title, subtitle, description }) => (
   </ListItem>
 );
 
+// Header used for a section when it's in the blue left column — mirrors the
+// underline style the fixed "Contact" block already uses there.
+const UnderlineHeader = ({ title }) => (
+  <Typography variant="h6" sx={{
+    mb: 2,
+    borderBottom: '2px solid rgba(255,255,255,0.2)',
+    paddingBottom: 1,
+    display: 'inline-block',
+  }}>
+    {title}
+  </Typography>
+);
+
+// Default column ("left" = blue sidebar, "right" = white content column) per
+// section, overridable per-CV via the "Colonne de gauche/droite" section menu.
+const DEFAULT_COLUMN = {
+  2: 'left',   // Profile / About me
+  6: 'left',   // Languages
+  7: 'left',   // Interests
+  5: 'right',  // Skills
+  4: 'right',  // Experience
+  3: 'right',  // Education
+};
+
 // =============================================
 // MAIN TEMPLATE - NOW ACCEPTS cvData
 // =============================================
-const ResumeDesign = ({ cvData }) => {
+const ResumeDesign = ({ cvData, sectionTitleOverrides = {}, sectionColumn = {}, sectionPageBreak = {} }) => {
 
   // Safe defaults
   const personalInfo = cvData?.personalInfo || {};
@@ -116,6 +142,144 @@ const ResumeDesign = ({ cvData }) => {
       : [item.endMonth, item.endYear].filter(Boolean).join('-');
     return [start, end].filter(Boolean).join(' / ');
   };
+
+  const { getTitle, getColumn, pageBreakStyle } = makeSectionLayout(
+    { sectionTitleOverrides, sectionColumn, sectionPageBreak },
+    DEFAULT_COLUMN
+  );
+
+  // =============================================
+  // SECTION RENDERERS — each returns a node (or null) for either column.
+  // `dark` is true when the section is placed in the blue left column.
+  // =============================================
+  const renderProfile = (dark) => {
+    if (!profileText) return null;
+    const Header = dark ? UnderlineHeader : SectionHeader;
+    return (
+      <Box key="profile" sx={{ mb: 5, ...pageBreakStyle(2) }}>
+        <Header title={getTitle(2, "About Me")} />
+        <Typography variant="body2" sx={{ opacity: dark ? 0.9 : 1, lineHeight: 1.7 }}>
+          {profileText}
+        </Typography>
+      </Box>
+    );
+  };
+
+  const renderLanguages = (dark) => {
+    if (!languages.length) return null;
+    const Header = dark ? UnderlineHeader : SectionHeader;
+    return (
+      <Box key="languages" sx={{ mb: 5, ...pageBreakStyle(6) }}>
+        <Header title={getTitle(6, "Languages")} />
+        <Box>
+          {languages.map((lang, index) => (
+            <Typography key={lang.id || index} variant="body2" sx={{ opacity: dark ? 0.9 : 1, mb: 1 }}>
+              • {lang.language || 'Language'}
+            </Typography>
+          ))}
+        </Box>
+      </Box>
+    );
+  };
+
+  const renderInterests = (dark) => {
+    if (!interests.length) return null;
+    const Header = dark ? UnderlineHeader : SectionHeader;
+    return (
+      <Box key="interests" sx={{ mb: 5, ...pageBreakStyle(7) }}>
+        <Header title={getTitle(7, "Interests")} />
+        <Box>
+          {interests.map((item, index) => (
+            <Typography key={item.id || index} variant="body2" sx={{ opacity: dark ? 0.9 : 1, mb: 1 }}>
+              • {item.interest || 'Interest'}
+            </Typography>
+          ))}
+        </Box>
+      </Box>
+    );
+  };
+
+  const renderSkills = (dark) => {
+    if (!skills.length) return null;
+    const Header = dark ? UnderlineHeader : SectionHeader;
+    return (
+      <Box key="skills" sx={{ mb: 5, ...pageBreakStyle(5) }}>
+        <Header title={getTitle(5, "Skills")} />
+        <List sx={{ pl: dark ? 0 : 1 }}>
+          {skills.map((skill, index) => (
+            <ListItem key={skill.id || index} sx={{ p: 0, mb: 1.5, alignItems: 'center' }}>
+              <ListItemIcon sx={{ minWidth: '24px' }}>
+                <SquareIcon sx={{ fontSize: 10, color: dark ? 'white' : 'primary.main' }} />
+              </ListItemIcon>
+              <Typography variant="subtitle1" sx={{ fontSize: '0.95rem', color: dark ? 'white' : 'text.primary' }}>
+                {skill.skill || 'Skill'}
+              </Typography>
+            </ListItem>
+          ))}
+        </List>
+      </Box>
+    );
+  };
+
+  const renderExperience = (dark) => {
+    if (!experience.length) return null;
+    const Header = dark ? UnderlineHeader : SectionHeader;
+    return (
+      <Box key="experience" sx={{ mb: 5, ...pageBreakStyle(4) }}>
+        <Header title={getTitle(4, "Experience")} />
+        <List sx={{ pl: dark ? 0 : 1 }}>
+          {experience.map((exp, index) => (
+            <BulletItem
+              key={exp.id || index}
+              title={exp.position || 'Position'}
+              subtitle={[formatDate(exp), exp.employer, exp.city].filter(Boolean).join(' | ')}
+              description={exp.description}
+              dark={dark}
+            />
+          ))}
+        </List>
+      </Box>
+    );
+  };
+
+  const renderEducation = (dark) => {
+    if (!education.length) return null;
+    const Header = dark ? UnderlineHeader : SectionHeader;
+    return (
+      <Box key="education" sx={{ mb: 5, ...pageBreakStyle(3) }}>
+        <Header title={getTitle(3, "Education")} />
+        <List sx={{ pl: dark ? 0 : 1 }}>
+          {education.map((edu, index) => (
+            <BulletItem
+              key={edu.id || index}
+              title={edu.school || 'School Name'}
+              subtitle={[edu.education, formatDate(edu), edu.city].filter(Boolean).join(' | ')}
+              description={edu.description}
+              dark={dark}
+            />
+          ))}
+        </List>
+      </Box>
+    );
+  };
+
+  const SECTION_ORDER = [
+    { id: 2, render: renderProfile },
+    { id: 6, render: renderLanguages },
+    { id: 7, render: renderInterests },
+    { id: 5, render: renderSkills },
+    { id: 4, render: renderExperience },
+    { id: 3, render: renderEducation },
+  ];
+
+  const leftSections = [];
+  const rightSections = [];
+  SECTION_ORDER.forEach(({ id, render }) => {
+    const dark = getColumn(id) === 'left';
+    const node = render(dark);
+    if (!node) return;
+    (dark ? leftSections : rightSections).push(node);
+  });
 
   return (
     <ThemeProvider theme={theme}>
@@ -179,23 +343,6 @@ const ResumeDesign = ({ cvData }) => {
           </Typography>
 
           <Box sx={{ width: '100%', textAlign: 'left' }}>
-
-            {/* ABOUT ME / PROFILE */}
-            {profileText && (
-              <>
-                <Typography variant="h6" sx={{
-                  mb: 2,
-                  borderBottom: '2px solid rgba(255,255,255,0.2)',
-                  paddingBottom: 1,
-                  display: 'inline-block',
-                }}>
-                  About Me
-                </Typography>
-                <Typography variant="body2" sx={{ mb: 5, opacity: 0.9, lineHeight: 1.7 }}>
-                  {profileText}
-                </Typography>
-              </>
-            )}
 
             {/* CONTACT */}
             {(personalInfo.phoneNumber ||
@@ -261,55 +408,7 @@ const ResumeDesign = ({ cvData }) => {
               </>
             )}
 
-            {/* LANGUAGES */}
-            {languages.length > 0 && (
-              <>
-                <Typography variant="h6" sx={{
-                  mb: 2,
-                  borderBottom: '2px solid rgba(255,255,255,0.2)',
-                  paddingBottom: 1,
-                  display: 'inline-block',
-                }}>
-                  Languages
-                </Typography>
-                <Box sx={{ mb: 5 }}>
-                  {languages.map((lang, index) => (
-                    <Typography
-                      key={lang.id || index}
-                      variant="body2"
-                      sx={{ opacity: 0.9, mb: 1 }}
-                    >
-                      • {lang.language || 'Language'}
-                    </Typography>
-                  ))}
-                </Box>
-              </>
-            )}
-
-            {/* INTERESTS */}
-            {interests.length > 0 && (
-              <>
-                <Typography variant="h6" sx={{
-                  mb: 2,
-                  borderBottom: '2px solid rgba(255,255,255,0.2)',
-                  paddingBottom: 1,
-                  display: 'inline-block',
-                }}>
-                  Interests
-                </Typography>
-                <Box sx={{ mb: 5 }}>
-                  {interests.map((item, index) => (
-                    <Typography
-                      key={item.id || index}
-                      variant="body2"
-                      sx={{ opacity: 0.9, mb: 1 }}
-                    >
-                      • {item.interest || 'Interest'}
-                    </Typography>
-                  ))}
-                </Box>
-              </>
-            )}
+            {leftSections}
 
           </Box>
         </Box>
@@ -321,73 +420,7 @@ const ResumeDesign = ({ cvData }) => {
           p: 6,
         }}>
 
-          {/* SKILLS */}
-          {skills.length > 0 && (
-            <Box sx={{ mb: 5 }}>
-              <SectionHeader title="Skills" />
-              <List sx={{ pl: 1 }}>
-                {skills.map((skill, index) => (
-                  <ListItem
-                    key={skill.id || index}
-                    sx={{ p: 0, mb: 1.5, alignItems: 'center' }}
-                  >
-                    <ListItemIcon sx={{ minWidth: '24px' }}>
-                      <SquareIcon sx={{ fontSize: 10, color: 'primary.main' }} />
-                    </ListItemIcon>
-                    <Typography variant="subtitle1" sx={{ fontSize: '0.95rem' }}>
-                      {skill.skill || 'Skill'}
-                    </Typography>
-                  </ListItem>
-                ))}
-              </List>
-            </Box>
-          )}
-
-          {/* EXPERIENCE */}
-          {experience.length > 0 && (
-            <Box sx={{ mb: 5 }}>
-              <SectionHeader title="Experience" />
-              <List sx={{ pl: 1 }}>
-                {experience.map((exp, index) => (
-                  <BulletItem
-                    key={exp.id || index}
-                    title={exp.position || 'Position'}
-                    subtitle={[
-                      formatDate(exp),
-                      exp.employer,
-                      exp.city,
-                    ]
-                      .filter(Boolean)
-                      .join(' | ')}
-                    description={exp.description}
-                  />
-                ))}
-              </List>
-            </Box>
-          )}
-
-          {/* EDUCATION */}
-          {education.length > 0 && (
-            <Box>
-              <SectionHeader title="Education" />
-              <List sx={{ pl: 1 }}>
-                {education.map((edu, index) => (
-                  <BulletItem
-                    key={edu.id || index}
-                    title={edu.school || 'School Name'}
-                    subtitle={[
-                      edu.education,
-                      formatDate(edu),
-                      edu.city,
-                    ]
-                      .filter(Boolean)
-                      .join(' | ')}
-                    description={edu.description}
-                  />
-                ))}
-              </List>
-            </Box>
-          )}
+          {rightSections}
 
         </Box>
       </Paper>

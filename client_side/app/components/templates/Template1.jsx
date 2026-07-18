@@ -33,6 +33,8 @@ import FlagIcon from '@mui/icons-material/Flag';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import EmailIcon from '@mui/icons-material/Email';
 
+import { makeSectionLayout } from '../../lib/sectionLayout';
+
 const theme = createTheme({
   typography: {
     fontFamily: '"Montserrat", "Roboto", "Helvetica", "Arial", sans-serif',
@@ -164,21 +166,10 @@ const ResumeTemplate1 = ({ cvData, sectionTitleOverrides = {}, sectionColumn = {
   const interests = cvData?.interests || [];
   const references = cvData?.references || [];
 
-  // Return renamed title or default
-  const getTitle = (id, defaultTitle) =>
-    sectionTitleOverrides?.[id] || defaultTitle;
-
-  // Which column (left dark sidebar / right white column) a section renders in
-  const getColumn = (id) =>
-    sectionColumn?.[id] === 'left' || sectionColumn?.[id] === 'right'
-      ? sectionColumn[id]
-      : DEFAULT_COLUMN[id] || 'right';
-
-  // Page break style
-  const pageBreakStyle = (id) => ({
-    pageBreakBefore: sectionPageBreak?.[id] ? "always" : "auto",
-    breakBefore: sectionPageBreak?.[id] ? "page" : "auto",
-  });
+  const { getTitle, getColumn, pageBreakStyle } = makeSectionLayout(
+    { sectionTitleOverrides, sectionColumn, sectionPageBreak },
+    DEFAULT_COLUMN
+  );
 
   // Text colors that stay legible on both the dark sidebar and the white column
   const textColor = (dark) => ({
