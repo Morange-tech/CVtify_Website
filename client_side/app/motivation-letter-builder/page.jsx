@@ -582,13 +582,37 @@ function MotivationLetterBuilder() {
 
   // ── CV handlers ───────────────────────────────────────────────
   const handleCloseCvModal  = () => { setCvModalOpen(false); setCvModalStep("select"); };
-  const handleSelectCv      = (cv) => { setSelectedCv(cv); handleCloseCvModal(); };
+  const applyCvToSenderInfo = (cv) => {
+    const p = cv?.personalInfo;
+    if (!p) return;
+    setLetterData(prev => ({
+      ...prev,
+      senderInfo: {
+        ...prev.senderInfo,
+        photo: p.profileImage || prev.senderInfo.photo,
+        firstName: p.firstName || prev.senderInfo.firstName,
+        lastName: p.lastName || prev.senderInfo.lastName,
+        title: p.title || prev.senderInfo.title,
+        email: p.email || prev.senderInfo.email,
+        phone: p.phoneNumber || prev.senderInfo.phone,
+        address: p.address || prev.senderInfo.address,
+        city: p.city || prev.senderInfo.city,
+      },
+    }));
+  };
+  const handleSelectCv      = (cv) => { setSelectedCv(cv); applyCvToSenderInfo(cv); handleCloseCvModal(); };
   const handleCreateNewCv   = () => { handleCloseCvModal(); router.push("/templates"); };
   const handleCvFileSelected = async (e) => {
     const file = e.target.files?.[0]; e.target.value = "";
     if (!file) return;
     setIsUploadingCv(true);
-    try { const r = await parseCvFile(file); setSelectedCv(r?.cv || r); handleCloseCvModal(); }
+    try {
+      const r = await parseCvFile(file);
+      const cv = r?.cv || r;
+      setSelectedCv(cv);
+      applyCvToSenderInfo(cv);
+      handleCloseCvModal();
+    }
     catch (err) { showError(err?.message || "Échec de l'import."); }
     finally { setIsUploadingCv(false); }
   };
