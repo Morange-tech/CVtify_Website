@@ -166,10 +166,10 @@ export default function Navbar() {
                             }}
                         >
                             <Image
-                                src="https://cdn.rareblocks.xyz/collection/celebration/images/logo.svg"
-                                alt="Logo"
-                                width={120}
-                                height={32}
+                                src="/images/logo.png"
+                                alt="CVtify"
+                                width={140}
+                                height={38}
                                 priority
                             />
                         </Box>
@@ -352,10 +352,10 @@ export default function Navbar() {
                                 }}
                             >
                                 <Image
-                                    src="https://cdn.rareblocks.xyz/collection/celebration/images/logo.svg"
-                                    alt="Logo"
-                                    width={100}
-                                    height={28}
+                                    src="/images/logo.png"
+                                    alt="CVtify"
+                                    width={118}
+                                    height={32}
                                 />
                                 <IconButton
                                     onClick={() => setOpen(false)}
