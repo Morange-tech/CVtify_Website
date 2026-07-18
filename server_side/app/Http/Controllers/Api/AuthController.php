@@ -58,7 +58,12 @@ class AuthController extends Controller
         ActivityLog::log('user_registered', "{$user->name} registered an account", $user->id);
 
         // Send welcome email
-        Mail::to($user->email)->send(new WelcomeEmail($user));
+        try {
+            Mail::to($user->email)->send(new WelcomeEmail($user));
+        } catch (\Exception $e) {
+            // Log error but don't fail registration
+            \Log::error('Failed to send welcome email: ' . $e->getMessage());
+        }
 
         // Create token for API
         $token = $user->createToken('auth_token')->plainTextToken;
