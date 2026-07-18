@@ -187,23 +187,25 @@ const ResumeDesign3 = ({ cvData }) => {
             alignItems: 'center',
             justifyContent: 'center'
           }}>
-            {personalInfo.profileImage ? (
-              <Box
-                component="img"
-                src={personalInfo.profileImage}
-                sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              />
-            ) : (
-              // Fallback: show initials when no image
-              <Box sx={{
-                width: '120px',
-                height: '120px',
-                borderRadius: '50%',
-                bgcolor: 'primary.main',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}>
+            <Box sx={{
+              width: '120px',
+              height: '120px',
+              borderRadius: '50%',
+              overflow: 'hidden',
+              bgcolor: 'primary.main',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}>
+              {personalInfo.profileImage ? (
+                <Box
+                  component="img"
+                  src={personalInfo.profileImage}
+                  sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+              ) : (
+                // Fallback: show initials when no image
                 <Typography sx={{
                   fontSize: '2.5rem',
                   fontWeight: 800,
@@ -211,8 +213,8 @@ const ResumeDesign3 = ({ cvData }) => {
                 }}>
                   {`${(personalInfo.firstName || '')[0] || ''}${(personalInfo.lastName || '')[0] || ''}`}
                 </Typography>
-              </Box>
-            )}
+              )}
+            </Box>
           </Box>
 
           {/* WHITE SPACER */}
