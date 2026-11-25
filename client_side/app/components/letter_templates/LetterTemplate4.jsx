@@ -1,9 +1,7 @@
 // Two-Tone Banner Letter Template
 import React from 'react';
-import { Inter } from 'next/font/google';
+import { inter } from './fonts';
 
-// Clean sans-serif font for professional documents
-const inter = Inter({ subsets: ['latin'], weight: ['300', '400', '600'] });
 
 export default function LetterTemplate4({ letterData = {}, sectionTitleOverrides = {} }) {
   const {

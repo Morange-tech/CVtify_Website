@@ -1,9 +1,7 @@
 // Classic Formal Serif Letter Template
 import React from 'react';
-import { Source_Serif_4 } from 'next/font/google';
+import { serif } from './fonts';
 
-// Source Serif 4 closely mimics the classic "Times New Roman" look used in formal letters
-const serif = Source_Serif_4({ subsets: ['latin'], weight: ['400', '700'] });
 
 export default function LetterTemplate5({ letterData = {}, sectionTitleOverrides = {} }) {
   const {

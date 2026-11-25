@@ -1,11 +1,7 @@
 // Split-Column Editorial Letter Template
 import React from 'react';
-import { Cinzel, Montserrat, Dancing_Script } from 'next/font/google';
+import { cinzel, montserrat, signatureFont } from './fonts';
 
-// Loading fonts to match the style
-const cinzel = Cinzel({ subsets: ['latin'], weight: ['400', '700'] });
-const montserrat = Montserrat({ subsets: ['latin'], weight: ['300', '400', '500'] });
-const signatureFont = Dancing_Script({ subsets: ['latin'], weight: ['400'] });
 
 export default function LetterTemplate3({ letterData = {} }) {
   const {

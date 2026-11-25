@@ -1,13 +1,8 @@
 // Corporate Header Letter Template
 import React from 'react';
-import { Montserrat } from 'next/font/google';
+import { montserrat } from './fonts';
 import { MapPin, Phone, Mail } from 'lucide-react';
 
-// Using Montserrat for that clean, professional corporate look
-const montserrat = Montserrat({
-  subsets: ['latin'],
-  weight: ['300', '400', '500', '700'],
-});
 
 export default function LetterTemplate2({ letterData = {}, sectionTitleOverrides = {} }) {
   const {
