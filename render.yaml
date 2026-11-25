@@ -1,0 +1,36 @@
+services:
+  - type: web
+    name: cvtify-api
+    runtime: docker
+    rootDir: server_side
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /up
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_KEY
+        sync: false          # php artisan key:generate --show
+      - key: APP_URL
+        sync: false          # https://cvtify-api.onrender.com
+      - key: FRONTEND_URL
+        sync: false          # URL du frontend (Vercel...)
+      - key: LOG_CHANNEL
+        value: stderr
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_URL
+        fromDatabase:
+          name: cvtify-db
+          property: connectionString
+      - key: SESSION_DRIVER
+        value: file
+      - key: CACHE_STORE
+        value: file
+      - key: QUEUE_CONNECTION
+        value: sync
+
+databases:
+  - name: cvtify-db
+    plan: free

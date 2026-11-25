@@ -13,6 +13,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
+        // Render terminates TLS in front of the app
+        $middleware->trustProxies(at: '*');
+
         // Add CORS middleware
         $middleware->prepend(\Illuminate\Http\Middleware\HandleCors::class);
 
